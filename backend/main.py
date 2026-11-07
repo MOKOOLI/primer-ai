@@ -12,13 +12,8 @@ import bcrypt
 import databases
 import sqlalchemy
 
-# ================== اتصال به دیتابیس ==================
-DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./primerai.db"
+# ================== تنظیمات دیتابیس (هاردکد شده) ==================
+DATABASE_URL = "postgresql://neondb_owner:npg_JUA6fCcY2WkG@ep-restless-waterfall-b9p2bs5e-pooler.c-7.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
@@ -39,22 +34,21 @@ feedback_table = sqlalchemy.Table(
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
 )
 
-if DATABASE_URL.startswith("sqlite"):
-    engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-else:
-    engine = sqlalchemy.create_engine(DATABASE_URL)
-
+engine = sqlalchemy.create_engine(DATABASE_URL)
 metadata.create_all(engine)
 
 # ================== تنظیمات امنیتی ==================
-SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-for-primer-ai")
+SECRET_KEY = "super-secret-key-for-primer-ai"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Primer AI API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def startup():
