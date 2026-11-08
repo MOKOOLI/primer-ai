@@ -93,7 +93,7 @@ export default function Home() {
     setBlastError("");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/chat-design", {
+      const response = await fetch("https://primer-ai.onrender.com/chat-design", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sequence, user_prompt: prompt }),
@@ -144,7 +144,7 @@ export default function Home() {
 
     try {
       const primerSeq = result.primers["PRIMER_LEFT_0_SEQUENCE"];
-      const response = await fetch("http://127.0.0.1:8000/verify-primer", {
+      const response = await fetch("https://primer-ai.onrender.com/verify-primer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ primer_sequence: primerSeq }),
