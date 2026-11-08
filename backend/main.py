@@ -12,8 +12,15 @@ import bcrypt
 import databases
 import sqlalchemy
 
-# ================== تنظیمات دیتابیس ==================
-DATABASE_URL = "postgresql://neondb_owner:npg_JUA6fCcY2WkG@ep-restless-waterfall-b9p2bs5e-pooler.c-7.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+# ================== تنظیمات دیتابیس (از متغیر محیطی) ==================
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    # اگر در محیط لوکال بود، از SQLite استفاده کن
+    DATABASE_URL = "sqlite:///./primerai.db"
+
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
@@ -34,11 +41,15 @@ feedback_table = sqlalchemy.Table(
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
 )
 
-engine = sqlalchemy.create_engine(DATABASE_URL)
+if DATABASE_URL.startswith("sqlite"):
+    engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = sqlalchemy.create_engine(DATABASE_URL)
+
 metadata.create_all(engine)
 
 # ================== تنظیمات امنیتی ==================
-SECRET_KEY = "super-secret-key-for-primer-ai"
+SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-for-primer-ai")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
@@ -122,8 +133,6 @@ def chat_design(req: ChatRequest):
         import primer3, re
         match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
         target_temp = float(match.group(1)) if match else 60.0
-        
-        # ✅ تعریف صریح محدوده دمای مجاز برای primer3
         min_tm = target_temp - 3
         max_tm = target_temp + 3
         
