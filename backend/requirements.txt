@@ -3,6 +3,7 @@ uvicorn
 databases
 sqlalchemy
 asyncpg
+psycopg[binary]
 python-dotenv
 python-jose[cryptography]
 bcrypt
