@@ -8,4 +8,4 @@ python-dotenv
 python-jose[cryptography]
 bcrypt
 python-multipart
-primer3-py==1.1.0
+primer3-py>=2.3.0
