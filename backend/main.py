@@ -45,9 +45,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Primer AI API")
+
+# ✅ تنظیم CORS برای اجازه دادن به Vercel
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware, 
+    allow_origins=["https://primer-ai-nu.vercel.app", "http://localhost:3000"], 
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"],
 )
 
 @app.on_event("startup")
