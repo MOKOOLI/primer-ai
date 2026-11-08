@@ -12,7 +12,7 @@ import bcrypt
 import databases
 import sqlalchemy
 
-# ================== تنظیمات دیتابیس (هاردکد شده) ==================
+# ================== تنظیمات دیتابیس ==================
 DATABASE_URL = "postgresql://neondb_owner:npg_JUA6fCcY2WkG@ep-restless-waterfall-b9p2bs5e-pooler.c-7.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 database = databases.Database(DATABASE_URL)
@@ -46,11 +46,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Primer AI API")
 
-# ✅ تنظیم CORS برای اجازه دادن به Vercel
+# ✅ تنظیم CORS کاملاً باز برای رفع مشکل تست
 app.add_middleware(
     CORSMiddleware, 
-    allow_origins=["https://primer-ai-nu.vercel.app", "http://localhost:3000"], 
-    allow_credentials=True,
+    allow_origins=["*"], 
+    allow_credentials=False,  # حتماً False باشد تا با * تداخل نداشته باشد
     allow_methods=["*"], 
     allow_headers=["*"],
 )
