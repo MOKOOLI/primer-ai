@@ -20,7 +20,7 @@ export default function Login() {
       formData.append("password", password);
 
       try {
-        const res = await fetch("http://primer-ai.onrender.com/login", {
+        const res = await fetch("https://primer-ai.onrender.com/login", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: formData.toString(),
@@ -35,7 +35,7 @@ export default function Login() {
       }
     } else {
       try {
-        const res = await fetch("http://primer-ai.onrender.com/register", {
+        const res = await fetch("https://primer-ai.onrender.com/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
