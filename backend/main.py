@@ -46,11 +46,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Primer AI API")
 
-# ✅ تنظیم CORS کاملاً باز برای رفع مشکل تست
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 
-    allow_credentials=False,  # حتماً False باشد تا با * تداخل نداشته باشد
+    allow_credentials=False,
     allow_methods=["*"], 
     allow_headers=["*"],
 )
@@ -119,14 +118,30 @@ def read_root():
 
 @app.post("/chat-design")
 def chat_design(req: ChatRequest):
-    import primer3, re
-    match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
-    target_temp = float(match.group(1)) if match else 60.0
-    result = primer3.bindings.design_primers(
-        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
-        global_args={"PRIMER_OPT_TM": target_temp, "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]], "PRIMER_NUM_RETURN": 3},
-    )
-    return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
+    try:
+        import primer3, re
+        match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
+        target_temp = float(match.group(1)) if match else 60.0
+        
+        # ✅ تعریف صریح محدوده دمای مجاز برای primer3
+        min_tm = target_temp - 3
+        max_tm = target_temp + 3
+        
+        result = primer3.bindings.design_primers(
+            seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
+            global_args={
+                "PRIMER_OPT_TM": target_temp,
+                "PRIMER_MIN_TM": min_tm,
+                "PRIMER_MAX_TM": max_tm,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]],
+                "PRIMER_NUM_RETURN": 3,
+            },
+        )
+        return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
+    except Exception as e:
+        import traceback
+        print(f"PRIMER3 ERROR: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/feedback")
 async def submit_feedback(req: FeedbackRequest):
