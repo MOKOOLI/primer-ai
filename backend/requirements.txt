@@ -6,7 +6,7 @@ asyncpg
 psycopg[binary]
 python-dotenv
 python-jose[cryptography]
-bcrypt
+bcrypt==4.3.0
 python-multipart
 primer3-py>=2.3.0
 biopython
