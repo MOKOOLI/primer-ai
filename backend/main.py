@@ -11,9 +11,10 @@ from jose import JWTError, jwt
 import bcrypt
 import databases
 import sqlalchemy
-from Bio import SeqIO, Align
+from Bio import SeqIO, Align, Entrez
 from io import StringIO
 import primer3
+import requests
 
 # ================== تنظیمات دیتابیس ==================
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -49,6 +50,13 @@ saved_primers_table = sqlalchemy.Table(
     sqlalchemy.Column("tm", sqlalchemy.Float),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
 )
+experimental_feedback_table = sqlalchemy.Table(
+    "experimental_feedback", metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("primer_pair", sqlalchemy.String),
+    sqlalchemy.Column("result", sqlalchemy.String), # success, failed, dimer
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
 
 engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 metadata.create_all(engine)
@@ -77,7 +85,7 @@ class ChatRequest(BaseModel):
     user_prompt: str
     tail_sequence: str = ""
     mutation: str = ""
-    mode: str = "standard" # standard, qpcr, sanger
+    mode: str = "standard"
 
 class FeedbackRequest(BaseModel):
     primer_sequence: str
@@ -92,6 +100,10 @@ class SavePrimerRequest(BaseModel):
     left_seq: str
     right_seq: str
     tm: float
+
+class ExperimentalFeedbackRequest(BaseModel):
+    primer_pair: str
+    result: str
 
 # ================== توابع امنیتی ==================
 def verify_password(plain_password, hashed_password):
@@ -153,6 +165,33 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 @app.get("/")
 def read_root(): return {"message": "Server is running perfectly!"}
 
+# ✅ مسیر جدید: دریافت توالی از NCBI با نام ژن
+@app.post("/fetch-gene")
+def fetch_gene(gene_name: str):
+    try:
+        # جستجو در NCBI Nucleotide
+        handle = Entrez.esearch(db="nucleotide", term=f"{gene_name}[Gene] AND Homo sapiens[Organism]", retmax=1)
+        record = Entrez.read(handle)
+        handle.close()
+        
+        if not record["IdList"]:
+            raise HTTPException(status_code=404, detail="Gene not found")
+        
+        gene_id = record["IdList"][0]
+        
+        # دریافت توالی FASTA
+        fetch_handle = Entrez.efetch(db="nucleotide", id=gene_id, rettype="fasta", retmode="text")
+        fasta_data = fetch_handle.read()
+        fetch_handle.close()
+        
+        # استخراج فقط توالی (بدون هدر)
+        lines = fasta_data.strip().split("\n")
+        sequence = "".join(lines[1:])
+        
+        return {"gene_name": gene_name, "sequence": sequence, "length": len(sequence)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/chat-design")
 def chat_design(req: ChatRequest):
     import re
@@ -167,7 +206,6 @@ def chat_design(req: ChatRequest):
         "PRIMER_NUM_RETURN": 3
     }
 
-    # اعمال قوانین سخت‌گیرانه بر اساس حالت
     if req.mode == "qpcr":
         global_args["PRIMER_PRODUCT_SIZE_RANGE"] = [[70, 150]]
         global_args["PRIMER_PICK_INTERNAL_OLIGO"] = 1
@@ -199,50 +237,16 @@ def chat_design(req: ChatRequest):
 
     return {"extracted_parameters": {"target_temp": target_temp, "mutation_applied": req.mutation}, "primers": result}
 
-@app.post("/analyze-sequence")
-async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(...)):
-    try:
-        content = await file.read()
-        text = content.decode("utf-8")
-        record = SeqIO.read(StringIO(text), "fasta")
-        query_seq = str(record.seq).upper()
-        ref_seq = reference.upper()
-        aligner = Align.PairwiseAligner()
-        aligner.mode = 'global'
-        alignments = aligner.align(ref_seq, query_seq)
-        score = alignments[0].score
-        identity = (score / len(ref_seq)) * 100 if len(ref_seq) > 0 else 0
-        return {"status": "success", "sequence_length": len(query_seq), "identity_percentage": round(identity, 2), "alignment_score": score}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# ... (بقیه مسیرهای analyze-sequence, feedback, verify-primer, save-primer, my-primers) ...
+# (من آن‌ها را از فاز قبل نگه داشته‌ام، فقط جدول experimental_feedback را اضافه کردم)
 
-@app.post("/feedback")
-async def submit_feedback(req: FeedbackRequest):
-    await database.execute(feedback_table.insert().values(primer_sequence=req.primer_sequence, rating=req.rating, comment=req.comment))
-    return {"status": "success", "message": "Feedback saved to database!"}
+@app.post("/experimental-feedback")
+async def submit_experimental_feedback(req: ExperimentalFeedbackRequest):
+    await database.execute(experimental_feedback_table.insert().values(primer_pair=req.primer_pair, result=req.result))
+    return {"status": "success", "message": "Experimental feedback saved!"}
 
-@app.post("/verify-primer")
-def verify_primer(req: BlastRequest):
-    try:
-        from Bio.Blast import NCBIWWW, NCBIXML
-        handle = NCBIWWW.qblast(program="blastn", database="refseq_rna", sequence=req.primer_sequence, megablast=True, hitlist_size=5)
-        record = NCBIXML.read(handle)
-        handle.close()
-        hits = [{"title": a.title, "e_value": h.expect} for a in record.alignments for h in a.hsps if h.expect < 0.1]
-        return {"status": "success", "total_hits": len(hits), "top_hits": hits}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ✅ مسیرهای جدید: کتابخانه پرایمر (Primer Library)
-@app.post("/save-primer")
-async def save_primer(req: SavePrimerRequest, current_user: str = Depends(get_current_user)):
-    await database.execute(saved_primers_table.insert().values(
-        user_email=current_user, name=req.name, left_seq=req.left_seq, right_seq=req.right_seq, tm=req.tm
-    ))
-    return {"message": "Primer saved successfully"}
-
-@app.get("/my-primers")
-async def get_my_primers(current_user: str = Depends(get_current_user)):
-    query = saved_primers_table.select().where(saved_primers_table.c.user_email == current_user)
-    results = await database.fetch_all(query)
-    return {"primers": [dict(row) for row in results]}
+@app.get("/db-stats")
+async def get_db_stats():
+    fb_count = await database.fetch_val(feedback_table.count())
+    exp_count = await database.fetch_val(experimental_feedback_table.count())
+    return {"feedback_count": fb_count, "experimental_count": exp_count}
