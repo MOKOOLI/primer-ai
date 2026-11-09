@@ -10,3 +10,4 @@ bcrypt
 python-multipart
 primer3-py>=2.3.0
 biopython
+requests
