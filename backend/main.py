@@ -19,9 +19,10 @@ from typing import List
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 # ================== تنظیمات NCBI ==================
-Entrez.email = "mkoolivand14@gmail.com"  # ⚠️ ایمیل خود را اینجا وارد کنید
+Entrez.email = "mkoolivand14@gmail.com"
 
 # ================== تنظیمات Rate Limiting ==================
 limiter = Limiter(key_func=get_remote_address)
@@ -31,10 +32,14 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///./primerai.db"
 
-# حذف پارامترهای ناسازگار با asyncpg
-if "?" in DATABASE_URL:
-    base_url = DATABASE_URL.split("?")[0]
-    DATABASE_URL = base_url + "?sslmode=require"
+# ✅ پاکسازی رشته اتصال برای سازگاری با asyncpg
+if "neon.tech" in DATABASE_URL:
+    parsed = urlparse(DATABASE_URL)
+    query = parse_qs(parsed.query)
+    query.pop('sslmode', None)
+    query.pop('channel_binding', None)
+    new_query = urlencode(query, doseq=True)
+    DATABASE_URL = urlunparse(parsed._replace(query=new_query))
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -42,6 +47,7 @@ if DATABASE_URL.startswith("postgres://"):
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
+# ================== تعریف جدول‌ها ==================
 users_table = sqlalchemy.Table(
     "users", metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
@@ -224,7 +230,7 @@ def fetch_gene(gene_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat-design")
-@limiter.limit("5/minute")
+@limiter.limit("10/minute")
 async def chat_design(request: Request, req: ChatRequest):
     import re
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
