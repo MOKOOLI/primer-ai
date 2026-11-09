@@ -13,6 +13,7 @@ import databases
 import sqlalchemy
 from Bio import SeqIO, Align
 from io import StringIO
+import primer3
 
 # ================== تنظیمات دیتابیس ==================
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -65,6 +66,7 @@ class UserCreate(BaseModel):
 class ChatRequest(BaseModel):
     sequence: str
     user_prompt: str
+    tail_sequence: str = "" # فیلد جدید برای کلونینگ
 
 class FeedbackRequest(BaseModel):
     primer_sequence: str
@@ -86,6 +88,12 @@ def create_access_token(data: dict):
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# ================== توابع کمکی ==================
+def get_risk_level(value):
+    if value < 50: return "Low"
+    elif value < 100: return "Medium"
+    else: return "High"
 
 # ================== مسیرهای احراز هویت ==================
 @app.post("/register")
@@ -112,18 +120,31 @@ def read_root(): return {"message": "Server is running perfectly!"}
 
 @app.post("/chat-design")
 def chat_design(req: ChatRequest):
-    import primer3, re
+    import re
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
     target_temp = float(match.group(1)) if match else 60.0
+    
     result = primer3.bindings.design_primers(
         seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
         global_args={"PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3, "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]], "PRIMER_NUM_RETURN": 3},
     )
+    
+    # اضافه کردن ریسک ساختار ثانویه به نتایج
+    for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
+        result[f"PRIMER_LEFT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_LEFT_{i}_HAIRPIN_TH", 0))
+        result[f"PRIMER_RIGHT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_RIGHT_{i}_HAIRPIN_TH", 0))
+        result[f"PRIMER_PAIR_{i}_DIMER_RISK"] = get_risk_level(result.get(f"PRIMER_PAIR_{i}_COMPL_ANY_TH", 0))
+        
+        # اضافه کردن دنباله کلونینگ (Tail) در صورت وجود
+        if req.tail_sequence:
+            result[f"PRIMER_LEFT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_LEFT_{i}_SEQUENCE"]
+            result[f"PRIMER_RIGHT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_RIGHT_{i}_SEQUENCE"]
+
     return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
 
 @app.post("/design-qpcr")
 def design_qpcr(req: ChatRequest):
-    import primer3, re
+    import re
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
     target_temp = float(match.group(1)) if match else 60.0
     result = primer3.bindings.design_primers(
@@ -145,21 +166,13 @@ async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(.
         record = SeqIO.read(StringIO(text), "fasta")
         query_seq = str(record.seq).upper()
         ref_seq = reference.upper()
-        
         aligner = Align.PairwiseAligner()
         aligner.mode = 'global'
         alignments = aligner.align(ref_seq, query_seq)
         best_alignment = alignments[0]
-        
         score = best_alignment.score
         identity = (score / len(ref_seq)) * 100 if len(ref_seq) > 0 else 0
-        
-        return {
-            "status": "success",
-            "sequence_length": len(query_seq),
-            "identity_percentage": round(identity, 2),
-            "alignment_score": score
-        }
+        return {"status": "success", "sequence_length": len(query_seq), "identity_percentage": round(identity, 2), "alignment_score": score}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
