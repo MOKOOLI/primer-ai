@@ -67,7 +67,8 @@ class ChatRequest(BaseModel):
     sequence: str
     user_prompt: str
     tail_sequence: str = ""
-    mutation: str = "" # فیلد جدید برای موتاسیون (مثلاً A120G)
+    mutation: str = ""
+    sanger_mode: bool = False
 
 class FeedbackRequest(BaseModel):
     primer_sequence: str
@@ -104,7 +105,7 @@ def apply_mutation(seq, mutation_str):
     orig, pos, new = match.groups()
     pos = int(pos)
     if pos < 1 or pos > len(seq): return seq
-    if seq[pos-1] != orig: return seq # اگر نوکلئوتید اصلی مطابقت نداشت، تغییری نده
+    if seq[pos-1] != orig: return seq
     return seq[:pos-1] + new + seq[pos:]
 
 # ================== مسیرهای احراز هویت ==================
@@ -136,19 +137,20 @@ def chat_design(req: ChatRequest):
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
     target_temp = float(match.group(1)) if match else 60.0
     
-    # اعمال موتاسیون روی توالی ورودی
     mutated_seq = apply_mutation(req.sequence, req.mutation)
     
+    product_size_range = [[50, 300]]
+    if req.sanger_mode:
+        product_size_range = [[200, 800]] 
+
     result = primer3.bindings.design_primers(
         seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": mutated_seq},
-        global_args={"PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3, "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]], "PRIMER_NUM_RETURN": 3},
+        global_args={"PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3, "PRIMER_PRODUCT_SIZE_RANGE": product_size_range, "PRIMER_NUM_RETURN": 3},
     )
     
-    # محاسبه دمای اتصال (Annealing Temp) و اضافه کردن ریسک‌ها
     for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
         left_tm = result.get(f"PRIMER_LEFT_{i}_TM", 0)
         right_tm = result.get(f"PRIMER_RIGHT_{i}_TM", 0)
-        # دمای اتصال معمولاً ۵ درجه کمتر از میانگین Tm است
         ann_temp = min(left_tm, right_tm) - 5 if (left_tm and right_tm) else 0
         result[f"PRIMER_PAIR_{i}_ANNEAL_TEMP"] = round(ann_temp, 1)
 
@@ -179,7 +181,6 @@ def design_qpcr(req: ChatRequest):
             "PRIMER_INTERNAL_MIN_TM": target_temp + 7, "PRIMER_INTERNAL_MAX_TM": target_temp + 13,
         },
     )
-    # محاسبه دمای اتصال برای qPCR
     for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
         left_tm = result.get(f"PRIMER_LEFT_{i}_TM", 0)
         right_tm = result.get(f"PRIMER_RIGHT_{i}_TM", 0)

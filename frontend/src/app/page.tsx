@@ -12,6 +12,7 @@ const translations = {
     tailPlaceholder: "e.g., GAATTC",
     mutationLabel: "Site-Directed Mutation (Optional)",
     mutationPlaceholder: "e.g., A120G",
+    sangerLabel: "Optimize for Sanger Sequencing (Larger Product)",
     button: "Design Primer",
     qpcrButton: "Design qPCR",
     loading: "Analyzing...",
@@ -63,6 +64,7 @@ const translations = {
     tailPlaceholder: "مثلاً: GAATTC",
     mutationLabel: "موتاسیون هدفمند (اختیاری)",
     mutationPlaceholder: "مثلاً: A120G",
+    sangerLabel: "بهینه‌سازی برای توالی‌یابی سنگر (محصول بزرگتر)",
     button: "طراحی پرایمر",
     qpcrButton: "طراحی qPCR",
     loading: "در حال تحلیل...",
@@ -115,6 +117,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [tailSequence, setTailSequence] = useState("");
   const [mutation, setMutation] = useState("");
+  const [sangerMode, setSangerMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
@@ -140,7 +143,7 @@ export default function Home() {
       const response = await fetch(`https://primer-ai.onrender.com/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sequence, user_prompt: prompt, tail_sequence: tailSequence, mutation: mutation }),
+        body: JSON.stringify({ sequence, user_prompt: prompt, tail_sequence: tailSequence, mutation: mutation, sanger_mode: sangerMode }),
       });
       if (!response.ok) throw new Error("Failed");
       setResult(await response.json());
@@ -228,6 +231,10 @@ export default function Home() {
                 <div className="md:col-span-2">
                     <label className="block font-semibold mb-2">{t.mutationLabel}</label>
                     <input type="text" value={mutation} onChange={(e) => setMutation(e.target.value)} className="w-full border rounded-lg p-3 font-mono" placeholder={t.mutationPlaceholder} />
+                </div>
+                <div className="md:col-span-2 flex items-center gap-2">
+                    <input type="checkbox" id="sanger" checked={sangerMode} onChange={(e) => setSangerMode(e.target.checked)} className="w-4 h-4" />
+                    <label htmlFor="sanger" className="font-semibold text-sm">{t.sangerLabel}</label>
                 </div>
             </div>
             
