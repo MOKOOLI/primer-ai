@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const translations = {
     en: {
@@ -51,6 +52,8 @@ const translations = {
       designMultiplex: "Design Multiplex",
       pricingLink: "Pricing",
       privacyLink: "Privacy",
+      logout: "Logout",
+      deleteAccount: "Delete Account",
     },
     fa: {
       title: "طراحی هوشمند پرایمر",
@@ -100,10 +103,13 @@ const translations = {
       designMultiplex: "طراحی چندگانه",
       pricingLink: "تعرفه‌ها",
       privacyLink: "حریم خصوصی",
+      logout: "خروج",
+      deleteAccount: "حذف حساب",
     },
 };
 
 export default function Home() {
+    const router = useRouter();
     const [lang, setLang] = useState<"en" | "fa">("en");
     const [activeTab, setActiveTab] = useState<"primer" | "library" | "multiplex">("primer");
     
@@ -132,15 +138,159 @@ export default function Home() {
     const [multiplexSequences, setMultiplexSequences] = useState("");
     const [multiplexResult, setMultiplexResult] = useState<any>(null);
 
+    // Auth state
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
     const t = translations[lang];
 
-    // ... (توابع fetchMyPrimers, handleGeneSearch, handleSubmit, handleExpFeedback, handleCopy, downloadSnapGene, savePrimerToLibrary, handleMultiplex)
+    // Authentication check
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.push("/login");
+        } else {
+            setIsAuthenticated(true);
+        }
+    }, [router]);
+
+    if (!isAuthenticated) return null;
+
+    const handleLogout = () => {
+        localStorage.removeItem("token");
+        router.push("/login");
+    };
+
+    const handleDeleteAccount = async () => {
+        if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+            const token = localStorage.getItem("token");
+            try {
+                const res = await fetch("https://primer-ai.onrender.com/delete-account", {
+                    method: "DELETE",
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    localStorage.removeItem("token");
+                    router.push("/login");
+                } else {
+                    alert("Failed to delete account.");
+                }
+            } catch (e) {
+                alert("Error deleting account.");
+            }
+        }
+    };
+
+    const fetchMyPrimers = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/my-primers", { headers: { "Authorization": `Bearer ${token}` } });
+            if (res.ok) { const data = await res.json(); setMyPrimers(data.primers); }
+        } catch (e) { console.error(e); }
+    };
+
+    useEffect(() => { if (activeTab === "library") fetchMyPrimers(); }, [activeTab]);
+
+    const handleGeneSearch = async () => {
+        if (!geneName) return;
+        setGeneLoading(true); setSequence("");
+        try {
+            const res = await fetch(`https://primer-ai.onrender.com/fetch-gene?gene_name=${geneName}`, { method: "POST" });
+            if (!res.ok) throw new Error("Gene not found");
+            const data = await res.json();
+            setSequence(data.sequence);
+        } catch (err) { alert("Gene not found. Please try another name (e.g., BRCA1)."); } finally { setGeneLoading(false); }
+    };
+
+    const handleSubmit = async () => {
+        setLoading(true); setError(""); setResult(null); setSavedStatus(null);
+        try {
+            const response = await fetch(`https://primer-ai.onrender.com/chat-design`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sequence, user_prompt: prompt, tail_sequence: tailSequence, mutation: mutation, mode: mode, degenerate: degenerate }),
+            });
+            if (!response.ok) throw new Error("Failed");
+            setResult(await response.json());
+        } catch (err) { setError(t.error); } finally { setLoading(false); }
+    };
+
+    const handleExpFeedback = async (resultType: string) => {
+        if (!result) return;
+        const pairSeq = `${result.primers["PRIMER_LEFT_0_SEQUENCE"]} / ${result.primers["PRIMER_RIGHT_0_SEQUENCE"]}`;
+        try {
+            await fetch("https://primer-ai.onrender.com/experimental-feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ primer_pair: pairSeq, result: resultType }),
+            });
+            setExpFeedbackStatus("success");
+        } catch (e) { setExpFeedbackStatus("error"); }
+    };
+
+    const handleCopy = (text: string, id: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedIndex(id);
+        setTimeout(() => setCopiedIndex(null), 2000);
+    };
+
+    const downloadSnapGene = () => {
+        if (!result?.primers) return;
+        let content = "LOCUS       Primer_Design\n";
+        for (let i = 0; i < 3; i++) {
+            const left = result.primers[`PRIMER_LEFT_${i}_SEQUENCE_WITH_TAIL`] || result.primers[`PRIMER_LEFT_${i}_SEQUENCE`];
+            const right = result.primers[`PRIMER_RIGHT_${i}_SEQUENCE_WITH_TAIL`] || result.primers[`PRIMER_RIGHT_${i}_SEQUENCE`];
+            if (left && right) {
+                content += `ORIGIN\n        1 ${left} ${right}\n//\n`;
+            }
+        }
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "primers.dna";
+        a.click();
+    };
+
+    const savePrimerToLibrary = async (left: string, right: string, tm: number) => {
+        const token = localStorage.getItem("token");
+        if (!token) { alert("Please login first."); return; }
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/save-primer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify({ name: `Primer_${Date.now()}`, left_seq: left, right_seq: right, tm: tm }),
+            });
+            if (res.ok) { setSavedStatus("saved"); setTimeout(() => setSavedStatus(null), 2000); }
+        } catch (e) { console.error(e); }
+    };
+
+    const handleMultiplex = async () => {
+        const sequences = multiplexSequences.split("\n").filter(s => s.trim() !== "");
+        if (sequences.length === 0) return;
+        setLoading(true);
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/multiplex-design", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sequences, user_prompt: prompt, mode: mode }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            setMultiplexResult(await res.json());
+        } catch (err) { alert("Error designing multiplex"); } finally { setLoading(false); }
+    };
+
+    const getRiskColor = (risk: string) => {
+        if (risk === t.low) return "text-green-600";
+        if (risk === t.medium) return "text-yellow-600";
+        return "text-red-600";
+    };
 
     return (
         <main dir={t.dir} className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-800">
             <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
                 
-                {/* Header with Links */}
+                {/* Header with Links and Auth Buttons */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-blue-700">{t.title}</h1>
@@ -150,6 +300,8 @@ export default function Home() {
                         <a href="/pricing" className="text-blue-600 font-semibold hover:underline">{t.pricingLink}</a>
                         <a href="/privacy" className="text-gray-500 hover:underline">{t.privacyLink}</a>
                         <button onClick={() => setLang(lang === "en" ? "fa" : "en")} className="bg-gray-200 px-4 py-2 rounded-lg font-semibold">{t.langToggle}</button>
+                        <button onClick={handleLogout} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold">{t.logout}</button>
+                        <button onClick={handleDeleteAccount} className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-semibold">{t.deleteAccount}</button>
                     </div>
                 </div>
 
@@ -207,7 +359,91 @@ export default function Home() {
                         
                         <button onClick={handleSubmit} disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg">{loading ? t.loading : t.button}</button>
 
-                        {/* ... (نمایش نتایج پرایمرها و بخش بازخورد تجربی) ... */}
+                        {error && <div className="p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
+
+                        {result && (
+                            <div className="mt-8 border-t pt-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-green-600">{t.success}</h2>
+                                    <button onClick={downloadSnapGene} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold">{t.downloadSnapGene}</button>
+                                </div>
+                                
+                                <div className="bg-blue-50 p-4 rounded-lg mb-6"><span className="font-semibold">{t.temperature}: </span>{result.extracted_parameters?.target_temp} °C</div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                    {[0, 1, 2].map((i) => {
+                                        const left = result.primers[`PRIMER_LEFT_${i}_SEQUENCE`];
+                                        const right = result.primers[`PRIMER_RIGHT_${i}_SEQUENCE`];
+                                        const probe = result.primers[`PRIMER_INTERNAL_${i}_SEQUENCE`];
+                                        if (!left || !right) return null;
+                                        
+                                        const leftToShow = result.primers[`PRIMER_LEFT_${i}_SEQUENCE_WITH_TAIL`] || left;
+                                        const rightToShow = result.primers[`PRIMER_RIGHT_${i}_SEQUENCE_WITH_TAIL`] || right;
+                                        const hairpinL = result.primers[`PRIMER_LEFT_${i}_HAIRPIN_RISK`];
+                                        const hairpinR = result.primers[`PRIMER_RIGHT_${i}_HAIRPIN_RISK`];
+                                        const dimer = result.primers[`PRIMER_PAIR_${i}_DIMER_RISK`];
+                                        const annealTemp = result.primers[`PRIMER_PAIR_${i}_ANNEAL_TEMP`];
+
+                                        return (
+                                            <div key={i} className="border rounded-xl p-5 bg-white shadow-sm flex flex-col gap-3">
+                                                <h4 className="font-bold text-blue-600 border-b pb-2">{t.pair} {i + 1}</h4>
+                                                <div>
+                                                    <p className="text-xs text-gray-500 font-semibold mb-1">{t.leftPrimer}</p>
+                                                    <div className="bg-gray-50 p-2 rounded font-mono text-sm flex justify-between items-center">
+                                                        <span className="break-all">{leftToShow}</span>
+                                                        <button onClick={() => handleCopy(leftToShow, `L${i}`)} className="text-blue-500 text-xs ml-2 shrink-0">{copiedIndex === `L${i}` ? t.copied : t.copy}</button>
+                                                    </div>
+                                                    <div className="flex justify-between text-xs mt-1">
+                                                        <span>{t.tm}: {result.primers[`PRIMER_LEFT_${i}_TM`].toFixed(1)}</span>
+                                                        <span className={`font-bold ${getRiskColor(hairpinL)}`}>{t.hairpin}: {hairpinL}</span>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500 font-semibold mb-1">{t.rightPrimer}</p>
+                                                    <div className="bg-gray-50 p-2 rounded font-mono text-sm flex justify-between items-center">
+                                                        <span className="break-all">{rightToShow}</span>
+                                                        <button onClick={() => handleCopy(rightToShow, `R${i}`)} className="text-blue-500 text-xs ml-2 shrink-0">{copiedIndex === `R${i}` ? t.copied : t.copy}</button>
+                                                    </div>
+                                                    <div className="flex justify-between text-xs mt-1">
+                                                        <span>{t.tm}: {result.primers[`PRIMER_RIGHT_${i}_TM`].toFixed(1)}</span>
+                                                        <span className={`font-bold ${getRiskColor(hairpinR)}`}>{t.hairpin}: {hairpinR}</span>
+                                                    </div>
+                                                </div>
+                                                {probe && (
+                                                    <div>
+                                                        <p className="text-xs text-purple-600 font-semibold mb-1">{t.probe}</p>
+                                                        <div className="bg-purple-50 p-2 rounded font-mono text-sm flex justify-between items-center">
+                                                            <span className="break-all">{probe}</span>
+                                                            <button onClick={() => handleCopy(probe, `P${i}`)} className="text-purple-500 text-xs ml-2 shrink-0">{copiedIndex === `P${i}` ? t.copied : t.copy}</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className="bg-gray-100 p-2 rounded mt-auto space-y-1">
+                                                    <div className="flex justify-between text-sm font-semibold">
+                                                        <span>{t.size}: {result.primers[`PRIMER_PAIR_${i}_PRODUCT_SIZE`]}</span>
+                                                        <span className={`${getRiskColor(dimer)}`}>{t.dimer}: {dimer}</span>
+                                                    </div>
+                                                    <div className="text-center font-bold text-blue-700 bg-blue-100 p-1 rounded">{t.annealing}: {annealTemp} °C</div>
+                                                    <button onClick={() => savePrimerToLibrary(left, right, result.primers[`PRIMER_LEFT_${i}_TM`])} className="w-full mt-2 bg-green-600 text-white py-1 rounded text-sm hover:bg-green-700">
+                                                        {savedStatus === "saved" ? t.saved : t.savePrimer}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="bg-purple-50 p-6 rounded-lg border border-purple-200 mt-6 text-center">
+                                    <p className="font-semibold mb-4 text-purple-800">{t.expFeedbackLabel}</p>
+                                    {expFeedbackStatus === "success" ? <p className="text-green-600 font-bold">Thank you! Your feedback helps improve AI.</p> : 
+                                    <div className="flex justify-center gap-4">
+                                        <button onClick={() => handleExpFeedback("success")} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold">{t.expSuccess}</button>
+                                        <button onClick={() => handleExpFeedback("failed")} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold">{t.expFailed}</button>
+                                        <button onClick={() => handleExpFeedback("dimer")} className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-bold">{t.expDimer}</button>
+                                    </div>}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -237,7 +473,21 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* ... (تب Library) ... */}
+                {activeTab === "library" && (
+                    <div className="space-y-4">
+                        <h2 className="text-xl font-bold mb-4">My Saved Primers</h2>
+                        {myPrimers.length === 0 ? <p>No primers saved yet.</p> : myPrimers.map((p, idx) => (
+                            <div key={idx} className="border p-4 rounded-lg flex justify-between items-center bg-gray-50">
+                                <div>
+                                    <p className="font-bold">{p.name}</p>
+                                    <p className="font-mono text-sm">{p.left_seq} / {p.right_seq}</p>
+                                </div>
+                                <span className="text-sm text-gray-500">Tm: {p.tm.toFixed(1)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
             </div>
         </main>
     );
