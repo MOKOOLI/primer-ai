@@ -66,7 +66,8 @@ class UserCreate(BaseModel):
 class ChatRequest(BaseModel):
     sequence: str
     user_prompt: str
-    tail_sequence: str = "" # فیلد جدید برای کلونینگ
+    tail_sequence: str = ""
+    mutation: str = "" # فیلد جدید برای موتاسیون (مثلاً A120G)
 
 class FeedbackRequest(BaseModel):
     primer_sequence: str
@@ -94,6 +95,17 @@ def get_risk_level(value):
     if value < 50: return "Low"
     elif value < 100: return "Medium"
     else: return "High"
+
+def apply_mutation(seq, mutation_str):
+    if not mutation_str: return seq
+    import re
+    match = re.match(r'([A-Z])(\d+)([A-Z])', mutation_str.upper())
+    if not match: return seq
+    orig, pos, new = match.groups()
+    pos = int(pos)
+    if pos < 1 or pos > len(seq): return seq
+    if seq[pos-1] != orig: return seq # اگر نوکلئوتید اصلی مطابقت نداشت، تغییری نده
+    return seq[:pos-1] + new + seq[pos:]
 
 # ================== مسیرهای احراز هویت ==================
 @app.post("/register")
@@ -124,31 +136,42 @@ def chat_design(req: ChatRequest):
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
     target_temp = float(match.group(1)) if match else 60.0
     
+    # اعمال موتاسیون روی توالی ورودی
+    mutated_seq = apply_mutation(req.sequence, req.mutation)
+    
     result = primer3.bindings.design_primers(
-        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
+        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": mutated_seq},
         global_args={"PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3, "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]], "PRIMER_NUM_RETURN": 3},
     )
     
-    # اضافه کردن ریسک ساختار ثانویه به نتایج
+    # محاسبه دمای اتصال (Annealing Temp) و اضافه کردن ریسک‌ها
     for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
+        left_tm = result.get(f"PRIMER_LEFT_{i}_TM", 0)
+        right_tm = result.get(f"PRIMER_RIGHT_{i}_TM", 0)
+        # دمای اتصال معمولاً ۵ درجه کمتر از میانگین Tm است
+        ann_temp = min(left_tm, right_tm) - 5 if (left_tm and right_tm) else 0
+        result[f"PRIMER_PAIR_{i}_ANNEAL_TEMP"] = round(ann_temp, 1)
+
         result[f"PRIMER_LEFT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_LEFT_{i}_HAIRPIN_TH", 0))
         result[f"PRIMER_RIGHT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_RIGHT_{i}_HAIRPIN_TH", 0))
         result[f"PRIMER_PAIR_{i}_DIMER_RISK"] = get_risk_level(result.get(f"PRIMER_PAIR_{i}_COMPL_ANY_TH", 0))
         
-        # اضافه کردن دنباله کلونینگ (Tail) در صورت وجود
         if req.tail_sequence:
             result[f"PRIMER_LEFT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_LEFT_{i}_SEQUENCE"]
             result[f"PRIMER_RIGHT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_RIGHT_{i}_SEQUENCE"]
 
-    return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
+    return {"extracted_parameters": {"target_temp": target_temp, "mutation_applied": req.mutation}, "primers": result}
 
 @app.post("/design-qpcr")
 def design_qpcr(req: ChatRequest):
     import re
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
     target_temp = float(match.group(1)) if match else 60.0
+    
+    mutated_seq = apply_mutation(req.sequence, req.mutation)
+    
     result = primer3.bindings.design_primers(
-        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
+        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": mutated_seq},
         global_args={
             "PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3,
             "PRIMER_PRODUCT_SIZE_RANGE": [[70, 150]], "PRIMER_NUM_RETURN": 3,
@@ -156,6 +179,13 @@ def design_qpcr(req: ChatRequest):
             "PRIMER_INTERNAL_MIN_TM": target_temp + 7, "PRIMER_INTERNAL_MAX_TM": target_temp + 13,
         },
     )
+    # محاسبه دمای اتصال برای qPCR
+    for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
+        left_tm = result.get(f"PRIMER_LEFT_{i}_TM", 0)
+        right_tm = result.get(f"PRIMER_RIGHT_{i}_TM", 0)
+        ann_temp = min(left_tm, right_tm) - 5 if (left_tm and right_tm) else 0
+        result[f"PRIMER_PAIR_{i}_ANNEAL_TEMP"] = round(ann_temp, 1)
+
     return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
 
 @app.post("/analyze-sequence")
