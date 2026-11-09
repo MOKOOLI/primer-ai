@@ -49,6 +49,8 @@ const translations = {
       multiplexTab: "Multiplex PCR",
       sequencesLabel: "Enter sequences (one per line)",
       designMultiplex: "Design Multiplex",
+      pricingLink: "Pricing",
+      privacyLink: "Privacy",
     },
     fa: {
       title: "طراحی هوشمند پرایمر",
@@ -96,6 +98,8 @@ const translations = {
       multiplexTab: "PCR چندگانه",
       sequencesLabel: "توالی‌ها را وارد کنید (هر خط یک توالی)",
       designMultiplex: "طراحی چندگانه",
+      pricingLink: "تعرفه‌ها",
+      privacyLink: "حریم خصوصی",
     },
 };
 
@@ -130,35 +134,26 @@ export default function Home() {
 
     const t = translations[lang];
 
-    // ... (توابع fetchMyPrimers, handleGeneSearch, handleSubmit, handleExpFeedback, handleCopy, downloadSnapGene, savePrimerToLibrary)
-
-    const handleMultiplex = async () => {
-        const sequences = multiplexSequences.split("\n").filter(s => s.trim() !== "");
-        if (sequences.length === 0) return;
-        setLoading(true);
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/multiplex-design", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sequences, user_prompt: prompt, mode: mode }),
-            });
-            if (!res.ok) throw new Error("Failed");
-            setMultiplexResult(await res.json());
-        } catch (err) { alert("Error designing multiplex"); } finally { setLoading(false); }
-    };
+    // ... (توابع fetchMyPrimers, handleGeneSearch, handleSubmit, handleExpFeedback, handleCopy, downloadSnapGene, savePrimerToLibrary, handleMultiplex)
 
     return (
         <main dir={t.dir} className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-800">
             <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
                 
+                {/* Header with Links */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-blue-700">{t.title}</h1>
                         <p className="text-gray-500 mt-2">{t.subtitle}</p>
                     </div>
-                    <button onClick={() => setLang(lang === "en" ? "fa" : "en")} className="bg-gray-200 px-4 py-2 rounded-lg font-semibold">{t.langToggle}</button>
+                    <div className="flex items-center gap-4">
+                        <a href="/pricing" className="text-blue-600 font-semibold hover:underline">{t.pricingLink}</a>
+                        <a href="/privacy" className="text-gray-500 hover:underline">{t.privacyLink}</a>
+                        <button onClick={() => setLang(lang === "en" ? "fa" : "en")} className="bg-gray-200 px-4 py-2 rounded-lg font-semibold">{t.langToggle}</button>
+                    </div>
                 </div>
 
+                {/* Tabs */}
                 <div className="flex border-b mb-6">
                     <button onClick={() => setActiveTab("primer")} className={`px-4 py-2 font-semibold ${activeTab === "primer" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.results}</button>
                     <button onClick={() => setActiveTab("multiplex")} className={`px-4 py-2 font-semibold ${activeTab === "multiplex" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.multiplexTab}</button>
@@ -212,7 +207,7 @@ export default function Home() {
                         
                         <button onClick={handleSubmit} disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg">{loading ? t.loading : t.button}</button>
 
-                        {/* ... (نمایش نتایج پرایمرها و بخش بازخورد تجربی، دقیقاً مثل فاز 2) ... */}
+                        {/* ... (نمایش نتایج پرایمرها و بخش بازخورد تجربی) ... */}
                     </div>
                 )}
 
@@ -242,8 +237,7 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* ... (تب Library، دقیقاً مثل فاز 2) ... */}
-
+                {/* ... (تب Library) ... */}
             </div>
         </main>
     );
