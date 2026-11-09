@@ -10,11 +10,14 @@ const translations = {
     promptLabel: "What do you want? (e.g., Set temperature to 65 degrees)",
     tailLabel: "Tail Sequence (for Cloning - Optional)",
     tailPlaceholder: "e.g., GAATTC",
+    mutationLabel: "Site-Directed Mutation (Optional)",
+    mutationPlaceholder: "e.g., A120G",
     button: "Design Primer",
     qpcrButton: "Design qPCR",
     loading: "Analyzing...",
     results: "Best Primer Pairs",
     temperature: "Detected Temperature",
+    annealing: "Suggested Annealing Temp",
     success: "Primer designed successfully!",
     error: "An error occurred.",
     langToggle: "فارسی",
@@ -58,11 +61,14 @@ const translations = {
     promptLabel: "چه می‌خواهید؟ (مثلاً: دما را روی ۶۵ تنظیم کن)",
     tailLabel: "دنباله اضافه (برای کلونینگ - اختیاری)",
     tailPlaceholder: "مثلاً: GAATTC",
+    mutationLabel: "موتاسیون هدفمند (اختیاری)",
+    mutationPlaceholder: "مثلاً: A120G",
     button: "طراحی پرایمر",
     qpcrButton: "طراحی qPCR",
     loading: "در حال تحلیل...",
     results: "بهترین جفت‌های پرایمر",
     temperature: "دمای تشخیص داده شده",
+    annealing: "دمای اتصال پیشنهادی",
     success: "پرایمر با موفقیت طراحی شد!",
     error: "خطایی رخ داد.",
     langToggle: "English",
@@ -105,22 +111,20 @@ export default function Home() {
   const [lang, setLang] = useState<"en" | "fa">("en");
   const [activeTab, setActiveTab] = useState<"primer" | "verify">("primer");
   
-  // States for Primer Design
   const [sequence, setSequence] = useState("");
   const [prompt, setPrompt] = useState("");
   const [tailSequence, setTailSequence] = useState("");
+  const [mutation, setMutation] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
   const [isQpcr, setIsQpcr] = useState(false);
   
-  // States for Feedback & Blast
   const [feedbackStatus, setFeedbackStatus] = useState<string | null>(null);
   const [blastLoading, setBlastLoading] = useState(false);
   const [blastResult, setBlastResult] = useState<any>(null);
   const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
 
-  // States for Sequence Verification
   const [file, setFile] = useState<File | null>(null);
   const [reference, setReference] = useState("");
   const [verifyResult, setVerifyResult] = useState<any>(null);
@@ -136,7 +140,7 @@ export default function Home() {
       const response = await fetch(`https://primer-ai.onrender.com/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sequence, user_prompt: prompt, tail_sequence: tailSequence }),
+        body: JSON.stringify({ sequence, user_prompt: prompt, tail_sequence: tailSequence, mutation: mutation }),
       });
       if (!response.ok) throw new Error("Failed");
       setResult(await response.json());
@@ -193,7 +197,6 @@ export default function Home() {
     <main dir={t.dir} className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-800">
       <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
         
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-blue-700">{t.title}</h1>
@@ -202,7 +205,6 @@ export default function Home() {
           <button onClick={() => setLang(lang === "en" ? "fa" : "en")} className="bg-gray-200 px-4 py-2 rounded-lg font-semibold">{t.langToggle}</button>
         </div>
 
-        {/* Tabs */}
         <div className="flex border-b mb-6">
           <button onClick={() => setActiveTab("primer")} className={`px-4 py-2 font-semibold ${activeTab === "primer" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.primerDesignTab}</button>
           <button onClick={() => setActiveTab("verify")} className={`px-4 py-2 font-semibold ${activeTab === "verify" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.seqVerifyTab}</button>
@@ -223,6 +225,10 @@ export default function Home() {
                     <label className="block font-semibold mb-2">{t.tailLabel}</label>
                     <input type="text" value={tailSequence} onChange={(e) => setTailSequence(e.target.value)} className="w-full border rounded-lg p-3 font-mono" placeholder={t.tailPlaceholder} />
                 </div>
+                <div className="md:col-span-2">
+                    <label className="block font-semibold mb-2">{t.mutationLabel}</label>
+                    <input type="text" value={mutation} onChange={(e) => setMutation(e.target.value)} className="w-full border rounded-lg p-3 font-mono" placeholder={t.mutationPlaceholder} />
+                </div>
             </div>
             
             <div className="flex gap-4">
@@ -241,7 +247,10 @@ export default function Home() {
                     </button>
                 </div>
                 
-                <div className="bg-blue-50 p-4 rounded-lg mb-6"><span className="font-semibold">{t.temperature}: </span>{result.extracted_parameters?.target_temp} °C</div>
+                <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                    <span className="font-semibold">{t.temperature}: </span>{result.extracted_parameters?.target_temp} °C
+                    {result.extracted_parameters?.mutation_applied && <span className="ml-4 text-red-600 font-bold">Mutation Applied!</span>}
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   {[0, 1, 2].map((i) => {
@@ -256,6 +265,7 @@ export default function Home() {
                     const hairpinL = result.primers[`PRIMER_LEFT_${i}_HAIRPIN_RISK`];
                     const hairpinR = result.primers[`PRIMER_RIGHT_${i}_HAIRPIN_RISK`];
                     const dimer = result.primers[`PRIMER_PAIR_${i}_DIMER_RISK`];
+                    const annealTemp = result.primers[`PRIMER_PAIR_${i}_ANNEAL_TEMP`];
 
                     return (
                       <div key={i} className="border rounded-xl p-5 bg-white shadow-sm flex flex-col gap-3">
@@ -295,16 +305,20 @@ export default function Home() {
                             </div>
                         )}
 
-                        <div className="flex justify-between items-center bg-gray-100 p-2 rounded mt-auto text-sm">
-                            <span className="font-semibold">{t.size}: {result.primers[`PRIMER_PAIR_${i}_PRODUCT_SIZE`]}</span>
-                            <span className={`font-bold ${getRiskColor(dimer)}`}>{t.dimer}: {dimer}</span>
+                        <div className="bg-gray-100 p-2 rounded mt-auto space-y-1">
+                            <div className="flex justify-between text-sm font-semibold">
+                                <span>{t.size}: {result.primers[`PRIMER_PAIR_${i}_PRODUCT_SIZE`]}</span>
+                                <span className={`${getRiskColor(dimer)}`}>{t.dimer}: {dimer}</span>
+                            </div>
+                            <div className="text-center font-bold text-blue-700 bg-blue-100 p-1 rounded">
+                                {t.annealing}: {annealTemp} °C
+                            </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
                 
-                {/* Feedback Section */}
                 <div className="bg-gray-50 p-6 rounded-lg border text-center mb-6">
                   <p className="font-semibold mb-4">{t.feedbackBtn}</p>
                   {feedbackStatus === "success" ? <p className="text-green-600 font-bold">{t.feedbackSent}</p> : 
@@ -314,7 +328,6 @@ export default function Home() {
                    </div>}
                 </div>
 
-                {/* BLAST Section */}
                 <div className="bg-gray-50 p-6 rounded-lg border">
                   <button className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg w-full">
                     {t.blastButton}
