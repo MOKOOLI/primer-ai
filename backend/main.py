@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -11,14 +11,13 @@ from jose import JWTError, jwt
 import bcrypt
 import databases
 import sqlalchemy
+from Bio import SeqIO, Align
+from io import StringIO
 
-# ================== تنظیمات دیتابیس (از متغیر محیطی) ==================
+# ================== تنظیمات دیتابیس ==================
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 if not DATABASE_URL:
-    # اگر در محیط لوکال بود، از SQLite استفاده کن
     DATABASE_URL = "sqlite:///./primerai.db"
-
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -31,7 +30,6 @@ users_table = sqlalchemy.Table(
     sqlalchemy.Column("email", sqlalchemy.String, unique=True, index=True),
     sqlalchemy.Column("hashed_password", sqlalchemy.String),
 )
-
 feedback_table = sqlalchemy.Table(
     "feedbacks", metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
@@ -41,37 +39,23 @@ feedback_table = sqlalchemy.Table(
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
 )
 
-if DATABASE_URL.startswith("sqlite"):
-    engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-else:
-    engine = sqlalchemy.create_engine(DATABASE_URL)
-
+engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 metadata.create_all(engine)
 
 # ================== تنظیمات امنیتی ==================
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-for-primer-ai")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Primer AI API")
-
-app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"], 
-    allow_credentials=False,
-    allow_methods=["*"], 
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 @app.on_event("startup")
-async def startup():
-    await database.connect()
+async def startup(): await database.connect()
 
 @app.on_event("shutdown")
-async def shutdown():
-    await database.disconnect()
+async def shutdown(): await database.disconnect()
 
 # ================== مدل‌ها ==================
 class UserCreate(BaseModel):
@@ -124,32 +108,59 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 # ================== مسیرهای اصلی ==================
 @app.get("/")
-def read_root():
-    return {"message": "Server is running perfectly!"}
+def read_root(): return {"message": "Server is running perfectly!"}
 
 @app.post("/chat-design")
 def chat_design(req: ChatRequest):
+    import primer3, re
+    match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
+    target_temp = float(match.group(1)) if match else 60.0
+    result = primer3.bindings.design_primers(
+        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
+        global_args={"PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3, "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]], "PRIMER_NUM_RETURN": 3},
+    )
+    return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
+
+@app.post("/design-qpcr")
+def design_qpcr(req: ChatRequest):
+    import primer3, re
+    match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
+    target_temp = float(match.group(1)) if match else 60.0
+    result = primer3.bindings.design_primers(
+        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
+        global_args={
+            "PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3,
+            "PRIMER_PRODUCT_SIZE_RANGE": [[70, 150]], "PRIMER_NUM_RETURN": 3,
+            "PRIMER_PICK_INTERNAL_OLIGO": 1, "PRIMER_INTERNAL_OPT_TM": target_temp + 10,
+            "PRIMER_INTERNAL_MIN_TM": target_temp + 7, "PRIMER_INTERNAL_MAX_TM": target_temp + 13,
+        },
+    )
+    return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
+
+@app.post("/analyze-sequence")
+async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(...)):
     try:
-        import primer3, re
-        match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
-        target_temp = float(match.group(1)) if match else 60.0
-        min_tm = target_temp - 3
-        max_tm = target_temp + 3
+        content = await file.read()
+        text = content.decode("utf-8")
+        record = SeqIO.read(StringIO(text), "fasta")
+        query_seq = str(record.seq).upper()
+        ref_seq = reference.upper()
         
-        result = primer3.bindings.design_primers(
-            seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": req.sequence},
-            global_args={
-                "PRIMER_OPT_TM": target_temp,
-                "PRIMER_MIN_TM": min_tm,
-                "PRIMER_MAX_TM": max_tm,
-                "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]],
-                "PRIMER_NUM_RETURN": 3,
-            },
-        )
-        return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
+        aligner = Align.PairwiseAligner()
+        aligner.mode = 'global'
+        alignments = aligner.align(ref_seq, query_seq)
+        best_alignment = alignments[0]
+        
+        score = best_alignment.score
+        identity = (score / len(ref_seq)) * 100 if len(ref_seq) > 0 else 0
+        
+        return {
+            "status": "success",
+            "sequence_length": len(query_seq),
+            "identity_percentage": round(identity, 2),
+            "alignment_score": score
+        }
     except Exception as e:
-        import traceback
-        print(f"PRIMER3 ERROR: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/feedback")
