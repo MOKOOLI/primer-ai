@@ -15,10 +15,10 @@ from Bio import SeqIO, Align, Entrez
 from io import StringIO
 import primer3
 import requests
+from typing import List
 
 # ================== تنظیمات NCBI ==================
-# ⚠️ ایمیل شما برای ارتباط با NCBI
-Entrez.email = "mkoolivand14@gmail.com"
+Entrez.email = "mkoolivand14@gmail.com" # ⚠️ ایمیل خود را اینجا وارد کنید
 
 # ================== تنظیمات دیتابیس ==================
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -89,6 +89,12 @@ class ChatRequest(BaseModel):
     user_prompt: str
     tail_sequence: str = ""
     mutation: str = ""
+    mode: str = "standard"
+    degenerate: bool = False # ✅ فیلد جدید برای پرایمرهای دژنره
+
+class MultiplexRequest(BaseModel):
+    sequences: List[str]
+    user_prompt: str
     mode: str = "standard"
 
 class FeedbackRequest(BaseModel):
@@ -175,18 +181,12 @@ def fetch_gene(gene_name: str):
         handle = Entrez.esearch(db="nucleotide", term=f"{gene_name}[Gene] AND Homo sapiens[Organism]", retmax=1)
         record = Entrez.read(handle)
         handle.close()
-        
-        if not record["IdList"]:
-            raise HTTPException(status_code=404, detail="Gene not found")
-        
+        if not record["IdList"]: raise HTTPException(status_code=404, detail="Gene not found")
         gene_id = record["IdList"][0]
         fetch_handle = Entrez.efetch(db="nucleotide", id=gene_id, rettype="fasta", retmode="text")
         fasta_data = fetch_handle.read()
         fetch_handle.close()
-        
-        lines = fasta_data.strip().split("\n")
-        sequence = "".join(lines[1:])
-        
+        sequence = "".join(fasta_data.strip().split("\n")[1:])
         return {"gene_name": gene_name, "sequence": sequence, "length": len(sequence)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -216,6 +216,11 @@ def chat_design(req: ChatRequest):
     else:
         global_args["PRIMER_PRODUCT_SIZE_RANGE"] = [[50, 300]]
 
+    # ✅ پشتیبانی از پرایمرهای دژنره
+    if req.degenerate:
+        global_args["PRIMER_DEGENERATE"] = 1
+        global_args["PRIMER_MAX_DEGENERATE"] = 4
+
     result = primer3.bindings.design_primers(
         seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": mutated_seq},
         global_args=global_args,
@@ -235,6 +240,28 @@ def chat_design(req: ChatRequest):
             result[f"PRIMER_RIGHT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_RIGHT_{i}_SEQUENCE"]
 
     return {"extracted_parameters": {"target_temp": target_temp, "mutation_applied": req.mutation}, "primers": result}
+
+@app.post("/multiplex-design")
+def multiplex_design(req: MultiplexRequest):
+    import re
+    match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
+    target_temp = float(match.group(1)) if match else 60.0
+    
+    results = []
+    for seq in req.sequences:
+        result = primer3.bindings.design_primers(
+            seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": seq},
+            global_args={
+                "PRIMER_OPT_TM": target_temp,
+                "PRIMER_MIN_TM": target_temp - 3,
+                "PRIMER_MAX_TM": target_temp + 3,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[50, 300]],
+                "PRIMER_NUM_RETURN": 1 # فقط یک جفت برای هر توالی در مولتی‌پلکس
+            },
+        )
+        results.append(result)
+
+    return {"status": "success", "results": results}
 
 @app.post("/analyze-sequence")
 async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(...)):
@@ -287,9 +314,3 @@ async def get_my_primers(current_user: str = Depends(get_current_user)):
 async def submit_experimental_feedback(req: ExperimentalFeedbackRequest):
     await database.execute(experimental_feedback_table.insert().values(primer_pair=req.primer_pair, result=req.result))
     return {"status": "success", "message": "Experimental feedback saved!"}
-
-@app.get("/db-stats")
-async def get_db_stats():
-    fb_count = await database.fetch_val(feedback_table.count())
-    exp_count = await database.fetch_val(experimental_feedback_table.count())
-    return {"feedback_count": fb_count, "experimental_count": exp_count}
