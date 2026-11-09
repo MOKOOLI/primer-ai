@@ -30,6 +30,12 @@ limiter = Limiter(key_func=get_remote_address)
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///./primerai.db"
+
+# حذف پارامترهای ناسازگار با asyncpg
+if "?" in DATABASE_URL:
+    base_url = DATABASE_URL.split("?")[0]
+    DATABASE_URL = base_url + "?sslmode=require"
+
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -218,7 +224,7 @@ def fetch_gene(gene_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat-design")
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
 async def chat_design(request: Request, req: ChatRequest):
     import re
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
