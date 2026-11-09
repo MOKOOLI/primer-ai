@@ -39,6 +39,16 @@ feedback_table = sqlalchemy.Table(
     sqlalchemy.Column("comment", sqlalchemy.String),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
 )
+saved_primers_table = sqlalchemy.Table(
+    "saved_primers", metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("user_email", sqlalchemy.String),
+    sqlalchemy.Column("name", sqlalchemy.String),
+    sqlalchemy.Column("left_seq", sqlalchemy.String),
+    sqlalchemy.Column("right_seq", sqlalchemy.String),
+    sqlalchemy.Column("tm", sqlalchemy.Float),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
 
 engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 metadata.create_all(engine)
@@ -54,7 +64,6 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False,
 
 @app.on_event("startup")
 async def startup(): await database.connect()
-
 @app.on_event("shutdown")
 async def shutdown(): await database.disconnect()
 
@@ -68,7 +77,7 @@ class ChatRequest(BaseModel):
     user_prompt: str
     tail_sequence: str = ""
     mutation: str = ""
-    sanger_mode: bool = False
+    mode: str = "standard" # standard, qpcr, sanger
 
 class FeedbackRequest(BaseModel):
     primer_sequence: str
@@ -78,18 +87,31 @@ class FeedbackRequest(BaseModel):
 class BlastRequest(BaseModel):
     primer_sequence: str
 
+class SavePrimerRequest(BaseModel):
+    name: str
+    left_seq: str
+    right_seq: str
+    tm: float
+
 # ================== توابع امنیتی ==================
 def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-
 def get_password_hash(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if email is None: raise HTTPException(status_code=401, detail="Invalid token")
+        return email
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 # ================== توابع کمکی ==================
 def get_risk_level(value):
@@ -136,16 +158,30 @@ def chat_design(req: ChatRequest):
     import re
     match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
     target_temp = float(match.group(1)) if match else 60.0
-    
     mutated_seq = apply_mutation(req.sequence, req.mutation)
     
-    product_size_range = [[50, 300]]
-    if req.sanger_mode:
-        product_size_range = [[200, 800]] 
+    global_args = {
+        "PRIMER_OPT_TM": target_temp, 
+        "PRIMER_MIN_TM": target_temp - 3, 
+        "PRIMER_MAX_TM": target_temp + 3, 
+        "PRIMER_NUM_RETURN": 3
+    }
+
+    # اعمال قوانین سخت‌گیرانه بر اساس حالت
+    if req.mode == "qpcr":
+        global_args["PRIMER_PRODUCT_SIZE_RANGE"] = [[70, 150]]
+        global_args["PRIMER_PICK_INTERNAL_OLIGO"] = 1
+        global_args["PRIMER_INTERNAL_OPT_TM"] = target_temp + 10
+        global_args["PRIMER_INTERNAL_MIN_TM"] = target_temp + 7
+        global_args["PRIMER_INTERNAL_MAX_TM"] = target_temp + 13
+    elif req.mode == "sanger":
+        global_args["PRIMER_PRODUCT_SIZE_RANGE"] = [[200, 800]]
+    else:
+        global_args["PRIMER_PRODUCT_SIZE_RANGE"] = [[50, 300]]
 
     result = primer3.bindings.design_primers(
         seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": mutated_seq},
-        global_args={"PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3, "PRIMER_PRODUCT_SIZE_RANGE": product_size_range, "PRIMER_NUM_RETURN": 3},
+        global_args=global_args,
     )
     
     for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
@@ -153,7 +189,6 @@ def chat_design(req: ChatRequest):
         right_tm = result.get(f"PRIMER_RIGHT_{i}_TM", 0)
         ann_temp = min(left_tm, right_tm) - 5 if (left_tm and right_tm) else 0
         result[f"PRIMER_PAIR_{i}_ANNEAL_TEMP"] = round(ann_temp, 1)
-
         result[f"PRIMER_LEFT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_LEFT_{i}_HAIRPIN_TH", 0))
         result[f"PRIMER_RIGHT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_RIGHT_{i}_HAIRPIN_TH", 0))
         result[f"PRIMER_PAIR_{i}_DIMER_RISK"] = get_risk_level(result.get(f"PRIMER_PAIR_{i}_COMPL_ANY_TH", 0))
@@ -163,31 +198,6 @@ def chat_design(req: ChatRequest):
             result[f"PRIMER_RIGHT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_RIGHT_{i}_SEQUENCE"]
 
     return {"extracted_parameters": {"target_temp": target_temp, "mutation_applied": req.mutation}, "primers": result}
-
-@app.post("/design-qpcr")
-def design_qpcr(req: ChatRequest):
-    import re
-    match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', req.user_prompt)
-    target_temp = float(match.group(1)) if match else 60.0
-    
-    mutated_seq = apply_mutation(req.sequence, req.mutation)
-    
-    result = primer3.bindings.design_primers(
-        seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": mutated_seq},
-        global_args={
-            "PRIMER_OPT_TM": target_temp, "PRIMER_MIN_TM": target_temp - 3, "PRIMER_MAX_TM": target_temp + 3,
-            "PRIMER_PRODUCT_SIZE_RANGE": [[70, 150]], "PRIMER_NUM_RETURN": 3,
-            "PRIMER_PICK_INTERNAL_OLIGO": 1, "PRIMER_INTERNAL_OPT_TM": target_temp + 10,
-            "PRIMER_INTERNAL_MIN_TM": target_temp + 7, "PRIMER_INTERNAL_MAX_TM": target_temp + 13,
-        },
-    )
-    for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
-        left_tm = result.get(f"PRIMER_LEFT_{i}_TM", 0)
-        right_tm = result.get(f"PRIMER_RIGHT_{i}_TM", 0)
-        ann_temp = min(left_tm, right_tm) - 5 if (left_tm and right_tm) else 0
-        result[f"PRIMER_PAIR_{i}_ANNEAL_TEMP"] = round(ann_temp, 1)
-
-    return {"extracted_parameters": {"target_temp": target_temp}, "primers": result}
 
 @app.post("/analyze-sequence")
 async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(...)):
@@ -200,8 +210,7 @@ async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(.
         aligner = Align.PairwiseAligner()
         aligner.mode = 'global'
         alignments = aligner.align(ref_seq, query_seq)
-        best_alignment = alignments[0]
-        score = best_alignment.score
+        score = alignments[0].score
         identity = (score / len(ref_seq)) * 100 if len(ref_seq) > 0 else 0
         return {"status": "success", "sequence_length": len(query_seq), "identity_percentage": round(identity, 2), "alignment_score": score}
     except Exception as e:
@@ -223,3 +232,17 @@ def verify_primer(req: BlastRequest):
         return {"status": "success", "total_hits": len(hits), "top_hits": hits}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ✅ مسیرهای جدید: کتابخانه پرایمر (Primer Library)
+@app.post("/save-primer")
+async def save_primer(req: SavePrimerRequest, current_user: str = Depends(get_current_user)):
+    await database.execute(saved_primers_table.insert().values(
+        user_email=current_user, name=req.name, left_seq=req.left_seq, right_seq=req.right_seq, tm=req.tm
+    ))
+    return {"message": "Primer saved successfully"}
+
+@app.get("/my-primers")
+async def get_my_primers(current_user: str = Depends(get_current_user)):
+    query = saved_primers_table.select().where(saved_primers_table.c.user_email == current_user)
+    results = await database.fetch_all(query)
+    return {"primers": [dict(row) for row in results]}
