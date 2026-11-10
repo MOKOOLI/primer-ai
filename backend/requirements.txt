@@ -6,9 +6,10 @@ asyncpg
 psycopg[binary]
 python-dotenv
 python-jose[cryptography]
-bcrypt==4.3.0
+bcrypt
 python-multipart
 primer3-py>=2.3.0
 biopython
 requests
 slowapi
+email-validator
