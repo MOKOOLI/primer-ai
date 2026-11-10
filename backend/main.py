@@ -143,6 +143,11 @@ class OrderFormatRequest(BaseModel):
     sequence: str
     company: str = "IDT"
 
+class GibsonRequest(BaseModel):
+    insert_sequence: str
+    vector_sequence: str
+    overlap_length: int = 20
+
 # ================== توابع امنیتی ==================
 def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
@@ -370,6 +375,58 @@ def calculate_tm_endpoint(req: TmRequest):
 def order_format(req: OrderFormatRequest):
     formatted = format_for_company(req.sequence, req.company)
     return {"original": req.sequence, "formatted": formatted, "company": req.company}
+
+# ✅ مسیر جدید: Gibson Assembly
+@app.post("/gibson-design")
+def gibson_design(req: GibsonRequest):
+    try:
+        insert = req.insert_sequence.upper()
+        vector = req.vector_sequence.upper()
+        overlap = req.overlap_length
+        
+        if len(vector) < overlap * 2:
+            raise HTTPException(status_code=400, detail="Vector sequence too short for given overlap length")
+        
+        # دنباله همولوگ برای پرایمر Forward (از انتهای 3' وکتور)
+        forward_overlap = vector[-overlap:]
+        # دنباله همولوگ برای پرایمر Reverse (از ابتدای 5' وکتور)
+        reverse_overlap = vector[:overlap]
+        
+        # طراحی پرایمرهای Insert
+        result = primer3.bindings.design_primers(
+            seq_args={"SEQUENCE_ID": "gibson_insert", "SEQUENCE_TEMPLATE": insert},
+            global_args={
+                "PRIMER_OPT_TM": 60.0,
+                "PRIMER_MIN_TM": 57.0,
+                "PRIMER_MAX_TM": 63.0,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[len(insert), len(insert)]],
+                "PRIMER_NUM_RETURN": 1
+            },
+        )
+        
+        if result.get("PRIMER_LEFT_NUM_RETURNED", 0) == 0:
+            raise HTTPException(status_code=400, detail="Could not design primers for insert")
+        
+        left_seq = result["PRIMER_LEFT_0_SEQUENCE"]
+        right_seq = result["PRIMER_RIGHT_0_SEQUENCE"]
+        
+        # اضافه کردن دنباله همولوگ
+        gibson_forward = forward_overlap + left_seq
+        gibson_reverse = reverse_overlap + right_seq
+        
+        return {
+            "status": "success",
+            "insert_primers": {
+                "forward": gibson_forward,
+                "reverse": gibson_reverse,
+                "forward_overlap": forward_overlap,
+                "reverse_overlap": reverse_overlap,
+                "forward_tm": calculate_tm(gibson_forward),
+                "reverse_tm": calculate_tm(gibson_reverse)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/feedback")
 async def submit_feedback(req: FeedbackRequest):
