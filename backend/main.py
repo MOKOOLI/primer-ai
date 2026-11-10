@@ -32,7 +32,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///./primerai.db"
 
-# ✅ پاکسازی رشته اتصال برای سازگاری با asyncpg
+# پاکسازی رشته اتصال برای سازگاری با asyncpg
 if "neon.tech" in DATABASE_URL:
     parsed = urlparse(DATABASE_URL)
     query = parse_qs(parsed.query)
@@ -273,6 +273,10 @@ async def chat_design(request: Request, req: ChatRequest):
         result[f"PRIMER_RIGHT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_RIGHT_{i}_HAIRPIN_TH", 0))
         result[f"PRIMER_PAIR_{i}_DIMER_RISK"] = get_risk_level(result.get(f"PRIMER_PAIR_{i}_COMPL_ANY_TH", 0))
         
+        # هشدار qPCR
+        if req.mode == "qpcr":
+            result[f"PRIMER_PAIR_{i}_QPCR_WARNING"] = "Warning: Primer may amplify genomic DNA. Ensure it spans an exon-exon junction."
+
         if req.tail_sequence:
             result[f"PRIMER_LEFT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_LEFT_{i}_SEQUENCE"]
             result[f"PRIMER_RIGHT_{i}_SEQUENCE_WITH_TAIL"] = req.tail_sequence + result[f"PRIMER_RIGHT_{i}_SEQUENCE"]
@@ -317,6 +321,25 @@ async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(.
         return {"status": "success", "sequence_length": len(query_seq), "identity_percentage": round(identity, 2), "alignment_score": score}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/suggest-protocol")
+def suggest_protocol(anneal_temp: float, gc_content: float):
+    protocol = {
+        "annealing_temp": anneal_temp,
+        "extension_time": "30 seconds per kb",
+        "initial_denaturation": "95°C for 5 min",
+        "denaturation": "95°C for 30 sec",
+        "annealing": f"{anneal_temp}°C for 30 sec",
+        "extension": "72°C for 1 min (for 1kb)",
+        "final_extension": "72°C for 5 min",
+        "additives": []
+    }
+    if gc_content > 65:
+        protocol["additives"].append("Consider adding DMSO (5-10%) or GC Enhancer due to high GC content.")
+    if gc_content < 40:
+        protocol["additives"].append("Consider adding BSA or increasing Mg2+ concentration due to low GC content.")
+    
+    return {"protocol": protocol}
 
 @app.post("/feedback")
 async def submit_feedback(req: FeedbackRequest):

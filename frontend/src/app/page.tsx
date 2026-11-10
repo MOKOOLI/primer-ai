@@ -54,6 +54,10 @@ const translations = {
       privacyLink: "Privacy",
       logout: "Logout",
       deleteAccount: "Delete Account",
+      suggestProtocol: "Suggest PCR Protocol",
+      protocolTitle: "Recommended Protocol",
+      gelSimulation: "In Silico Gel Electrophoresis",
+      qpcrWarning: "qPCR Warning",
     },
     fa: {
       title: "طراحی هوشمند پرایمر",
@@ -105,6 +109,10 @@ const translations = {
       privacyLink: "حریم خصوصی",
       logout: "خروج",
       deleteAccount: "حذف حساب",
+      suggestProtocol: "پیشنهاد پروتکل PCR",
+      protocolTitle: "پروتکل پیشنهادی",
+      gelSimulation: "شبیه‌سازی ژل آگارز",
+      qpcrWarning: "هشدار qPCR",
     },
 };
 
@@ -113,7 +121,6 @@ export default function Home() {
     const [lang, setLang] = useState<"en" | "fa">("en");
     const [activeTab, setActiveTab] = useState<"primer" | "library" | "multiplex">("primer");
     
-    // State for Gene Search
     const [geneName, setGeneName] = useState("");
     const [geneLoading, setGeneLoading] = useState(false);
 
@@ -134,16 +141,17 @@ export default function Home() {
     const [myPrimers, setMyPrimers] = useState<any[]>([]);
     const [expFeedbackStatus, setExpFeedbackStatus] = useState<string | null>(null);
 
-    // Multiplex states
     const [multiplexSequences, setMultiplexSequences] = useState("");
     const [multiplexResult, setMultiplexResult] = useState<any>(null);
 
-    // Auth state
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    // ✅ Stateهای جدید
+    const [protocol, setProtocol] = useState<any>(null);
+    const [showGeneMap, setShowGeneMap] = useState(false);
 
     const t = translations[lang];
 
-    // ✅ همه هوک‌ها (useEffect) باید قبل از هر return شرطی باشند
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -166,7 +174,6 @@ export default function Home() {
         if (activeTab === "library") fetchMyPrimers(); 
     }, [activeTab]);
 
-    // ✅ حالا شرط return را بعد از همه هوک‌ها بگذارید
     if (!isAuthenticated) return null;
 
     const handleLogout = () => {
@@ -283,6 +290,16 @@ export default function Home() {
         } catch (err) { alert("Error designing multiplex"); } finally { setLoading(false); }
     };
 
+    const fetchProtocol = async () => {
+        if (!result) return;
+        const annealTemp = result.primers["PRIMER_PAIR_0_ANNEAL_TEMP"];
+        const gcContent = result.primers["PRIMER_LEFT_0_GC_PERCENT"];
+        try {
+            const res = await fetch(`https://primer-ai.onrender.com/suggest-protocol?anneal_temp=${annealTemp}&gc_content=${gcContent}`, { method: "POST" });
+            if (res.ok) setProtocol((await res.json()).protocol);
+        } catch (e) { alert("Error fetching protocol"); }
+    };
+
     const getRiskColor = (risk: string) => {
         if (risk === t.low) return "text-green-600";
         if (risk === t.medium) return "text-yellow-600";
@@ -293,7 +310,6 @@ export default function Home() {
         <main dir={t.dir} className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-800">
             <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
                 
-                {/* Header */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-blue-700">{t.title}</h1>
@@ -308,7 +324,6 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* Tabs */}
                 <div className="flex border-b mb-6">
                     <button onClick={() => setActiveTab("primer")} className={`px-4 py-2 font-semibold ${activeTab === "primer" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.results}</button>
                     <button onClick={() => setActiveTab("multiplex")} className={`px-4 py-2 font-semibold ${activeTab === "multiplex" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.multiplexTab}</button>
@@ -434,6 +449,60 @@ export default function Home() {
                                         );
                                     })}
                                 </div>
+
+                                {/* ✅ دکمه پیشنهاد پروتکل */}
+                                <div className="bg-gray-50 p-6 rounded-lg border mt-6">
+                                    <button onClick={fetchProtocol} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold mb-4">
+                                        {t.suggestProtocol}
+                                    </button>
+                                    {protocol && (
+                                        <div className="bg-white p-4 rounded border text-sm">
+                                            <h4 className="font-bold mb-2">{t.protocolTitle}</h4>
+                                            <p><strong>Annealing Temp:</strong> {protocol.annealing_temp}°C</p>
+                                            <p><strong>Initial Denaturation:</strong> {protocol.initial_denaturation}</p>
+                                            <p><strong>Denaturation:</strong> {protocol.denaturation}</p>
+                                            <p><strong>Annealing:</strong> {protocol.annealing}</p>
+                                            <p><strong>Extension:</strong> {protocol.extension}</p>
+                                            <p><strong>Final Extension:</strong> {protocol.final_extension}</p>
+                                            {protocol.additives.length > 0 && (
+                                                <div className="mt-2 text-yellow-700 bg-yellow-50 p-2 rounded">
+                                                    <strong>Additives:</strong> {protocol.additives.join(" ")}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* ✅ شبیه‌سازی ژل آگارز */}
+                                <div className="bg-gray-50 p-6 rounded-lg border mt-6">
+                                    <h4 className="font-bold mb-4">{t.gelSimulation}</h4>
+                                    <div className="flex justify-center gap-4">
+                                        {/* Ladder */}
+                                        <div className="w-12 h-48 bg-gray-200 relative">
+                                            <div className="absolute top-4 left-0 right-0 h-0.5 bg-gray-400"></div>
+                                            <div className="absolute top-12 left-0 right-0 h-0.5 bg-gray-400"></div>
+                                            <div className="absolute top-20 left-0 right-0 h-0.5 bg-gray-400"></div>
+                                            <div className="absolute top-28 left-0 right-0 h-0.5 bg-gray-400"></div>
+                                            <div className="absolute top-36 left-0 right-0 h-0.5 bg-gray-400"></div>
+                                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">Ladder</span>
+                                        </div>
+                                        {/* Product Band */}
+                                        <div className="w-12 h-48 bg-gray-200 relative">
+                                            <div 
+                                                className="absolute left-0 right-0 h-1 bg-blue-600"
+                                                style={{ top: `${Math.min(100, (result.primers["PRIMER_PAIR_0_PRODUCT_SIZE"] / 1000) * 100)}%` }}
+                                            ></div>
+                                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">{result.primers["PRIMER_PAIR_0_PRODUCT_SIZE"]} bp</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ✅ هشدار qPCR */}
+                                {result.primers["PRIMER_PAIR_0_QPCR_WARNING"] && (
+                                    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-6">
+                                        <p className="text-yellow-700 font-semibold">{t.qpcrWarning}: {result.primers["PRIMER_PAIR_0_QPCR_WARNING"]}</p>
+                                    </div>
+                                )}
 
                                 <div className="bg-purple-50 p-6 rounded-lg border border-purple-200 mt-6 text-center">
                                     <p className="font-semibold mb-4 text-purple-800">{t.expFeedbackLabel}</p>
