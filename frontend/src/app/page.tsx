@@ -202,6 +202,10 @@ export default function Home() {
     const [expFeedbackStatus, setExpFeedbackStatus] = useState<string | null>(null);
     const [protocol, setProtocol] = useState<any>(null);
 
+    // BLAST State
+    const [blastLoading, setBlastLoading] = useState<string | null>(null);
+    const [blastResult, setBlastResult] = useState<{ [key: string]: any }>({});
+
     const [myPrimers, setMyPrimers] = useState<any[]>([]);
     const [multiplexSequences, setMultiplexSequences] = useState("");
     const [multiplexResult, setMultiplexResult] = useState<any>(null);
@@ -284,7 +288,7 @@ export default function Home() {
     };
 
     const handleSubmit = async () => {
-        setLoading(true); setError(""); setResult(null); setSavedStatus(null);
+        setLoading(true); setError(""); setResult(null); setSavedStatus(null); setBlastResult({});
         try {
             const response = await fetch(`https://primer-ai.onrender.com/chat-design`, {
                 method: "POST",
@@ -294,6 +298,25 @@ export default function Home() {
             if (!response.ok) throw new Error("Failed");
             setResult(await response.json());
         } catch (err) { setError(t.error); } finally { setLoading(false); }
+    };
+
+    const handleBLAST = async (primerSeq: string, pairIndex: number) => {
+        if (!primerSeq) return;
+        setBlastLoading(`pair_${pairIndex}`);
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/verify-primer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ primer_sequence: primerSeq }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            const data = await res.json();
+            setBlastResult(prev => ({ ...prev, [`pair_${pairIndex}`]: data }));
+        } catch (err) {
+            alert("BLAST search failed.");
+        } finally {
+            setBlastLoading(null);
+        }
     };
 
     const handleExpFeedback = async (resultType: string) => {
@@ -616,6 +639,29 @@ export default function Home() {
                                                             <button onClick={() => savePrimerToLibrary(left, right, result.primers[`PRIMER_LEFT_${i}_TM`])} className="w-full mt-2 bg-green-600 text-white py-1 rounded text-sm hover:bg-green-700">
                                                                 {savedStatus === "saved" ? t.saved : t.savePrimer}
                                                             </button>
+                                                            
+                                                            {/* ✅ دکمه BLAST اضافه شد */}
+                                                            <button onClick={() => handleBLAST(leftToShow, i)} disabled={blastLoading === `pair_${i}`} className="w-full mt-2 bg-purple-600 text-white py-1 rounded text-sm hover:bg-purple-700 font-semibold">
+                                                                {blastLoading === `pair_${i}` ? "Searching NCBI..." : t.blastButton}
+                                                            </button>
+                                                            
+                                                            {/* ✅ نمایش نتیجه BLAST */}
+                                                            {blastResult[`pair_${i}`] && (
+                                                                <div className="mt-2 p-2 bg-purple-50 rounded text-xs text-purple-900 border border-purple-200">
+                                                                    {blastResult[`pair_${i}`].total_hits === 0 ? (
+                                                                        <span className="font-bold text-green-700">✅ No off-targets found.</span>
+                                                                    ) : (
+                                                                        <div>
+                                                                            <span className="font-bold text-red-600">⚠️ {blastResult[`pair_${i}`].total_hits} off-targets found.</span>
+                                                                            <ul className="list-disc pl-4 mt-1">
+                                                                                {blastResult[`pair_${i}`].top_hits.slice(0, 2).map((hit: any, idx: number) => (
+                                                                                    <li key={idx} className="truncate" title={hit.title}>{hit.title}</li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
