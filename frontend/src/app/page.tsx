@@ -1,924 +1,873 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Script from "next/script";
 
-const translations = {
-    en: {
-      title: "AI Primer Designer",
-      subtitle: "Design PCR primers using natural language and AI.",
-      geneSearchLabel: "Search by Gene Name (e.g., BRCA1)",
-      searchBtn: "Fetch Sequence",
-      sequenceLabel: "DNA Sequence",
-      promptLabel: "What do you want? (e.g., Set temperature to 65 degrees)",
-      tailLabel: "Tail Sequence (Optional)",
-      mutationLabel: "Site-Directed Mutation (Optional)",
-      sangerLabel: "Optimize for Sanger Sequencing",
-      degenerateLabel: "Allow Degenerate Primers",
-      button: "Design Primer",
-      loading: "Analyzing...",
-      results: "Best Primer Pairs",
-      temperature: "Detected Temperature",
-      annealing: "Suggested Annealing Temp",
-      success: "Primer designed successfully!",
-      noPrimer: "No primers could be designed with these parameters. Try adjusting temperature or sequence length.",
-      error: "An error occurred.",
-      langToggle: "فارسی",
-      dir: "ltr",
-      feedbackBtn: "Was this result helpful?",
-      feedbackSent: "Thank you for your feedback!",
-      blastButton: "Check against NCBI Database",
-      copy: "Copy",
-      copied: "Copied!",
-      pair: "Pair",
-      leftPrimer: "Forward Primer",
-      rightPrimer: "Reverse Primer",
-      probe: "Probe",
-      tm: "Tm (°C)",
-      size: "Product Size (bp)",
-      hairpin: "Hairpin",
-      dimer: "Dimer",
-      low: "Low",
-      medium: "Med",
-      high: "High",
-      downloadSnapGene: "Download SnapGene",
-      savePrimer: "Save to Library",
-      saved: "Saved!",
-      expFeedbackLabel: "Did this primer work in your experiment?",
-      expSuccess: "✅ Success",
-      expFailed: "❌ Failed",
-      expDimer: "⚠️ Dimer/Off-target",
-      multiplexTab: "Multiplex PCR",
-      sequencesLabel: "Enter sequences (one per line)",
-      designMultiplex: "Design Multiplex",
-      pricingLink: "Pricing",
-      privacyLink: "Privacy",
-      logout: "Logout",
-      deleteAccount: "Delete Account",
-      suggestProtocol: "Suggest PCR Protocol",
-      protocolTitle: "Recommended Protocol",
-      gelSimulation: "In Silico Gel Electrophoresis",
-      qpcrWarning: "qPCR Warning",
-      toolboxTab: "Primer Toolbox",
-      tmLabel: "Calculate Tm",
-      tmButton: "Calculate Tm",
-      seqLabel: "Primer Sequence",
-      formatLabel: "Order Format",
-      formatButton: "Convert Format",
-      companyLabel: "Company",
-      standardMode: "Standard PCR",
-      qpcrMode: "qPCR (Real-Time)",
-      sangerMode: "Sanger Sequencing",
-      gibsonTab: "Gibson Assembly",
-      insertLabel: "Insert Sequence",
-      vectorLabel: "Vector Sequence",
-      overlapLabel: "Overlap Length (bp)",
-      gibsonButton: "Design Gibson Primers",
-      forwardPrimer: "Forward Primer",
-      reversePrimer: "Reverse Primer",
-      overlapSeq: "Overlap Sequence",
-      tutorialTab: "Tutorial",
-      crisprTab: "CRISPR gRNA",
-      targetSeqLabel: "Target DNA Sequence",
-      pamLabel: "PAM Sequence",
-      crisprButton: "Find gRNAs",
-      guideSeq: "Guide Sequence",
-      pamSeq: "PAM",
-      position: "Position",
-      gcPercent: "GC %",
-      structureTab: "Structure Prediction",
-      proteinSeqLabel: "Protein Sequence (1-letter code)",
-      predictButton: "Predict 3D Structure",
-    },
-    fa: {
-      title: "طراحی هوشمند پرایمر",
-      subtitle: "طراحی پرایمر PCR با استفاده از زبان طبیعی.",
-      geneSearchLabel: "جستجو با نام ژن (مثلاً BRCA1)",
-      searchBtn: "دریافت توالی",
-      sequenceLabel: "توالی DNA",
-      promptLabel: "چه می‌خواهید؟ (مثلاً: دما را روی ۶۵ تنظیم کن)",
-      tailLabel: "دنباله اضافه (اختیاری)",
-      mutationLabel: "موتاسیون هدفمند (اختیاری)",
-      sangerLabel: "بهینه‌سازی برای سنگر",
-      degenerateLabel: "اجازه پرایمرهای دژنره",
-      button: "طراحی پرایمر",
-      loading: "در حال تحلیل...",
-      results: "بهترین جفت‌های پرایمر",
-      temperature: "دمای تشخیص داده شده",
-      annealing: "دمای اتصال پیشنهادی",
-      success: "پرایمر با موفقیت طراحی شد!",
-      noPrimer: "هیچ پرایمری با این پارامترها پیدا نشد. دما یا طول توالی را تغییر دهید.",
-      error: "خطایی رخ داد.",
-      langToggle: "English",
-      dir: "rtl",
-      feedbackBtn: "آیا این نتیجه مفید بود؟",
-      feedbackSent: "از بازخورد شما سپاسگزاریم!",
-      blastButton: "بررسی در NCBI",
-      copy: "کپی",
-      copied: "کپی شد!",
-      pair: "جفت",
-      leftPrimer: "پرایمر رفت",
-      rightPrimer: "پرایمر برگشت",
-      probe: "پروب",
-      tm: "دمای ذوب",
-      size: "اندازه محصول",
-      hairpin: "ساختار سنجاقی",
-      dimer: "دایمر",
-      low: "کم",
-      medium: "متوسط",
-      high: "زیاد",
-      downloadSnapGene: "دانلود SnapGene",
-      savePrimer: "ذخیره در کتابخانه",
-      saved: "ذخیره شد!",
-      expFeedbackLabel: "آیا این پرایمر در آزمایشگاه شما کار کرد؟",
-      expSuccess: "✅ موفق",
-      expFailed: "❌ ناموفق",
-      expDimer: "⚠️ دایمر/غیراختصاصی",
-      multiplexTab: "PCR چندگانه",
-      sequencesLabel: "توالی‌ها را وارد کنید (هر خط یک توالی)",
-      designMultiplex: "طراحی چندگانه",
-      pricingLink: "تعرفه‌ها",
-      privacyLink: "حریم خصوصی",
-      logout: "خروج",
-      deleteAccount: "حذف حساب",
-      suggestProtocol: "پیشنهاد پروتکل PCR",
-      protocolTitle: "پروتکل پیشنهادی",
-      gelSimulation: "شبیه‌سازی ژل آگارز",
-      qpcrWarning: "هشدار qPCR",
-      toolboxTab: "کیت ابزار پرایمر",
-      tmLabel: "محاسبه Tm",
-      tmButton: "محاسبه Tm",
-      seqLabel: "توالی پرایمر",
-      formatLabel: "فرمت سفارش",
-      formatButton: "تبدیل فرمت",
-      companyLabel: "شرکت",
-      standardMode: "PCR استاندارد",
-      qpcrMode: "qPCR (Real-Time)",
-      sangerMode: "توالی‌یابی سنگر",
-      gibsonTab: "مونتاژ Gibson",
-      insertLabel: "توالی قطعه (Insert)",
-      vectorLabel: "توالی وکتور",
-      overlapLabel: "طول همپوشانی (bp)",
-      gibsonButton: "طراحی پرایمر Gibson",
-      forwardPrimer: "پرایمر رفت",
-      reversePrimer: "پرایمر برگشت",
-      overlapSeq: "توالی همپوشان",
-      tutorialTab: "آموزش",
-      crisprTab: "CRISPR gRNA",
-      targetSeqLabel: "توالی هدف DNA",
-      pamLabel: "توالی PAM",
-      crisprButton: "یافتن gRNA",
-      guideSeq: "توالی راهنما",
-      pamSeq: "PAM",
-      position: "موقعیت",
-      gcPercent: "درصد GC",
-      structureTab: "پیش‌بینی ساختار",
-      proteinSeqLabel: "توالی پروتئین (کد یک حرفی)",
-      predictButton: "پیش‌بینی ساختار سه‌بعدی",
-    },
+const API = process.env.NEXT_PUBLIC_API_URL || "https://primer-ai.onrender.com";
+
+type Lang = "en" | "fa";
+type TabId = "design" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "library";
+
+/* ------------------------------------------------------------------ */
+/* Translations                                                        */
+/* ------------------------------------------------------------------ */
+const T: Record<Lang, Record<string, string>> = {
+  en: {
+    title: "Primer AI", subtitle: "From gene to structure to literature — designed in your language.",
+    tab_design: "Primer design", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
+    tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_library: "My library",
+    login: "Log in / Sign up", logout: "Log out", deleteAccount: "Delete my account", settings: "Account",
+    deleteConfirm: "Delete your account and all saved data? This cannot be undone.",
+    loginRequired: "Please log in to use this feature.", networkErr: "Cannot reach the server. It may be waking up (free tier) — try again in ~1 minute.",
+    rateLimited: "Too many requests. Please wait a minute.", working: "Working…", wake: "The first request can take up to a minute while the server wakes up.",
+    geneSearch: "Gene symbol (e.g. BRCA1)", organism: "Organism", fetchSeq: "Fetch RefSeq mRNA", transcript: "Transcript",
+    geneInfo: "CDS {cds} · {n} exons", noAnn: "No exon annotation found for this transcript.",
+    sequence: "DNA sequence (FASTA or raw)", seqHint: "Allowed: A C G T N (U is converted to T). Max {max} nt.",
+    region: "Design only inside region (optional)", from: "From", to: "To",
+    prompt: "Describe what you want", promptPh: "e.g. Tm 62, product 100-200 bp  /  دما را روی ۶۲ تنظیم کن",
+    mode: "Application", mode_standard: "Standard PCR (100–1000 bp)", mode_qpcr: "qPCR + probe (70–150 bp)", mode_sanger: "PCR for Sanger (400–900 bp)",
+    polymerase: "Polymerase profile", pol_taq: "Taq-type", pol_hifi: "High-fidelity (Q5/Phusion)",
+    tailLeft: "5′ tail, forward (optional)", tailRight: "5′ tail, reverse (optional)",
+    mutation: "Site-directed mutation (optional)", mutationHint: "DNA substitution, 1-based: e.g. A120G → designs mutagenic primers",
+    designBtn: "Design primers", detectedTm: "Target Tm", src_llm: "AI-parsed", src_regex: "from your text", src_default: "default",
+    noPrimers: "No primers found", noPrimersHelp: "Try a wider product size, a different Tm, or a smaller region. Primer3 says:",
+    pair: "Pair", forward: "Forward", reverse: "Reverse", probe: "Probe", tm: "Tm", gc: "GC", len: "nt", size: "Product", anneal: "Annealing",
+    hairpin: "Hairpin", selfDimer: "Self-dimer", heteroDimer: "Primer-dimer", endDimer: "3′ end stability",
+    risk_low: "low", risk_medium: "medium", risk_high: "high",
+    copy: "Copy", copied: "Copied", save: "Save", saved: "Saved", genbank: "GenBank (.gb)", csvIdt: "Order CSV (IDT)", protocol: "PCR protocol",
+    blast: "Check specificity (BLAST)", blasting: "Searching NCBI… (1–3 min)", blastNeedsLogin: "Log in to run the specificity check.",
+    blastSummary: "{n} predicted product(s) in transcripts: {on} on-target, {other} other.",
+    blastNone: "No predicted product found — primers may not match any transcript.", blastNote: "For publication-grade specificity also run NCBI Primer-BLAST.",
+    onTarget: "on-target", other: "other", provenance: "Tm: SantaLucia nearest-neighbour, 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM primer · Primer3 {v}",
+    ex_junction_primer: "Primer spans an exon–exon junction (gDNA-safe)", ex_intron_spanning: "Amplicon spans an intron (gDNA product would be larger)",
+    ex_none: "No exon junction covered — may amplify genomic DNA", ex_unknown: "No exon annotation (fetch the gene by symbol to enable this check)",
+    note_tm_diff: "Primer Tm difference is {v} °C.", note_gc_range: "{side} primer GC is {v}% (aim 40–60%).",
+    note_clamp_weak: "{side} primer: no G/C in the last 5 bases (weak 3′ clamp).", note_clamp_strong: "{side} primer: ≥4 G/C in the last 5 bases (risk of mispriming).",
+    note_run: "{side} primer has a run of 4+ identical bases.", note_structure_high: "A secondary structure is stable near the annealing temperature.",
+    note_structure_low: "Hairpins and dimers are weak relative to the annealing temperature.", note_junction_ok: "Spans an exon–exon junction.",
+    note_intron_ok: "Amplicon includes an intron, so gDNA would give a longer product.", note_junction_none: "No exon junction covered.",
+    note_amplicon_gc: "Amplicon GC is {v}% — consider DMSO or a GC enhancer.",
+    warn_tm_out_of_range: "The temperature in your text was outside 40–80 °C and was ignored.", warn_relaxed: "No primers met the strict limits, so the Tm/size/GC window was relaxed.",
+    warn_junction_fallback: "Could not place a primer on an exon junction; showing best standard primers.", warn_no_annotation_qpcr: "No exon annotation: use a RefSeq mRNA fetched by gene symbol for junction-aware qPCR design.",
+    sdm: "Site-directed mutagenesis primers", sdmHint: "Complementary QuikChange-style pair (mutation centred). Tm = 81.5 + 0.41·GC% − 675/N − %mismatch.",
+    sdmOk: "meets Tm ≥ 78 °C, GC ≥ 40%, G/C 3′ end", sdmWeak: "does not meet all criteria — consider a longer primer or Q5-SDM design",
+    eff_missense: "missense", eff_synonymous: "synonymous", eff_nonsense: "nonsense (stop gained)", eff_stop_loss: "stop lost",
+    protocolTitle: "Suggested starting protocol", additive_high_gc: "High GC amplicon: consider 3–5% DMSO or a GC enhancer.",
+    gel: "In-silico gel (illustrative, log scale)", ladder: "Ladder",
+    feedbackTitle: "Did this primer pair work in your lab?", fb_success: "Worked", fb_failed: "Failed", fb_dimer: "Dimer / off-target", fb_partial: "Weak / partial",
+    fbNotes: "Notes (optional)", fbThanks: "Thank you — logged with your conditions.", fbWhich: "Pair",
+    gibsonInsert: "Insert sequence", gibsonVector: "Vector sequence", overlap: "Overlap (bp)", insPos: "Insertion position (0 = vector already linearised)",
+    targetTm: "Target Tm of annealing part", gibsonBtn: "Design Gibson primers", overlapSeq: "Vector overlap", annealSeq: "Insert-annealing part",
+    overlapTm: "Overlap Tm", junctionPreview: "Junction preview", gibsonHint: "The insert goes between the end and the start of the linearised vector (or at the position you give for a circular vector).",
+    enzyme: "Nuclease", pamOverride: "PAM override (IUPAC)", crisprBtn: "Find guides", guideSeq: "Guide (5′→3′)", pam: "PAM", strand: "Strand", position: "Position", score: "Heuristic score",
+    cutAt: "Cut at", exon: "exon", showInExplorer: "Show in protein", region_5utr: "5′ UTR", region_3utr: "3′ UTR", region_cds: "CDS", totalGuides: "{n} candidate guides (top 25 shown)",
+    mpHint: "One target sequence per line (2–8). Primers are chosen together to avoid cross-dimers and overlapping band sizes.", mpGap: "Min. size gap (bp)", mpBtn: "Design multiplex",
+    mpOk: "Compatible set found.", mpBad: "Best set still has conflicts:", mpSize: "size too close", mpDimer: "cross-dimer", target: "Target",
+    tmCalc: "Tm calculator", tmBtn: "Calculate", orderFormat: "Order format", companyLabel: "Vendor", nameLabel: "Name", convert: "Convert", recPur: "Recommended purification",
+    uniprot: "UniProt accession", loadStruct: "Load AlphaFold structure", orSeq: "…or predict from a protein sequence (ESMFold, ≤400 aa)", predict: "Predict",
+    mapTitle: "Transcript map", mapHint: "Click a primer or guide to find its codons in the 3D structure.", hoverHint: "Hover a residue in the structure.",
+    residue: "Residue", plddt: "Confidence (pLDDT)", conf_vh: "very high", conf_h: "confident", conf_l: "low", conf_vl: "very low",
+    features: "UniProt features here", noFeat: "No annotated feature at this residue.", dnaCodon: "Codon at transcript positions", covers: "Covered by",
+    papers: "Literature (Europe PMC)", findPapers: "Find papers", explain: "Explain with sources (AI)", explainNote: "AI summary built only from the sources listed — verify before citing.",
+    functionTxt: "Protein function (UniProt)", licenseTxt: "Structure: AlphaFold DB (CC-BY 4.0). Annotations: UniProt. Papers: Europe PMC.",
+    noGeneYet: "Fetch a gene in the Primer design tab first, or type a UniProt accession.",
+    libEmpty: "No saved primers yet.", libDelete: "Delete", libExport: "Export all (CSV)", legacy: "imported",
+    footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC", pricing: "Pricing", privacy: "Privacy",
+  },
+  fa: {
+    title: "Primer AI", subtitle: "از ژن تا ساختار تا مقاله — به زبان خودتان.",
+    tab_design: "طراحی پرایمر", tab_multiplex: "مولتی‌پلکس", tab_gibson: "مونتاژ Gibson", tab_crispr: "CRISPR gRNA",
+    tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_library: "کتابخانه من",
+    login: "ورود / ثبت‌نام", logout: "خروج", deleteAccount: "حذف حساب من", settings: "حساب کاربری",
+    deleteConfirm: "حساب و همه‌ی داده‌های ذخیره‌شده حذف شود؟ این کار برگشت‌پذیر نیست.",
+    loginRequired: "برای استفاده از این قابلیت وارد شوید.", networkErr: "اتصال به سرور برقرار نشد. ممکن است سرور در حال بیدار شدن باشد (پلن رایگان) — حدود ۱ دقیقه بعد دوباره تلاش کنید.",
+    rateLimited: "درخواست‌ها زیاد بود. یک دقیقه صبر کنید.", working: "در حال پردازش…", wake: "اولین درخواست ممکن است تا یک دقیقه طول بکشد (بیدار شدن سرور).",
+    geneSearch: "نماد ژن (مثلاً BRCA1)", organism: "گونه", fetchSeq: "دریافت mRNA مرجع (RefSeq)", transcript: "ترنسکریپت",
+    geneInfo: "CDS {cds} · {n} اگزون", noAnn: "برای این ترنسکریپت اطلاعات اگزون یافت نشد.",
+    sequence: "توالی DNA (FASTA یا خام)", seqHint: "مجاز: A C G T N (U به T تبدیل می‌شود). حداکثر {max} نوکلئوتید.",
+    region: "طراحی فقط داخل بازه (اختیاری)", from: "از", to: "تا",
+    prompt: "چه می‌خواهید؟", promptPh: "مثلاً: دما را روی ۶۲ تنظیم کن، محصول ۱۰۰ تا ۲۰۰ bp  /  Tm 62",
+    mode: "کاربرد", mode_standard: "PCR معمولی (۱۰۰ تا ۱۰۰۰ bp)", mode_qpcr: "qPCR با پروب (۷۰ تا ۱۵۰ bp)", mode_sanger: "PCR برای سنگر (۴۰۰ تا ۹۰۰ bp)",
+    polymerase: "نوع پلیمراز", pol_taq: "از نوع Taq", pol_hifi: "دقت بالا (Q5/Phusion)",
+    tailLeft: "دنباله ′5 پرایمر رفت (اختیاری)", tailRight: "دنباله ′5 پرایمر برگشت (اختیاری)",
+    mutation: "موتاسیون هدفمند (اختیاری)", mutationHint: "جایگزینی DNA با شماره‌ی ۱-مبنا، مثلاً A120G ← طراحی پرایمر موتاژنیک",
+    designBtn: "طراحی پرایمر", detectedTm: "Tm هدف", src_llm: "تحلیل هوشمند", src_regex: "از متن شما", src_default: "پیش‌فرض",
+    noPrimers: "پرایمری پیدا نشد", noPrimersHelp: "محدوده‌ی اندازه‌ی محصول را بازتر کنید، Tm دیگری بدهید یا بازه‌ی کوچک‌تری بگیرید. پاسخ Primer3:",
+    pair: "جفت", forward: "رفت", reverse: "برگشت", probe: "پروب", tm: "Tm", gc: "GC", len: "nt", size: "محصول", anneal: "دمای اتصال",
+    hairpin: "سنجاقی", selfDimer: "دایمر خودی", heteroDimer: "دایمر بین پرایمرها", endDimer: "پایداری انتهای ′3",
+    risk_low: "کم", risk_medium: "متوسط", risk_high: "زیاد",
+    copy: "کپی", copied: "کپی شد", save: "ذخیره", saved: "ذخیره شد", genbank: "GenBank (.gb)", csvIdt: "فایل سفارش (IDT)", protocol: "پروتکل PCR",
+    blast: "بررسی اختصاصیت (BLAST)", blasting: "در حال جستجو در NCBI… (۱ تا ۳ دقیقه)", blastNeedsLogin: "برای بررسی اختصاصیت وارد شوید.",
+    blastSummary: "{n} محصول پیش‌بینی‌شده در ترنسکریپت‌ها: {on} هدف اصلی، {other} سایر.",
+    blastNone: "محصولی پیش‌بینی نشد — شاید پرایمرها با هیچ ترنسکریپتی جفت نمی‌شوند.", blastNote: "برای اختصاصیت در سطح مقاله، Primer-BLAST ی NCBI را هم اجرا کنید.",
+    onTarget: "هدف اصلی", other: "سایر", provenance: "Tm: روش نزدیک‌ترین همسایه (SantaLucia)، ۵۰ mM Na⁺، ۱٫۵ mM Mg²⁺، ۰٫۶ mM dNTP، ۵۰ nM پرایمر · Primer3 {v}",
+    ex_junction_primer: "پرایمر روی اتصال اگزون–اگزون قرار دارد (ایمن از DNA ژنومی)", ex_intron_spanning: "آمپلیکون از اینترون عبور می‌کند (محصول ژنومی بزرگ‌تر می‌شود)",
+    ex_none: "هیچ اتصال اگزونی پوشش داده نشده — ممکن است DNA ژنومی را هم تکثیر کند", ex_unknown: "اطلاعات اگزون موجود نیست (ژن را با نماد دریافت کنید)",
+    note_tm_diff: "اختلاف Tm پرایمرها {v} درجه است.", note_gc_range: "GC پرایمر {side} برابر {v}٪ است (هدف ۴۰ تا ۶۰٪).",
+    note_clamp_weak: "پرایمر {side}: در ۵ باز آخر G/C ندارد (گیره‌ی ′3 ضعیف).", note_clamp_strong: "پرایمر {side}: بیش از ۴ باز G/C در ۵ باز آخر (خطر اتصال نادرست).",
+    note_run: "پرایمر {side} توالی ۴ باز یکسان یا بیشتر پشت‌سرهم دارد.", note_structure_high: "یک ساختار ثانویه نزدیک دمای اتصال پایدار است.",
+    note_structure_low: "سنجاقی و دایمرها نسبت به دمای اتصال ضعیف‌اند.", note_junction_ok: "روی اتصال اگزون–اگزون قرار دارد.",
+    note_intron_ok: "آمپلیکون اینترون دارد؛ محصول ژنومی بزرگ‌تر خواهد بود.", note_junction_none: "اتصال اگزونی پوشش داده نشده.",
+    note_amplicon_gc: "GC آمپلیکون {v}٪ است — DMSO یا GC enhancer را در نظر بگیرید.",
+    warn_tm_out_of_range: "دمای نوشته‌شده در متن خارج از ۴۰ تا ۸۰ درجه بود و نادیده گرفته شد.", warn_relaxed: "هیچ پرایمری در محدوده‌ی سخت‌گیرانه نبود؛ بازه‌ی Tm/اندازه/GC بازتر شد.",
+    warn_junction_fallback: "پرایمر روی اتصال اگزونی پیدا نشد؛ بهترین پرایمرهای معمولی نمایش داده می‌شود.", warn_no_annotation_qpcr: "اطلاعات اگزون نیست: برای qPCR مبتنی بر اتصال اگزونی، mRNA مرجع را با نماد ژن دریافت کنید.",
+    sdm: "پرایمرهای موتاژنز هدفمند", sdmHint: "جفت مکمل به سبک QuikChange (موتاسیون در مرکز). Tm = 81.5 + 0.41·GC% − 675/N − %mismatch.",
+    sdmOk: "شرایط Tm ≥ ۷۸، GC ≥ ۴۰٪ و انتهای G/C برقرار است", sdmWeak: "همه‌ی شرایط برقرار نیست — پرایمر بلندتر یا طراحی Q5-SDM را در نظر بگیرید",
+    eff_missense: "تغییر اسیدآمینه (missense)", eff_synonymous: "هم‌معنا (synonymous)", eff_nonsense: "توقف زودرس (nonsense)", eff_stop_loss: "از دست رفتن کدون توقف",
+    protocolTitle: "پروتکل پیشنهادی (نقطه‌ی شروع)", additive_high_gc: "آمپلیکون پر-GC: DMSO ۳ تا ۵٪ یا GC enhancer را در نظر بگیرید.",
+    gel: "ژل شبیه‌سازی‌شده (نمایشی، مقیاس لگاریتمی)", ladder: "لدر",
+    feedbackTitle: "آیا این جفت پرایمر در آزمایشگاه شما کار کرد؟", fb_success: "کار کرد", fb_failed: "کار نکرد", fb_dimer: "دایمر / غیراختصاصی", fb_partial: "ضعیف / ناقص",
+    fbNotes: "توضیحات (اختیاری)", fbThanks: "سپاس — همراه با شرایط شما ثبت شد.", fbWhich: "جفت",
+    gibsonInsert: "توالی قطعه (Insert)", gibsonVector: "توالی وکتور", overlap: "همپوشانی (bp)", insPos: "جای درج (۰ = وکتور از قبل خطی شده)",
+    targetTm: "Tm هدف بخش اتصال", gibsonBtn: "طراحی پرایمر Gibson", overlapSeq: "همپوشانی وکتور", annealSeq: "بخش متصل به قطعه",
+    overlapTm: "Tm همپوشانی", junctionPreview: "پیش‌نمایش محل اتصال", gibsonHint: "قطعه بین انتهای وکتور خطی‌شده و ابتدای آن قرار می‌گیرد (یا در جایی که برای وکتور حلقوی مشخص می‌کنید).",
+    enzyme: "نوکلئاز", pamOverride: "جایگزینی PAM (IUPAC)", crisprBtn: "یافتن گایدها", guideSeq: "گاید (′5→′3)", pam: "PAM", strand: "رشته", position: "موقعیت", score: "امتیاز ابتکاری",
+    cutAt: "محل برش", exon: "اگزون", showInExplorer: "نمایش در پروتئین", region_5utr: "′5 UTR", region_3utr: "′3 UTR", region_cds: "CDS", totalGuides: "{n} گاید کاندید (۲۵ مورد برتر)",
+    mpHint: "هر خط یک توالی هدف (۲ تا ۸ مورد). پرایمرها با هم انتخاب می‌شوند تا دایمر متقابل و باندهای هم‌اندازه نداشته باشیم.", mpGap: "حداقل فاصله‌ی اندازه (bp)", mpBtn: "طراحی مولتی‌پلکس",
+    mpOk: "مجموعه‌ی سازگار پیدا شد.", mpBad: "بهترین مجموعه هنوز تداخل دارد:", mpSize: "اندازه‌ها بسیار نزدیک", mpDimer: "دایمر متقابل", target: "هدف",
+    tmCalc: "محاسبه‌گر Tm", tmBtn: "محاسبه", orderFormat: "فرمت سفارش", companyLabel: "شرکت", nameLabel: "نام", convert: "تبدیل", recPur: "خالص‌سازی پیشنهادی",
+    uniprot: "شناسه‌ی UniProt", loadStruct: "بارگذاری ساختار AlphaFold", orSeq: "…یا پیش‌بینی از توالی پروتئین (ESMFold، حداکثر ۴۰۰ aa)", predict: "پیش‌بینی",
+    mapTitle: "نقشه‌ی ترنسکریپت", mapHint: "روی پرایمر یا گاید کلیک کنید تا کدون‌های آن را در ساختار سه‌بعدی ببینید.", hoverHint: "موس را روی یک residue ببرید.",
+    residue: "residue", plddt: "اطمینان (pLDDT)", conf_vh: "بسیار بالا", conf_h: "بالا", conf_l: "کم", conf_vl: "بسیار کم",
+    features: "ویژگی‌های UniProt در این نقطه", noFeat: "ویژگی ثبت‌شده‌ای در این residue نیست.", dnaCodon: "کدون در موقعیت‌های ترنسکریپت", covers: "پوشش داده‌شده توسط",
+    papers: "مقالات (Europe PMC)", findPapers: "یافتن مقالات", explain: "توضیح با منبع (هوش مصنوعی)", explainNote: "خلاصه فقط از منابع فهرست‌شده ساخته شده — پیش از ارجاع بررسی کنید.",
+    functionTxt: "عملکرد پروتئین (UniProt)", licenseTxt: "ساختار: AlphaFold DB (CC-BY 4.0). حاشیه‌نویسی: UniProt. مقالات: Europe PMC.",
+    noGeneYet: "ابتدا در تب طراحی پرایمر یک ژن دریافت کنید یا شناسه‌ی UniProt را بنویسید.",
+    libEmpty: "هنوز پرایمری ذخیره نشده.", libDelete: "حذف", libExport: "خروجی همه (CSV)", legacy: "قدیمی",
+    footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC", pricing: "تعرفه‌ها", privacy: "حریم خصوصی",
+  },
 };
 
-export default function Home() {
-    const router = useRouter();
-    const [lang, setLang] = useState<"en" | "fa">("en");
-    const [activeTab, setActiveTab] = useState<"primer" | "library" | "multiplex" | "toolbox" | "gibson" | "tutorial" | "crispr" | "structure">("primer");
-    
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [geneName, setGeneName] = useState("");
-    const [geneLoading, setGeneLoading] = useState(false);
-    const [sequence, setSequence] = useState("");
-    const [prompt, setPrompt] = useState("");
-    const [tailSequence, setTailSequence] = useState("");
-    const [mutation, setMutation] = useState("");
-    const [mode, setMode] = useState<"standard" | "qpcr" | "sanger">("standard");
-    const [degenerate, setDegenerate] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState<any>(null);
-    const [error, setError] = useState("");
-    const [feedbackStatus, setFeedbackStatus] = useState<string | null>(null);
-    const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
-    const [savedStatus, setSavedStatus] = useState<string | null>(null);
-    const [expFeedbackStatus, setExpFeedbackStatus] = useState<string | null>(null);
-    const [protocol, setProtocol] = useState<any>(null);
+const TUT: Record<Lang, { h: string; p: string }[]> = {
+  en: [
+    { h: "What a primer must do", p: "Forward and reverse primers bracket the DNA you amplify. Good pairs have similar Tm (within ~2 °C), 40–60% GC, a mild G/C 3′ end, and no stable hairpins or primer-dimers." },
+    { h: "Tm and annealing", p: "Tm is the temperature where half of the primer is bound. For Taq-type enzymes anneal ≈ 5 °C below the lower Tm; high-fidelity enzymes often anneal at or near Tm — confirm with your vendor's calculator." },
+    { h: "Secondary structures", p: "A hairpin or dimer is a problem when it stays stable at your annealing temperature. Primer AI compares each structure's melting temperature and ΔG with your annealing temperature." },
+    { h: "qPCR and gDNA", p: "To avoid amplifying genomic DNA, put one primer across an exon–exon junction or choose an amplicon that spans an intron. Fetch the gene by symbol so Primer AI knows the exon boundaries." },
+    { h: "Cloning and mutagenesis", p: "Gibson primers = vector overlap + insert-annealing part. Mutagenic primers carry the mismatch in the middle, flanked by 10–20 matching bases on each side." },
+    { h: "Always validate", p: "Check specificity (BLAST / Primer-BLAST), run a gradient PCR, and report conditions. Tell us whether a pair worked — it improves future suggestions." },
+  ],
+  fa: [
+    { h: "پرایمر باید چه کند؟", p: "پرایمر رفت و برگشت دو طرف ناحیه‌ی تکثیر را مشخص می‌کنند. جفت خوب: Tm مشابه (حدود ۲ درجه)، GC بین ۴۰ تا ۶۰٪، انتهای ′3 با G/C ملایم، و بدون سنجاقی یا دایمر پایدار." },
+    { h: "Tm و دمای اتصال", p: "Tm دمایی است که نیمی از پرایمر متصل است. برای آنزیم‌های نوع Taq دمای اتصال حدود ۵ درجه کمتر از Tm کوچک‌تر است؛ آنزیم‌های دقت‌بالا اغلب نزدیک Tm کار می‌کنند — با ماشین‌حساب سازنده تأیید کنید." },
+    { h: "ساختارهای ثانویه", p: "سنجاقی یا دایمر وقتی مشکل است که در دمای اتصال شما پایدار بماند. Primer AI دمای ذوب و ΔG هر ساختار را با دمای اتصال مقایسه می‌کند." },
+    { h: "qPCR و DNA ژنومی", p: "برای جلوگیری از تکثیر DNA ژنومی، یک پرایمر را روی اتصال اگزون–اگزون بگذارید یا آمپلیکونی انتخاب کنید که اینترون را پوشش دهد. ژن را با نماد دریافت کنید تا مرز اگزون‌ها معلوم باشد." },
+    { h: "کلونینگ و موتاژنز", p: "پرایمر Gibson = همپوشانی وکتور + بخش متصل به قطعه. پرایمر موتاژنیک عدم‌تطابق را در وسط دارد و ۱۰ تا ۲۰ باز مطابق در دو طرفش." },
+    { h: "همیشه اعتبارسنجی کنید", p: "اختصاصیت را (BLAST / Primer-BLAST) بررسی کنید، PCR گرادیانی بزنید و شرایط را گزارش دهید. نتیجه‌ی آزمایشگاهی را با ما به اشتراک بگذارید تا پیشنهادها بهتر شوند." },
+  ],
+};
 
-    // BLAST State
-    const [blastLoading, setBlastLoading] = useState<string | null>(null);
-    const [blastResult, setBlastResult] = useState<{ [key: string]: any }>({});
+const ORGS = ["Homo sapiens", "Mus musculus", "Rattus norvegicus", "Danio rerio", "Arabidopsis thaliana", "Drosophila melanogaster",
+  "Saccharomyces cerevisiae", "Caenorhabditis elegans", "Gallus gallus", "Bos taurus", "Sus scrofa", "Oryza sativa"];
 
-    const [myPrimers, setMyPrimers] = useState<any[]>([]);
-    const [multiplexSequences, setMultiplexSequences] = useState("");
-    const [multiplexResult, setMultiplexResult] = useState<any>(null);
-    const [toolboxSeq, setToolboxSeq] = useState("");
-    const [toolboxTm, setToolboxTm] = useState<number | null>(null);
-    const [company, setCompany] = useState("IDT");
-    const [formattedSeq, setFormattedSeq] = useState("");
-    const [insertSeq, setInsertSeq] = useState("");
-    const [vectorSeq, setVectorSeq] = useState("");
-    const [overlapLength, setOverlapLength] = useState(20);
-    const [gibsonResult, setGibsonResult] = useState<any>(null);
-    const [crisprTarget, setCrisprTarget] = useState("");
-    const [pamSeq, setPamSeq] = useState("NGG");
-    const [crisprResult, setCrisprResult] = useState<any>(null);
-    const [structureSeq, setStructureSeq] = useState("");
-    const [structurePdb, setStructurePdb] = useState("");
-    const [structureLoading, setStructureLoading] = useState(false);
-    const viewerRef = useRef<HTMLDivElement>(null);
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+const fmt = (s: string = "", p: Record<string, any> = {}) => s.replace(/\{(\w+)\}/g, (_, k) => String(p[k] ?? ""));
+const norm = (s: string) => s.split("\n").filter((l) => !l.trim().startsWith(">")).join("").replace(/[\s\d]/g, "").toUpperCase().replace(/U/g, "T");
+const AA3: Record<string, string> = { ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C", GLN: "Q", GLU: "E", GLY: "G", HIS: "H", ILE: "I", LEU: "L", LYS: "K", MET: "M", PHE: "F", PRO: "P", SER: "S", THR: "T", TRP: "W", TYR: "Y", VAL: "V" };
 
-    const t = translations[lang];
+async function apiFetch(path: string, token: string | null, init: RequestInit = {}) {
+  const headers: Record<string, string> = { ...((init.headers as any) || {}) };
+  if (init.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+  if (token) headers.Authorization = `Bearer ${token}`;
+  let res: Response;
+  try { res = await fetch(API + path, { ...init, headers }); } catch { throw Object.assign(new Error("network"), { code: "network" }); }
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      if (typeof j.detail === "string") msg = j.detail;
+      else if (Array.isArray(j.detail)) msg = j.detail.map((d: any) => d.msg).join("; ");
+    } catch { /* ignore */ }
+    throw Object.assign(new Error(msg), { code: res.status === 429 ? "rate" : res.status === 401 ? "auth" : "http" });
+  }
+  return res.json();
+}
 
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-        if (!token) {
-            router.push("/login");
-        } else {
-            setIsAuthenticated(true);
-        }
-    }, [router]);
+function download(name: string, text: string, mime = "text/plain") {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
-    const fetchMyPrimers = async () => {
-        const token = localStorage.getItem("token");
-        if (!token) return;
+const inputCls = "w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500";
+const seqCls = inputCls + " font-mono text-sm";
+const btnBase = "px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-50 transition-colors";
+const riskCls: Record<string, string> = { low: "bg-green-100 text-green-800", medium: "bg-yellow-100 text-yellow-800", high: "bg-red-100 text-red-800" };
+
+type Ctx = { t: Record<string, string>; lang: Lang; call: (p: string, i?: RequestInit) => Promise<any>; token: string | null; notify: (m: string, k?: "error" | "ok") => void; fail: (e: any) => void };
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: any }) {
+  return (<label className="block"><span className="block text-sm font-semibold mb-1 text-slate-700">{label}</span>{children}{hint && <span className="block text-xs text-slate-500 mt-1">{hint}</span>}</label>);
+}
+function Btn({ children, onClick, disabled, kind = "primary", title }: { children: any; onClick?: () => void; disabled?: boolean; kind?: "primary" | "ghost" | "danger" | "dark"; title?: string }) {
+  const k = { primary: "bg-blue-700 hover:bg-blue-800 text-white", ghost: "bg-slate-100 hover:bg-slate-200 text-slate-800", danger: "bg-red-50 hover:bg-red-100 text-red-700", dark: "bg-slate-800 hover:bg-slate-900 text-white" }[kind];
+  return <button title={title} onClick={onClick} disabled={disabled} className={`${btnBase} ${k}`}>{children}</button>;
+}
+function Risk({ v, t }: { v: string; t: Record<string, string> }) { return <span className={`px-2 py-0.5 rounded text-xs font-semibold ${riskCls[v] || "bg-slate-100"}`}>{t["risk_" + v] || v}</span>; }
+function CopyBtn({ text, t }: { text: string; t: Record<string, string> }) {
+  const [ok, setOk] = useState(false);
+  return <button className="text-xs text-blue-700 shrink-0 ms-2" onClick={() => { navigator.clipboard?.writeText(text); setOk(true); setTimeout(() => setOk(false), 1500); }}>{ok ? t.copied : t.copy}</button>;
+}
+function worstOf(...r: string[]) { return r.sort((a, b) => ["low", "medium", "high"].indexOf(b) - ["low", "medium", "high"].indexOf(a))[0]; }
+
+/* ------------------------------------------------------------------ */
+/* Gel simulation (log scale)                                          */
+/* ------------------------------------------------------------------ */
+function Gel({ sizes, t }: { sizes: number[]; t: Record<string, string> }) {
+  const ladder = [3000, 2000, 1500, 1000, 750, 500, 300, 200, 100];
+  const H = 200, pad = 14, lo = Math.log(100), hi = Math.log(3000);
+  const y = (s: number) => pad + ((hi - Math.log(Math.min(3000, Math.max(100, s)))) / (hi - lo)) * (H - 2 * pad);
+  const lanes = sizes.slice(0, 3);
+  const W = 70 + lanes.length * 60;
+  return (
+    <svg viewBox={`0 0 ${W} ${H + 24}`} className="w-full max-w-xs mx-auto" role="img" aria-label={t.gel} direction="ltr">
+      <rect x="0" y="0" width={W} height={H} rx="6" fill="#0f172a" />
+      <text x="30" y={H + 14} fontSize="9" textAnchor="middle" fill="#64748b">{t.ladder}</text>
+      {ladder.map((s) => (<g key={s}><rect x="12" y={y(s) - 1.5} width="36" height="3" fill="#cbd5e1" /><text x="52" y={y(s) + 3} fontSize="8" fill="#94a3b8">{s}</text></g>))}
+      {lanes.map((s, i) => (<g key={i}><rect x={92 + i * 60} y={y(s) - 2} width="36" height="4" fill="#60a5fa" /><text x={110 + i * 60} y={H + 14} fontSize="9" textAnchor="middle" fill="#64748b">{s} bp</text></g>))}
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Design tab                                                          */
+/* ------------------------------------------------------------------ */
+type GeneState = { symbol: string; accession: string; title: string; sequence: string; annotation: any; uniprot: any; organism: string; alternatives: any[]; protein_id?: string };
+
+function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: GeneState | null; setGene: (g: GeneState | null) => void; annotation: any; maxLen: number; onDesign: (r: any) => void }) {
+  const { t, call, token, notify, fail, seq, setSeq, gene, setGene, annotation } = p;
+  const [geneName, setGeneName] = useState("");
+  const [organism, setOrganism] = useState("Homo sapiens");
+  const [geneLoading, setGeneLoading] = useState(false);
+  const [rs, setRs] = useState(""); const [re, setRe] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState("standard"); const [polymerase, setPolymerase] = useState("taq");
+  const [tailL, setTailL] = useState(""); const [tailR, setTailR] = useState(""); const [mutation, setMutation] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [protocol, setProtocol] = useState<any>(null); const [protoFor, setProtoFor] = useState(0);
+  const [blast, setBlast] = useState<Record<number, any>>({});
+  const [saved, setSaved] = useState<Record<number, boolean>>({});
+  const [fbPair, setFbPair] = useState(0); const [fbNotes, setFbNotes] = useState(""); const [fbDone, setFbDone] = useState(false);
+  const timers = useRef<number[]>([]);
+  useEffect(() => () => { timers.current.forEach((x) => clearInterval(x)); }, []);
+
+  const fetchGene = async (accession?: string) => {
+    if (!geneName.trim() && !accession) return;
+    setGeneLoading(true);
+    try {
+      const name = geneName.trim() || gene?.symbol || "";
+      const d = await call(`/fetch-gene?gene_name=${encodeURIComponent(name)}&organism=${encodeURIComponent(organism)}${accession ? `&accession=${encodeURIComponent(accession)}` : ""}`);
+      setGene({ symbol: d.symbol, accession: d.accession, title: d.title, sequence: d.sequence, annotation: d.annotation, uniprot: d.uniprot, organism: d.organism, alternatives: d.alternatives, protein_id: d.protein_id });
+      setSeq(d.sequence); setResult(null);
+    } catch (e) { fail(e); } finally { setGeneLoading(false); }
+  };
+
+  const submit = async () => {
+    setLoading(true); setResult(null); setProtocol(null); setBlast({}); setSaved({}); setFbDone(false);
+    try {
+      const r = await call("/chat-design", { method: "POST", body: JSON.stringify({
+        sequence: seq, user_prompt: prompt, tail_left: tailL, tail_right: tailR, mutation, mode, polymerase,
+        region_start: parseInt(rs) || 0, region_end: parseInt(re) || 0, annotation, gene: gene?.symbol || "" }) });
+      setResult(r); p.onDesign(r);
+    } catch (e) { fail(e); } finally { setLoading(false); }
+  };
+
+  const getProtocol = async (i: number) => {
+    const pr = result.pairs[i];
+    try {
+      const d = await call(`/suggest-protocol?anneal_temp=${pr.anneal_temp}&gc_content=${pr.amplicon_gc}&product_size=${pr.product_size}&polymerase=${result.parameters.polymerase}`);
+      setProtocol(d.protocol); setProtoFor(i);
+    } catch (e) { fail(e); }
+  };
+
+  const savePair = async (i: number) => {
+    if (!token) return notify(t.loginRequired);
+    const pr = result.pairs[i];
+    try {
+      await call("/save-primer", { method: "POST", body: JSON.stringify({
+        name: `${gene?.symbol || "primer"}_${pr.left.start1}-${pr.right.end1}`, left_seq: pr.left.seq_tail, right_seq: pr.right.seq_tail,
+        left_tm: pr.left.tm, right_tm: pr.right.tm, product_size: pr.product_size, anneal_temp: pr.anneal_temp, gene: gene?.symbol || "",
+        params: { ...result.parameters, accession: gene?.accession } }) });
+      setSaved((s) => ({ ...s, [i]: true }));
+    } catch (e) { fail(e); }
+  };
+
+  const runBlast = async (i: number) => {
+    if (!token) return notify(t.blastNeedsLogin);
+    const pr = result.pairs[i];
+    setBlast((b) => ({ ...b, [i]: { status: "running" } }));
+    try {
+      const { job_id } = await call("/verify-primer", { method: "POST", body: JSON.stringify({ forward: pr.left.seq, reverse: pr.right.seq, organism: gene?.organism || organism, gene: gene?.symbol || "" }) });
+      const started = Date.now();
+      const iv = window.setInterval(async () => {
         try {
-            const res = await fetch("https://primer-ai.onrender.com/my-primers", { headers: { "Authorization": `Bearer ${token}` } });
-            if (res.ok) { const data = await res.json(); setMyPrimers(data.primers); }
-        } catch (e) { console.error(e); }
-    };
+          const s = await call(`/verify-primer/${job_id}`);
+          if (s.status === "done" || s.status === "error" || Date.now() - started > 6 * 60 * 1000) {
+            clearInterval(iv);
+            setBlast((b) => ({ ...b, [i]: s.status === "done" ? { status: "done", result: s.result } : { status: "error", error: s.error || "timeout" } }));
+          }
+        } catch (e) { clearInterval(iv); setBlast((b) => ({ ...b, [i]: { status: "error", error: String((e as any).message) } })); }
+      }, 5000);
+      timers.current.push(iv);
+    } catch (e) { setBlast((b) => ({ ...b, [i]: undefined })); fail(e); }
+  };
 
-    useEffect(() => { 
-        if (activeTab === "library") fetchMyPrimers(); 
-    }, [activeTab]);
+  const exportGb = async (i: number) => {
+    const pr = result.pairs[i];
+    try {
+      const d = await call("/export-genbank", { method: "POST", body: JSON.stringify({ sequence: seq, name: gene?.symbol || "PrimerAI", features: [
+        { name: `${gene?.symbol || "P"}_F${i + 1}`, start: pr.left.start1, end: pr.left.end1, strand: 1 },
+        { name: `${gene?.symbol || "P"}_R${i + 1}`, start: pr.right.start1, end: pr.right.end1, strand: -1 }] }) });
+      download(d.filename, d.content);
+    } catch (e) { fail(e); }
+  };
 
-    if (!isAuthenticated) return null;
+  const exportCsv = () => {
+    const rows = ["Name,Sequence,Scale,Purification"];
+    result.pairs.forEach((pr: any, i: number) => {
+      const n = `${gene?.symbol || "primer"}_${i + 1}`;
+      [[`${n}_F`, pr.left.seq_tail], [`${n}_R`, pr.right.seq_tail]].forEach(([nm, sq]) => rows.push(`${nm},${sq},25nm,${sq.length > 60 ? "PAGE" : "STD"}`));
+    });
+    download("primers_idt.csv", rows.join("\n") + "\n", "text/csv");
+  };
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        router.push("/login");
-    };
+  const sendFeedback = async (res: string) => {
+    const pr = result.pairs[fbPair];
+    try {
+      await call("/experimental-feedback", { method: "POST", body: JSON.stringify({
+        primer_pair: `${pr.left.seq} / ${pr.right.seq}`, result: res, polymerase: result.parameters.polymerase,
+        template: gene?.accession || "", anneal_temp: pr.anneal_temp, notes: fbNotes }) });
+      setFbDone(true);
+    } catch (e) { fail(e); }
+  };
 
-    const handleDeleteAccount = async () => {
-        if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-            const token = localStorage.getItem("token");
-            try {
-                const res = await fetch("https://primer-ai.onrender.com/delete-account", {
-                    method: "DELETE",
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
-                if (res.ok) {
-                    localStorage.removeItem("token");
-                    router.push("/login");
-                } else {
-                    alert("Failed to delete account.");
-                }
-            } catch (e) {
-                alert("Error deleting account.");
-            }
-        }
-    };
+  const side = (s: string) => (s === "left" ? t.forward : t.reverse);
 
-    const handleGeneSearch = async () => {
-        if (!geneName) return;
-        setGeneLoading(true); setSequence("");
-        try {
-            const res = await fetch(`https://primer-ai.onrender.com/fetch-gene?gene_name=${encodeURIComponent(geneName)}`, { method: "POST" });
-            if (!res.ok) throw new Error("Gene not found");
-            const data = await res.json();
-            setSequence(data.sequence);
-        } catch (err) { alert("Gene not found. Please try another name (e.g., BRCA1)."); } finally { setGeneLoading(false); }
-    };
+  return (
+    <div className="space-y-6">
+      <section className="bg-blue-50 rounded-xl p-4 space-y-3">
+        <div className="grid md:grid-cols-[1fr_220px_auto] gap-3 items-end">
+          <Field label={t.geneSearch}><input className={inputCls} dir="ltr" value={geneName} onChange={(e) => setGeneName(e.target.value)} placeholder="BRCA1" onKeyDown={(e) => e.key === "Enter" && fetchGene()} /></Field>
+          <Field label={t.organism}><select className={inputCls} value={organism} onChange={(e) => setOrganism(e.target.value)}>{ORGS.map((o) => <option key={o}>{o}</option>)}</select></Field>
+          <Btn onClick={() => fetchGene()} disabled={geneLoading}>{geneLoading ? t.working : t.fetchSeq}</Btn>
+        </div>
+        {geneLoading && <p className="text-xs text-slate-600">{t.wake}</p>}
+        {gene && (
+          <div className="text-sm text-slate-700 space-y-1" dir="ltr">
+            <div><b>{gene.symbol}</b> · {gene.accession} · {gene.sequence.length} nt</div>
+            <div className="text-xs text-slate-500">{gene.title}</div>
+            <div className="text-xs">{gene.annotation?.cds_start ? fmt(t.geneInfo, { cds: `${gene.annotation.cds_start}-${gene.annotation.cds_end}`, n: gene.annotation.exons.length }) : t.noAnn}</div>
+            {gene.alternatives?.length > 1 && (
+              <label className="text-xs">{t.transcript}: <select className="border rounded p-1 ms-1" value={gene.accession} onChange={(e) => fetchGene(e.target.value)}>
+                {gene.alternatives.map((a: any) => <option key={a.accession} value={a.accession}>{a.accession} ({a.length} nt)</option>)}</select></label>
+            )}
+          </div>
+        )}
+      </section>
 
-    const handleSubmit = async () => {
-        setLoading(true); setError(""); setResult(null); setSavedStatus(null); setBlastResult({});
-        try {
-            const response = await fetch(`https://primer-ai.onrender.com/chat-design`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sequence, user_prompt: prompt, tail_sequence: tailSequence, mutation: mutation, mode: mode, degenerate: degenerate }),
-            });
-            if (!response.ok) throw new Error("Failed");
-            setResult(await response.json());
-        } catch (err) { setError(t.error); } finally { setLoading(false); }
-    };
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="md:col-span-2"><Field label={t.sequence} hint={fmt(t.seqHint, { max: p.maxLen })}>
+          <textarea dir="ltr" className={seqCls + " h-28"} value={seq} onChange={(e) => setSeq(e.target.value)} placeholder="ATGC…" /></Field></div>
+        <Field label={t.prompt}><input className={inputCls} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t.promptPh} /></Field>
+        <Field label={t.region}>
+          <div className="flex items-center gap-2" dir="ltr"><span className="text-xs">{t.from}</span><input className={inputCls} inputMode="numeric" value={rs} onChange={(e) => setRs(e.target.value)} />
+            <span className="text-xs">{t.to}</span><input className={inputCls} inputMode="numeric" value={re} onChange={(e) => setRe(e.target.value)} /></div></Field>
+        <Field label={t.mode}><select className={inputCls} value={mode} onChange={(e) => setMode(e.target.value)}>
+          {["standard", "qpcr", "sanger"].map((m) => <option key={m} value={m}>{t["mode_" + m]}</option>)}</select></Field>
+        <Field label={t.polymerase}><select className={inputCls} value={polymerase} onChange={(e) => setPolymerase(e.target.value)}>
+          <option value="taq">{t.pol_taq}</option><option value="hifi">{t.pol_hifi}</option></select></Field>
+        <Field label={t.tailLeft}><input dir="ltr" className={seqCls} value={tailL} onChange={(e) => setTailL(e.target.value)} placeholder="GAATTC" /></Field>
+        <Field label={t.tailRight}><input dir="ltr" className={seqCls} value={tailR} onChange={(e) => setTailR(e.target.value)} placeholder="AAGCTT" /></Field>
+        <div className="md:col-span-2"><Field label={t.mutation} hint={t.mutationHint}><input dir="ltr" className={seqCls} value={mutation} onChange={(e) => setMutation(e.target.value)} placeholder="A120G" /></Field></div>
+      </div>
+      <button onClick={submit} disabled={loading || !seq.trim()} className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-bold py-3 rounded-lg">{loading ? t.working : t.designBtn}</button>
 
-    const handleBLAST = async (primerSeq: string, pairIndex: number) => {
-        if (!primerSeq) return;
-        setBlastLoading(`pair_${pairIndex}`);
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/verify-primer", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ primer_sequence: primerSeq }),
-            });
-            if (!res.ok) throw new Error("Failed");
-            const data = await res.json();
-            setBlastResult(prev => ({ ...prev, [`pair_${pairIndex}`]: data }));
-        } catch (err) {
-            alert("BLAST search failed.");
-        } finally {
-            setBlastLoading(null);
-        }
-    };
+      {result && (
+        <section className="space-y-5 border-t pt-6">
+          <div className="flex flex-wrap gap-2 items-center text-sm">
+            <span className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full">{t.detectedTm}: {result.parameters.tm} °C ({t["src_" + result.parameters.source]})</span>
+            <span className="bg-slate-100 px-3 py-1 rounded-full">{t.size}: {result.parameters.size_range[0]}–{result.parameters.size_range[1]} bp</span>
+            {result.pairs.length > 0 && <Btn kind="dark" onClick={exportCsv}>{t.csvIdt}</Btn>}
+          </div>
+          {result.warnings.map((w: string) => <div key={w} className="bg-yellow-50 border-s-4 border-yellow-500 p-3 text-sm text-yellow-900">{t["warn_" + w] || w}</div>)}
 
-    const handleExpFeedback = async (resultType: string) => {
-        if (!result) return;
-        const pairSeq = `${result.primers["PRIMER_LEFT_0_SEQUENCE"]} / ${result.primers["PRIMER_RIGHT_0_SEQUENCE"]}`;
-        try {
-            await fetch("https://primer-ai.onrender.com/experimental-feedback", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ primer_pair: pairSeq, result: resultType }),
-            });
-            setExpFeedbackStatus("success");
-        } catch (e) { setExpFeedbackStatus("error"); }
-    };
-
-    const handleCopy = (text: string, id: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedIndex(id);
-        setTimeout(() => setCopiedIndex(null), 2000);
-    };
-
-    const downloadSnapGene = () => {
-        if (!result?.primers) return;
-        let content = "LOCUS       Primer_Design\n";
-        for (let i = 0; i < 3; i++) {
-            const left = result.primers[`PRIMER_LEFT_${i}_SEQUENCE_WITH_TAIL`] || result.primers[`PRIMER_LEFT_${i}_SEQUENCE`];
-            const right = result.primers[`PRIMER_RIGHT_${i}_SEQUENCE_WITH_TAIL`] || result.primers[`PRIMER_RIGHT_${i}_SEQUENCE`];
-            if (left && right) {
-                content += `ORIGIN\n        1 ${left} ${right}\n//\n`;
-            }
-        }
-        const blob = new Blob([content], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "primers.dna";
-        a.click();
-    };
-
-    const savePrimerToLibrary = async (left: string, right: string, tm: number) => {
-        const token = localStorage.getItem("token");
-        if (!token) { alert("Please login first."); return; }
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/save-primer", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                body: JSON.stringify({ name: `Primer_${Date.now()}`, left_seq: left, right_seq: right, tm: tm }),
-            });
-            if (res.ok) { setSavedStatus("saved"); setTimeout(() => setSavedStatus(null), 2000); }
-        } catch (e) { console.error(e); }
-    };
-
-    const handleMultiplex = async () => {
-        const sequences = multiplexSequences.split("\n").filter(s => s.trim() !== "");
-        if (sequences.length === 0) return;
-        setLoading(true);
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/multiplex-design", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sequences, user_prompt: prompt, mode: mode }),
-            });
-            if (!res.ok) throw new Error("Failed");
-            setMultiplexResult(await res.json());
-        } catch (err) { alert("Error designing multiplex"); } finally { setLoading(false); }
-    };
-
-    const fetchProtocol = async () => {
-        if (!result) return;
-        const annealTemp = result.primers["PRIMER_PAIR_0_ANNEAL_TEMP"];
-        const gcContent = result.primers["PRIMER_LEFT_0_GC_PERCENT"];
-        const productSize = result.primers["PRIMER_PAIR_0_PRODUCT_SIZE"];
-        try {
-            const res = await fetch(`https://primer-ai.onrender.com/suggest-protocol?anneal_temp=${annealTemp}&gc_content=${gcContent}&product_size=${productSize}`, { method: "POST" });
-            if (res.ok) setProtocol((await res.json()).protocol);
-        } catch (e) { alert("Error fetching protocol"); }
-    };
-
-    const handleCalculateTm = async () => {
-        if (!toolboxSeq) return;
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/calculate-tm", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sequence: toolboxSeq, method: "nearest_neighbor" }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setToolboxTm(data.tm);
-            }
-        } catch (e) { alert("Error calculating Tm"); }
-    };
-
-    const handleFormatOrder = async () => {
-        if (!toolboxSeq) return;
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/order-format", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sequence: toolboxSeq, company: company }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setFormattedSeq(data.formatted);
-            }
-        } catch (e) { alert("Error converting format"); }
-    };
-
-    const handleGibson = async () => {
-        if (!insertSeq || !vectorSeq) return;
-        setLoading(true);
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/gibson-design", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ insert_sequence: insertSeq, vector_sequence: vectorSeq, overlap_length: overlapLength }),
-            });
-            if (!res.ok) throw new Error("Failed");
-            setGibsonResult(await res.json());
-        } catch (err) { alert("Error designing Gibson primers"); } finally { setLoading(false); }
-    };
-
-    const handleCRISPR = async () => {
-        if (!crisprTarget) return;
-        setLoading(true);
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/crispr-design", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sequence: crisprTarget, pam: pamSeq }),
-            });
-            if (!res.ok) throw new Error("Failed");
-            setCrisprResult(await res.json());
-        } catch (err) { alert("Error finding gRNAs"); } finally { setLoading(false); }
-    };
-
-    const handlePredictStructure = async () => {
-        if (!structureSeq) return;
-        setStructureLoading(true);
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/predict-structure", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sequence: structureSeq }),
-            });
-            if (!res.ok) throw new Error("Failed");
-            const data = await res.json();
-            setStructurePdb(data.pdb_data);
-            
-            setTimeout(() => {
-                if ((window as any).$3Dmol && viewerRef.current) {
-                    viewerRef.current.innerHTML = "";
-                    const viewer = (window as any).$3Dmol.createViewer(viewerRef.current, { backgroundColor: "white" });
-                    viewer.addModel(data.pdb_data, "pdb");
-                    viewer.setStyle({}, { cartoon: { color: "spectrum" } });
-                    viewer.zoomTo();
-                    viewer.render();
-                }
-            }, 500);
-        } catch (err) { alert("Error predicting structure"); } finally { setStructureLoading(false); }
-    };
-
-    const getRiskColor = (risk: string) => {
-        const lowerRisk = risk?.toLowerCase() || "";
-        if (lowerRisk === "low") return "text-green-600";
-        if (lowerRisk === "medium") return "text-yellow-600";
-        if (lowerRisk === "high") return "text-red-600";
-        return "text-gray-500";
-    };
-
-    return (
-        <main dir={t.dir} className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-800">
-            <Script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js" strategy="lazyOnload" />
-            <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-                
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-blue-700">{t.title}</h1>
-                        <p className="text-gray-500 mt-2">{t.subtitle}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <a href="/pricing" className="text-blue-600 font-semibold hover:underline">{t.pricingLink}</a>
-                        <a href="/privacy" className="text-gray-500 hover:underline">{t.privacyLink}</a>
-                        <button onClick={() => setLang(lang === "en" ? "fa" : "en")} className="bg-gray-200 px-4 py-2 rounded-lg font-semibold">{t.langToggle}</button>
-                        <button onClick={handleLogout} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold">{t.logout}</button>
-                        <button onClick={handleDeleteAccount} className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-semibold">{t.deleteAccount}</button>
-                    </div>
-                </div>
-
-                <div className="flex border-b mb-6 overflow-x-auto">
-                    <button onClick={() => setActiveTab("primer")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "primer" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.results}</button>
-                    <button onClick={() => setActiveTab("multiplex")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "multiplex" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.multiplexTab}</button>
-                    <button onClick={() => setActiveTab("toolbox")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "toolbox" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.toolboxTab}</button>
-                    <button onClick={() => setActiveTab("gibson")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "gibson" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.gibsonTab}</button>
-                    <button onClick={() => setActiveTab("crispr")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "crispr" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.crisprTab}</button>
-                    <button onClick={() => setActiveTab("structure")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "structure" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.structureTab}</button>
-                    <button onClick={() => setActiveTab("tutorial")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "tutorial" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.tutorialTab}</button>
-                    <button onClick={() => setActiveTab("library")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "library" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>My Primer Library</button>
-                </div>
-
-                {activeTab === "primer" && (
-                    <div className="space-y-6">
-                        <div className="bg-blue-50 p-4 rounded-lg flex gap-4 items-end">
-                            <div className="flex-1">
-                                <label className="block font-semibold mb-2">{t.geneSearchLabel}</label>
-                                <input type="text" value={geneName} onChange={(e) => setGeneName(e.target.value)} className="w-full border rounded-lg p-2" placeholder="BRCA1" />
-                            </div>
-                            <button onClick={handleGeneSearch} disabled={geneLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg h-10">
-                                {geneLoading ? "..." : t.searchBtn}
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="md:col-span-2">
-                                <label className="block font-semibold mb-2">{t.sequenceLabel}</label>
-                                <textarea dir="ltr" value={sequence} onChange={(e) => setSequence(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="ATGC..." />
-                            </div>
-                            <div>
-                                <label className="block font-semibold mb-2">{t.promptLabel}</label>
-                                <input type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} className="w-full border rounded-lg p-3" />
-                            </div>
-                            <div>
-                                <label className="block font-semibold mb-2">{t.tailLabel}</label>
-                                <input dir="ltr" type="text" value={tailSequence} onChange={(e) => setTailSequence(e.target.value)} className="w-full border rounded-lg p-3 font-mono" placeholder="GAATTC" />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block font-semibold mb-2">{t.mutationLabel}</label>
-                                <input dir="ltr" type="text" value={mutation} onChange={(e) => setMutation(e.target.value)} className="w-full border rounded-lg p-3 font-mono" placeholder="A120G" />
-                            </div>
-                            <div className="md:col-span-2 flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" id="degenerate" checked={degenerate} onChange={(e) => setDegenerate(e.target.checked)} className="w-4 h-4" />
-                                    <label htmlFor="degenerate" className="font-semibold text-sm">{t.degenerateLabel}</label>
-                                </div>
-                            </div>
-                            <div className="md:col-span-2">
-                                <select value={mode} onChange={(e) => setMode(e.target.value as any)} className="w-full border rounded-lg p-3 font-semibold bg-white">
-                                    <option value="standard">{t.standardMode}</option>
-                                    <option value="qpcr">{t.qpcrMode}</option>
-                                    <option value="sanger">{t.sangerMode}</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <button onClick={handleSubmit} disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg">{loading ? t.loading : t.button}</button>
-
-                        {error && <div className="p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
-
-                        {result && (
-                            <div className="mt-8 border-t pt-6">
-                                {result.primers["PRIMER_PAIR_NUM_RETURNED"] === 0 ? (
-                                    <div className="p-6 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg">
-                                        <h3 className="font-bold text-lg text-yellow-800">No primers found</h3>
-                                        <p className="text-yellow-700 mt-2">{t.noPrimer}</p>
-                                        <p className="text-xs text-gray-500 mt-4">Details: {result.primers["PRIMER_PAIR_EXPLAIN"]}</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h2 className="text-xl font-bold text-green-600">{t.success}</h2>
-                                            <button onClick={downloadSnapGene} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold">{t.downloadSnapGene}</button>
-                                        </div>
-                                        
-                                        <div className="bg-blue-50 p-4 rounded-lg mb-6"><span className="font-semibold">{t.temperature}: </span>{result.extracted_parameters?.target_temp} °C</div>
-                                        
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                            {[0, 1, 2].map((i) => {
-                                                const left = result.primers[`PRIMER_LEFT_${i}_SEQUENCE`];
-                                                const right = result.primers[`PRIMER_RIGHT_${i}_SEQUENCE`];
-                                                const probe = result.primers[`PRIMER_INTERNAL_${i}_SEQUENCE`];
-                                                if (!left || !right) return null;
-                                                
-                                                const leftToShow = result.primers[`PRIMER_LEFT_${i}_SEQUENCE_WITH_TAIL`] || left;
-                                                const rightToShow = result.primers[`PRIMER_RIGHT_${i}_SEQUENCE_WITH_TAIL`] || right;
-                                                const hairpinL = result.primers[`PRIMER_LEFT_${i}_HAIRPIN_RISK`];
-                                                const hairpinR = result.primers[`PRIMER_RIGHT_${i}_HAIRPIN_RISK`];
-                                                const dimer = result.primers[`PRIMER_PAIR_${i}_DIMER_RISK`];
-                                                const annealTemp = result.primers[`PRIMER_PAIR_${i}_ANNEAL_TEMP`];
-
-                                                return (
-                                                    <div key={i} className="border rounded-xl p-5 bg-white shadow-sm flex flex-col gap-3">
-                                                        <h4 className="font-bold text-blue-600 border-b pb-2">{t.pair} {i + 1}</h4>
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 font-semibold mb-1">{t.leftPrimer}</p>
-                                                            <div className="bg-gray-50 p-2 rounded font-mono text-sm flex justify-between items-center" dir="ltr">
-                                                                <span className="break-all">{leftToShow}</span>
-                                                                <button onClick={() => handleCopy(leftToShow, `L${i}`)} className="text-blue-500 text-xs ml-2 shrink-0">{copiedIndex === `L${i}` ? t.copied : t.copy}</button>
-                                                            </div>
-                                                            <div className="flex justify-between text-xs mt-1">
-                                                                <span>{t.tm}: {result.primers[`PRIMER_LEFT_${i}_TM`].toFixed(1)}</span>
-                                                                <span className={`font-bold ${getRiskColor(hairpinL)}`}>{t.hairpin}: {hairpinL}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs text-gray-500 font-semibold mb-1">{t.rightPrimer}</p>
-                                                            <div className="bg-gray-50 p-2 rounded font-mono text-sm flex justify-between items-center" dir="ltr">
-                                                                <span className="break-all">{rightToShow}</span>
-                                                                <button onClick={() => handleCopy(rightToShow, `R${i}`)} className="text-blue-500 text-xs ml-2 shrink-0">{copiedIndex === `R${i}` ? t.copied : t.copy}</button>
-                                                            </div>
-                                                            <div className="flex justify-between text-xs mt-1">
-                                                                <span>{t.tm}: {result.primers[`PRIMER_RIGHT_${i}_TM`].toFixed(1)}</span>
-                                                                <span className={`font-bold ${getRiskColor(hairpinR)}`}>{t.hairpin}: {hairpinR}</span>
-                                                            </div>
-                                                        </div>
-                                                        {probe && (
-                                                            <div>
-                                                                <p className="text-xs text-purple-600 font-semibold mb-1">{t.probe}</p>
-                                                                <div className="bg-purple-50 p-2 rounded font-mono text-sm flex justify-between items-center" dir="ltr">
-                                                                    <span className="break-all">{probe}</span>
-                                                                    <button onClick={() => handleCopy(probe, `P${i}`)} className="text-purple-500 text-xs ml-2 shrink-0">{copiedIndex === `P${i}` ? t.copied : t.copy}</button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        <div className="bg-gray-100 p-2 rounded mt-auto space-y-1">
-                                                            <div className="flex justify-between text-sm font-semibold">
-                                                                <span>{t.size}: {result.primers[`PRIMER_PAIR_${i}_PRODUCT_SIZE`]}</span>
-                                                                <span className={`${getRiskColor(dimer)}`}>{t.dimer}: {dimer}</span>
-                                                            </div>
-                                                            <div className="text-center font-bold text-blue-700 bg-blue-100 p-1 rounded">{t.annealing}: {annealTemp} °C</div>
-                                                            <button onClick={() => savePrimerToLibrary(left, right, result.primers[`PRIMER_LEFT_${i}_TM`])} className="w-full mt-2 bg-green-600 text-white py-1 rounded text-sm hover:bg-green-700">
-                                                                {savedStatus === "saved" ? t.saved : t.savePrimer}
-                                                            </button>
-                                                            
-                                                            {/* ✅ دکمه BLAST اضافه شد */}
-                                                            <button onClick={() => handleBLAST(leftToShow, i)} disabled={blastLoading === `pair_${i}`} className="w-full mt-2 bg-purple-600 text-white py-1 rounded text-sm hover:bg-purple-700 font-semibold">
-                                                                {blastLoading === `pair_${i}` ? "Searching NCBI..." : t.blastButton}
-                                                            </button>
-                                                            
-                                                            {/* ✅ نمایش نتیجه BLAST */}
-                                                            {blastResult[`pair_${i}`] && (
-                                                                <div className="mt-2 p-2 bg-purple-50 rounded text-xs text-purple-900 border border-purple-200">
-                                                                    {blastResult[`pair_${i}`].total_hits === 0 ? (
-                                                                        <span className="font-bold text-green-700">✅ No off-targets found.</span>
-                                                                    ) : (
-                                                                        <div>
-                                                                            <span className="font-bold text-red-600">⚠️ {blastResult[`pair_${i}`].total_hits} off-targets found.</span>
-                                                                            <ul className="list-disc pl-4 mt-1">
-                                                                                {blastResult[`pair_${i}`].top_hits.slice(0, 2).map((hit: any, idx: number) => (
-                                                                                    <li key={idx} className="truncate" title={hit.title}>{hit.title}</li>
-                                                                                ))}
-                                                                            </ul>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <div className="bg-gray-50 p-6 rounded-lg border mt-6">
-                                            <button onClick={fetchProtocol} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold mb-4">
-                                                {t.suggestProtocol}
-                                            </button>
-                                            {protocol && (
-                                                <div className="bg-white p-4 rounded border text-sm">
-                                                    <h4 className="font-bold mb-2">{t.protocolTitle}</h4>
-                                                    <p><strong>Annealing Temp:</strong> {protocol.annealing_temp}°C</p>
-                                                    <p><strong>Initial Denaturation:</strong> {protocol.initial_denaturation}</p>
-                                                    <p><strong>Denaturation:</strong> {protocol.denaturation}</p>
-                                                    <p><strong>Annealing:</strong> {protocol.annealing}</p>
-                                                    <p><strong>Extension:</strong> {protocol.extension}</p>
-                                                    <p><strong>Final Extension:</strong> {protocol.final_extension}</p>
-                                                    <p><strong>Cycles:</strong> {protocol.cycles}</p>
-                                                    {protocol.additives.length > 0 && (
-                                                        <div className="mt-2 text-yellow-700 bg-yellow-50 p-2 rounded">
-                                                            <strong>Additives:</strong> {protocol.additives.join(" ")}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="bg-gray-50 p-6 rounded-lg border mt-6">
-                                            <h4 className="font-bold mb-4">{t.gelSimulation}</h4>
-                                            <div className="flex justify-center gap-4">
-                                                <div className="w-12 h-48 bg-gray-200 relative">
-                                                    <div className="absolute top-4 left-0 right-0 h-0.5 bg-gray-400"></div>
-                                                    <div className="absolute top-12 left-0 right-0 h-0.5 bg-gray-400"></div>
-                                                    <div className="absolute top-20 left-0 right-0 h-0.5 bg-gray-400"></div>
-                                                    <div className="absolute top-28 left-0 right-0 h-0.5 bg-gray-400"></div>
-                                                    <div className="absolute top-36 left-0 right-0 h-0.5 bg-gray-400"></div>
-                                                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">Ladder</span>
-                                                </div>
-                                                <div className="w-12 h-48 bg-gray-200 relative">
-                                                    <div 
-                                                        className="absolute left-0 right-0 h-1 bg-blue-600"
-                                                        style={{ top: `${Math.min(100, (result.primers["PRIMER_PAIR_0_PRODUCT_SIZE"] / 1000) * 100)}%` }}
-                                                    ></div>
-                                                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">{result.primers["PRIMER_PAIR_0_PRODUCT_SIZE"]} bp</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {result.primers["PRIMER_PAIR_0_QPCR_WARNING"] && (
-                                            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mt-6">
-                                                <p className="text-yellow-700 font-semibold">{t.qpcrWarning}: {result.primers["PRIMER_PAIR_0_QPCR_WARNING"]}</p>
-                                            </div>
-                                        )}
-
-                                        <div className="bg-purple-50 p-6 rounded-lg border border-purple-200 mt-6 text-center">
-                                            <p className="font-semibold mb-4 text-purple-800">{t.expFeedbackLabel}</p>
-                                            {expFeedbackStatus === "success" ? <p className="text-green-600 font-bold">Thank you! Your feedback helps improve AI.</p> : 
-                                            <div className="flex justify-center gap-4">
-                                                <button onClick={() => handleExpFeedback("success")} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold">{t.expSuccess}</button>
-                                                <button onClick={() => handleExpFeedback("failed")} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold">{t.expFailed}</button>
-                                                <button onClick={() => handleExpFeedback("dimer")} className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-bold">{t.expDimer}</button>
-                                            </div>}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === "toolbox" && (
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block font-semibold mb-2">{t.seqLabel}</label>
-                            <textarea dir="ltr" value={toolboxSeq} onChange={(e) => setToolboxSeq(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="ATGC..." />
-                        </div>
-                        <div className="flex gap-4 flex-wrap">
-                            <button onClick={handleCalculateTm} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">{t.tmButton}</button>
-                            <div className="flex items-center gap-2">
-                                <label className="font-semibold text-sm">{t.companyLabel}:</label>
-                                <select value={company} onChange={(e) => setCompany(e.target.value)} className="border rounded-lg p-2">
-                                    <option value="IDT">IDT</option>
-                                    <option value="Twist">Twist</option>
-                                </select>
-                                <button onClick={handleFormatOrder} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold">{t.formatButton}</button>
-                            </div>
-                        </div>
-                        {toolboxTm !== null && (
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                                <p className="text-lg"><strong>Tm (Nearest-Neighbor):</strong> {toolboxTm} °C</p>
-                            </div>
-                        )}
-                        {formattedSeq && (
-                            <div className="bg-green-50 p-4 rounded-lg">
-                                <p className="text-lg"><strong>Formatted for {company}:</strong> {formattedSeq}</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === "gibson" && (
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block font-semibold mb-2">{t.insertLabel}</label>
-                            <textarea dir="ltr" value={insertSeq} onChange={(e) => setInsertSeq(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="ATGC..." />
-                        </div>
-                        <div>
-                            <label className="block font-semibold mb-2">{t.vectorLabel}</label>
-                            <textarea dir="ltr" value={vectorSeq} onChange={(e) => setVectorSeq(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="ATGC..." />
-                        </div>
-                        <div>
-                            <label className="block font-semibold mb-2">{t.overlapLabel}</label>
-                            <input dir="ltr" type="number" value={overlapLength} onChange={(e) => setOverlapLength(parseInt(e.target.value))} className="w-32 border rounded-lg p-3" />
-                        </div>
-                        <button onClick={handleGibson} disabled={loading} className="w-full bg-purple-600 text-white font-bold py-3 rounded-lg">{loading ? t.loading : t.gibsonButton}</button>
-                        
-                        {gibsonResult && (
-                            <div className="mt-6 bg-purple-50 p-6 rounded-lg">
-                                <h3 className="font-bold text-lg mb-4 text-purple-800">Gibson Assembly Primers</h3>
-                                <div className="space-y-4">
-                                    <div className="bg-white p-4 rounded border">
-                                        <p className="font-semibold text-blue-700">{t.forwardPrimer}</p>
-                                        <p className="font-mono text-sm break-all" dir="ltr">{gibsonResult.insert_primers.forward}</p>
-                                        <p className="text-xs text-gray-500 mt-2">Overlap: {gibsonResult.insert_primers.forward_overlap}</p>
-                                        <p className="text-xs text-gray-500">Tm (annealing): {gibsonResult.insert_primers.forward_tm} °C</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded border">
-                                        <p className="font-semibold text-blue-700">{t.reversePrimer}</p>
-                                        <p className="font-mono text-sm break-all" dir="ltr">{gibsonResult.insert_primers.reverse}</p>
-                                        <p className="text-xs text-gray-500 mt-2">Overlap: {gibsonResult.insert_primers.reverse_overlap}</p>
-                                        <p className="text-xs text-gray-500">Tm (annealing): {gibsonResult.insert_primers.reverse_tm} °C</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === "crispr" && (
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block font-semibold mb-2">{t.targetSeqLabel}</label>
-                            <textarea dir="ltr" value={crisprTarget} onChange={(e) => setCrisprTarget(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="ATGC..." />
-                        </div>
-                        <div>
-                            <label className="block font-semibold mb-2">{t.pamLabel}</label>
-                            <input dir="ltr" type="text" value={pamSeq} onChange={(e) => setPamSeq(e.target.value)} className="w-32 border rounded-lg p-3 font-mono" placeholder="NGG" />
-                        </div>
-                        <button onClick={handleCRISPR} disabled={loading} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg">{loading ? t.loading : t.crisprButton}</button>
-                        
-                        {crisprResult && (
-                            <div className="mt-6">
-                                <h3 className="font-bold text-lg mb-4">Top gRNAs Found: {crisprResult.total_guides}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {crisprResult.top_guides.map((guide: any, idx: number) => (
-                                        <div key={idx} className="border p-4 rounded-lg bg-red-50">
-                                            <p className="text-xs text-gray-500">{t.position}: {guide.start + 1} ({guide.strand})</p>
-                                            <p className="font-mono text-sm break-all mt-1" dir="ltr"><strong>{t.guideSeq}:</strong> {guide.guide} <span className="text-red-600">[{guide.pam}]</span></p>
-                                            <p className="text-xs text-gray-500 mt-1">{t.gcPercent}: {guide.gc_content}%</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === "structure" && (
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block font-semibold mb-2">{t.proteinSeqLabel}</label>
-                            <textarea dir="ltr" value={structureSeq} onChange={(e) => setStructureSeq(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="MKTIIALSYIFCLVFADYKDDDDK..." />
-                        </div>
-                        <button onClick={handlePredictStructure} disabled={structureLoading} className="w-full bg-pink-600 text-white font-bold py-3 rounded-lg">
-                            {structureLoading ? t.loading : t.predictButton}
-                        </button>
-                        
-                        {structurePdb && (
-                            <div className="mt-6 border rounded-lg overflow-hidden">
-                                <h3 className="font-bold p-4 bg-pink-50">Predicted Structure</h3>
-                                <div ref={viewerRef} className="w-full h-96 relative" />
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === "tutorial" && (
-                    <div className="space-y-6 bg-white p-6 rounded-lg border">
-                        <h2 className="text-2xl font-bold text-blue-700">📚 Primer Design Tutorial</h2>
-                        <div className="prose max-w-none text-gray-700">
-                            <h3 className="text-xl font-semibold mt-6 text-blue-600">1. What is a Primer?</h3>
-                            <p className="mt-2">A primer is a short, single-stranded nucleic acid sequence that serves as a starting point for DNA synthesis. In a Polymerase Chain Reaction (PCR), the Forward and Reverse primers define the exact boundaries of the DNA region that will be exponentially amplified.</p>
-                            
-                            <h3 className="text-xl font-semibold mt-6 text-blue-600">2. Key Parameters for a Successful PCR</h3>
-                            <ul className="list-disc pl-6 mt-2 space-y-2">
-                                <li><strong>Tm (Melting Temperature):</strong> The temperature at which 50% of the primer binds to its complementary sequence. For a successful PCR, the Tm of the Forward and Reverse primers should be within 2-3°C of each other, ideally between 55°C and 65°C. Your annealing temperature is usually set 3-5°C below the primer Tm.</li>
-                                <li><strong>GC Content:</strong> The percentage of Guanine and Cytosine bases. GC pairs have three hydrogen bonds (vs. two for AT), making them stronger. Aim for 40-60% for optimal binding and stability.</li>
-                                <li><strong>Hairpin:</strong> Occurs when a primer folds onto itself due to internal complementary bases. A strong hairpin (high risk) will compete with the target DNA and prevent proper amplification.</li>
-                                <li><strong>Dimer:</strong> Occurs when primers bind to each other (Primer-Dimer) or to themselves (Self-Dimer). This consumes your primers and creates unwanted by-products. Always check for strong dimers before ordering.</li>
-                            </ul>
-
-                            <h3 className="text-xl font-semibold mt-6 text-blue-600">3. Pro Tips for qPCR & Cloning</h3>
-                            <ul className="list-disc pl-6 mt-2 space-y-2">
-                                <li><strong>For qPCR:</strong> To prevent amplifying genomic DNA, design one of your primers to sit on an exon-exon junction (if you are using cDNA).</li>
-                                <li><strong>For Cloning:</strong> If you need to add restriction sites or overlaps (e.g., for Gibson Assembly), use the <strong>Tail Sequence</strong> feature to append extra nucleotides to the 5' end of your primers.</li>
-                            </ul>
-
-                            <h3 className="text-xl font-semibold mt-6 text-blue-600">4. Ordering Your Primers</h3>
-                            <p className="mt-2">Once designed, you can order your oligos from companies like IDT or Twist Bioscience. Always make sure to select the correct purification method (like Standard Desalting for PCR, or PAGE for cloning). Our <strong>Primer Toolbox</strong> automatically formats your sequences for IDT, so you can copy and paste them directly!</p>
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === "multiplex" && (
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block font-semibold mb-2">{t.sequencesLabel}</label>
-                            <textarea dir="ltr" value={multiplexSequences} onChange={(e) => setMultiplexSequences(e.target.value)} className="w-full border rounded-lg p-3 h-48 font-mono text-sm" placeholder="ATGC...\nATGC...\nATGC..." />
-                        </div>
-                        <button onClick={handleMultiplex} disabled={loading} className="w-full bg-teal-600 text-white font-bold py-3 rounded-lg">{loading ? t.loading : t.designMultiplex}</button>
-                        
-                        {multiplexResult && (
-                            <div className="mt-6">
-                                <h3 className="font-bold text-lg mb-4">Multiplex Results</h3>
-                                {multiplexResult.results.map((res: any, idx: number) => (
-                                    <div key={idx} className="border p-4 rounded-lg mb-4 bg-gray-50">
-                                        <h4 className="font-bold text-blue-700">Sequence {idx + 1}</h4>
-                                        {res.PRIMER_LEFT_0_SEQUENCE ? (
-                                            <p className="font-mono text-sm" dir="ltr">F: {res.PRIMER_LEFT_0_SEQUENCE} | R: {res.PRIMER_RIGHT_0_SEQUENCE}</p>
-                                        ) : (
-                                            <p className="text-red-500">No primers designed for this sequence.</p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === "library" && (
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold mb-4">My Saved Primers</h2>
-                        {myPrimers.length === 0 ? <p>No primers saved yet.</p> : myPrimers.map((p, idx) => (
-                            <div key={idx} className="border p-4 rounded-lg flex justify-between items-center bg-gray-50">
-                                <div>
-                                    <p className="font-bold">{p.name}</p>
-                                    <p className="font-mono text-sm" dir="ltr">{p.left_seq} / {p.right_seq}</p>
-                                </div>
-                                <span className="text-sm text-gray-500">Tm: {p.tm.toFixed(1)}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
+          {result.pairs.length === 0 ? (
+            <div className="bg-yellow-50 border-s-4 border-yellow-500 p-4 rounded">
+              <h3 className="font-bold">{t.noPrimers}</h3><p className="text-sm mt-1">{t.noPrimersHelp}</p>
+              <pre className="text-xs mt-2 whitespace-pre-wrap" dir="ltr">{[result.explain.PRIMER_LEFT_EXPLAIN, result.explain.PRIMER_RIGHT_EXPLAIN, result.explain.PRIMER_PAIR_EXPLAIN].filter(Boolean).join("\n")}</pre>
             </div>
-        </main>
-    );
+          ) : (
+            <div className="grid lg:grid-cols-3 gap-5">
+              {result.pairs.map((pr: any, i: number) => (
+                <article key={i} className="border rounded-xl p-4 bg-white shadow-sm flex flex-col gap-3">
+                  <header className="flex justify-between items-center border-b pb-2"><h4 className="font-bold text-blue-800">{t.pair} {i + 1}</h4><Risk v={pr.risk.overall} t={t} /></header>
+                  {(["left", "right"] as const).map((sd) => (
+                    <div key={sd}>
+                      <p className="text-xs font-semibold text-slate-500 mb-1">{side(sd)} · {pr[sd].start1}–{pr[sd].end1}</p>
+                      <div className="bg-slate-50 rounded p-2 font-mono text-sm flex justify-between items-center" dir="ltr"><span className="break-all">{pr[sd].seq_tail}</span><CopyBtn text={pr[sd].seq_tail} t={t} /></div>
+                      <p className="text-xs text-slate-600 mt-1" dir="ltr">{t.tm} {pr[sd].tm} °C · {t.gc} {pr[sd].gc}% · {pr[sd].len} {t.len}</p>
+                    </div>
+                  ))}
+                  {pr.probe && (<div><p className="text-xs font-semibold text-purple-700 mb-1">{t.probe}</p>
+                    <div className="bg-purple-50 rounded p-2 font-mono text-sm flex justify-between" dir="ltr"><span className="break-all">{pr.probe.seq}</span><CopyBtn text={pr.probe.seq} t={t} /></div>
+                    <p className="text-xs text-slate-600 mt-1" dir="ltr">{t.tm} {pr.probe.tm} °C</p></div>)}
+                  <dl className="text-xs space-y-1">
+                    {([[t.hairpin, worstOf(pr.hairpin.left.risk, pr.hairpin.right.risk), `${pr.hairpin.left.tm}/${pr.hairpin.right.tm} °C`],
+                      [t.selfDimer, worstOf(pr.self_dimer.left.risk, pr.self_dimer.right.risk), `${pr.self_dimer.left.dg}/${pr.self_dimer.right.dg} kcal`],
+                      [t.heteroDimer, pr.hetero_dimer.risk, `${pr.hetero_dimer.tm} °C · ${pr.hetero_dimer.dg} kcal`],
+                      [t.endDimer, pr.end_dimer.risk, `${pr.end_dimer.dg} kcal`]] as any[]).map(([l, r, d]) => (
+                      <div key={l} className="flex justify-between items-center gap-2"><dt>{l}</dt><dd className="flex gap-2 items-center"><span className="text-slate-500" dir="ltr">{d}</span><Risk v={r} t={t} /></dd></div>))}
+                  </dl>
+                  <div className="bg-slate-100 rounded p-2 text-sm" dir="ltr"><div className="flex justify-between font-semibold"><span>{t.size}: {pr.product_size} bp</span><span>{t.anneal}: {pr.anneal_temp} °C</span></div></div>
+                  <p className={`text-xs p-2 rounded ${pr.exon.status === "none" ? "bg-yellow-50 text-yellow-900" : pr.exon.status === "unknown" ? "bg-slate-50 text-slate-600" : "bg-green-50 text-green-900"}`}>{t["ex_" + pr.exon.status]}</p>
+                  <ul className="text-xs space-y-1">{pr.notes.map((n: any, k: number) => (
+                    <li key={k} className={n.kind === "good" ? "text-green-800" : "text-yellow-800"}>{n.kind === "good" ? "✓ " : "! "}{fmt(t["note_" + n.code], { ...n.p, side: n.p.side ? side(n.p.side) : "" })}</li>))}</ul>
+                  <div className="flex flex-wrap gap-2 mt-auto">
+                    <Btn kind="ghost" onClick={() => savePair(i)}>{saved[i] ? t.saved : t.save}</Btn>
+                    <Btn kind="ghost" onClick={() => getProtocol(i)}>{t.protocol}</Btn>
+                    <Btn kind="ghost" onClick={() => exportGb(i)}>{t.genbank}</Btn>
+                    <Btn onClick={() => runBlast(i)} disabled={blast[i]?.status === "running"}>{blast[i]?.status === "running" ? t.blasting : t.blast}</Btn>
+                  </div>
+                  {blast[i]?.status === "error" && <p className="text-xs text-red-700">{blast[i].error}</p>}
+                  {blast[i]?.status === "done" && (() => { const b = blast[i].result; return (
+                    <div className="text-xs bg-purple-50 border border-purple-200 rounded p-2 space-y-1">
+                      <p className="font-semibold">{b.n_products === 0 ? t.blastNone : fmt(t.blastSummary, { n: b.n_products, on: b.n_on_target, other: b.n_other })}</p>
+                      <ul className="list-disc ps-4" dir="ltr">{b.products.slice(0, 5).map((x: any) => <li key={x.accession} className="truncate" title={x.title}>{x.on_target ? "✓ " : "⚠ "}{x.accession} · {x.size} bp · {x.mismatches} mm</li>)}</ul>
+                      <p className="text-slate-500">{t.blastNote}</p></div>); })()}
+                </article>
+              ))}
+            </div>
+          )}
+          {result.pairs.length > 0 && <p className="text-xs text-slate-500" dir="ltr">{fmt(t.provenance, { v: result.parameters.primer3 })}</p>}
+
+          {result.mutation && (
+            <div className="border rounded-xl p-4 bg-white">
+              <h4 className="font-bold mb-1">{t.sdm}: {result.mutation.notation}{result.mutation.aa_change ? ` (p.${result.mutation.aa_change}, ${t["eff_" + result.mutation.effect]})` : ""}</h4>
+              <p className="text-xs text-slate-500 mb-3">{t.sdmHint}</p>
+              {result.sdm && (<div className="space-y-2 font-mono text-sm" dir="ltr">
+                <div className="bg-slate-50 p-2 rounded flex justify-between"><span className="break-all">F: {result.sdm.forward}</span><CopyBtn text={result.sdm.forward} t={t} /></div>
+                <div className="bg-slate-50 p-2 rounded flex justify-between"><span className="break-all">R: {result.sdm.reverse}</span><CopyBtn text={result.sdm.reverse} t={t} /></div>
+                <p className="text-xs font-sans">{result.sdm.length} nt · GC {result.sdm.gc}% · Tm {result.sdm.tm} °C — {result.sdm.meets_criteria ? t.sdmOk : t.sdmWeak}</p></div>)}
+            </div>
+          )}
+
+          {protocol && (
+            <div className="border rounded-xl p-4 bg-white text-sm space-y-1" dir="ltr">
+              <h4 className="font-bold mb-2">{t.protocolTitle} — {t.pair} {protoFor + 1} ({protocol.polymerase_profile})</h4>
+              {["initial_denaturation", "denaturation", "annealing", "extension", "final_extension", "cycles"].map((k) => <p key={k}><b>{k.replace(/_/g, " ")}:</b> {protocol[k]}</p>)}
+              {protocol.additives.map((a: string) => <p key={a} className="bg-yellow-50 p-2 rounded text-yellow-900">{t["additive_" + a]}</p>)}
+              <p className="text-xs text-slate-500 pt-2">{protocol.disclaimer}</p>
+            </div>
+          )}
+
+          {result.pairs.length > 0 && (<div className="border rounded-xl p-4 bg-white"><h4 className="font-bold mb-3">{t.gel}</h4><Gel sizes={result.pairs.map((x: any) => x.product_size)} t={t} /></div>)}
+
+          {result.pairs.length > 0 && (
+            <div className="border rounded-xl p-4 bg-purple-50 text-center space-y-3">
+              <p className="font-semibold text-purple-900">{t.feedbackTitle}</p>
+              {fbDone ? <p className="text-green-700 font-semibold">{t.fbThanks}</p> : (<>
+                <div className="flex justify-center gap-2 items-center text-sm"><span>{t.fbWhich}</span>
+                  <select className="border rounded p-1" value={fbPair} onChange={(e) => setFbPair(Number(e.target.value))}>{result.pairs.map((_: any, i: number) => <option key={i} value={i}>{i + 1}</option>)}</select></div>
+                <input className={inputCls + " max-w-md mx-auto"} placeholder={t.fbNotes} value={fbNotes} maxLength={500} onChange={(e) => setFbNotes(e.target.value)} />
+                <div className="flex flex-wrap justify-center gap-2">
+                  {[["success", "bg-green-600"], ["partial", "bg-blue-600"], ["failed", "bg-red-600"], ["dimer", "bg-yellow-600"]].map(([k, c]) => (
+                    <button key={k} onClick={() => sendFeedback(k)} className={`${c} text-white px-4 py-2 rounded-lg text-sm font-semibold`}>{t["fb_" + k]}</button>))}
+                </div></>)}
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Multiplex                                                           */
+/* ------------------------------------------------------------------ */
+function MultiplexTab({ t, call, fail }: Ctx) {
+  const [text, setText] = useState(""); const [prompt, setPrompt] = useState(""); const [gap, setGap] = useState(20);
+  const [res, setRes] = useState<any>(null); const [loading, setLoading] = useState(false);
+  const run = async () => {
+    setLoading(true); setRes(null);
+    try { setRes(await call("/multiplex-design", { method: "POST", body: JSON.stringify({ sequences: text.split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith(">")), user_prompt: prompt, min_size_gap: gap }) })); }
+    catch (e) { fail(e); } finally { setLoading(false); }
+  };
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">{t.mpHint}</p>
+      <textarea dir="ltr" className={seqCls + " h-40"} value={text} onChange={(e) => setText(e.target.value)} placeholder={"ATGC…\nATGC…"} />
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field label={t.prompt}><input className={inputCls} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t.promptPh} /></Field>
+        <Field label={t.mpGap}><input type="number" dir="ltr" className={inputCls} value={gap} onChange={(e) => setGap(parseInt(e.target.value) || 20)} /></Field>
+      </div>
+      <button onClick={run} disabled={loading} className="w-full bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold py-3 rounded-lg">{loading ? t.working : t.mpBtn}</button>
+      {res && (<div className="space-y-3">
+        <p className={`font-semibold ${res.ok ? "text-green-700" : "text-yellow-800"}`}>{res.ok ? t.mpOk : t.mpBad}</p>
+        {!res.ok && <ul className="text-sm list-disc ps-5">{res.conflicts.map((c: any, i: number) => <li key={i}>{t.target} {c.a + 1} ↔ {c.b + 1}: {c.type === "size" ? t.mpSize : t.mpDimer}</li>)}</ul>}
+        {res.pairs.map((x: any, i: number) => (<div key={i} className="border rounded-lg p-3 bg-slate-50 font-mono text-sm" dir="ltr">
+          <b className="font-sans text-blue-800">{t.target} {i + 1}</b> · {x.size} bp<br />F: {x.left} ({x.ltm} °C)<br />R: {x.right} ({x.rtm} °C)</div>))}
+      </div>)}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Gibson                                                              */
+/* ------------------------------------------------------------------ */
+function GibsonTab({ t, call, fail }: Ctx) {
+  const [ins, setIns] = useState(""); const [vec, setVec] = useState(""); const [ov, setOv] = useState(20); const [pos, setPos] = useState(0); const [tm, setTm] = useState(60);
+  const [res, setRes] = useState<any>(null); const [loading, setLoading] = useState(false);
+  const run = async () => {
+    setLoading(true); setRes(null);
+    try { setRes((await call("/gibson-design", { method: "POST", body: JSON.stringify({ insert_sequence: ins, vector_sequence: vec, overlap_length: ov, insertion_pos: pos, target_tm: tm }) })).insert_primers); }
+    catch (e) { fail(e); } finally { setLoading(false); }
+  };
+  const P = ({ label, ovs, ann, tmv, risk }: any) => (
+    <div className="bg-white border rounded-lg p-4"><p className="font-semibold text-blue-800">{label}</p>
+      <p className="font-mono text-sm break-all mt-1" dir="ltr"><span className="text-purple-700">{ovs}</span><span>{ann}</span></p>
+      <p className="text-xs text-slate-500 mt-1" dir="ltr">{t.annealSeq} Tm {tmv} °C · {t.hairpin}: <Risk v={risk} t={t} /></p></div>);
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">{t.gibsonHint}</p>
+      <Field label={t.gibsonInsert}><textarea dir="ltr" className={seqCls + " h-24"} value={ins} onChange={(e) => setIns(e.target.value)} /></Field>
+      <Field label={t.gibsonVector}><textarea dir="ltr" className={seqCls + " h-24"} value={vec} onChange={(e) => setVec(e.target.value)} /></Field>
+      <div className="grid md:grid-cols-3 gap-4" dir="ltr">
+        <Field label={t.overlap}><input type="number" className={inputCls} value={ov} onChange={(e) => setOv(parseInt(e.target.value) || 20)} /></Field>
+        <Field label={t.insPos}><input type="number" className={inputCls} value={pos} onChange={(e) => setPos(parseInt(e.target.value) || 0)} /></Field>
+        <Field label={t.targetTm}><input type="number" className={inputCls} value={tm} onChange={(e) => setTm(parseFloat(e.target.value) || 60)} /></Field>
+      </div>
+      <button onClick={run} disabled={loading} className="w-full bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold py-3 rounded-lg">{loading ? t.working : t.gibsonBtn}</button>
+      {res && (<div className="space-y-3 bg-purple-50 p-4 rounded-xl">
+        <P label={t.forward} ovs={res.forward_overlap} ann={res.forward_anneal} tmv={res.forward_tm} risk={res.forward_risk} />
+        <P label={t.reverse} ovs={res.reverse_overlap} ann={res.reverse_anneal} tmv={res.reverse_tm} risk={res.reverse_risk} />
+        <p className="text-xs" dir="ltr"><b>{t.overlapTm}:</b> {res.overlap_tm.join(" / ")} °C · <span className="text-purple-700">■</span> {t.overlapSeq}</p>
+        <p className="text-xs font-mono" dir="ltr"><b className="font-sans">{t.junctionPreview}:</b> {res.junction_left} … {res.junction_right}</p>
+      </div>)}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* CRISPR                                                              */
+/* ------------------------------------------------------------------ */
+function CrisprTab(p: Ctx & { seq: string; setSeq: (s: string) => void; annotation: any; onGuides: (g: any[]) => void; openExplorer: (aa: number) => void }) {
+  const { t, call, fail, seq, setSeq, annotation } = p;
+  const [enzyme, setEnzyme] = useState("SpCas9"); const [pam, setPam] = useState("");
+  const [res, setRes] = useState<any>(null); const [loading, setLoading] = useState(false);
+  const run = async () => {
+    setLoading(true); setRes(null);
+    try { const r = await call("/crispr-design", { method: "POST", body: JSON.stringify({ sequence: seq, enzyme, pam, annotation }) }); setRes(r); p.onGuides(r.top_guides); }
+    catch (e) { fail(e); } finally { setLoading(false); }
+  };
+  return (
+    <div className="space-y-4">
+      <Field label={t.sequence}><textarea dir="ltr" className={seqCls + " h-28"} value={seq} onChange={(e) => setSeq(e.target.value)} /></Field>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field label={t.enzyme}><select className={inputCls} value={enzyme} onChange={(e) => setEnzyme(e.target.value)}><option>SpCas9</option><option>SaCas9</option><option>Cas12a</option></select></Field>
+        <Field label={t.pamOverride}><input dir="ltr" className={seqCls} value={pam} onChange={(e) => setPam(e.target.value.toUpperCase())} placeholder="NGG" /></Field>
+      </div>
+      <button onClick={run} disabled={loading || !seq.trim()} className="w-full bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white font-bold py-3 rounded-lg">{loading ? t.working : t.crisprBtn}</button>
+      {res && (<div className="space-y-3">
+        <p className="text-sm font-semibold">{fmt(t.totalGuides, { n: res.total_guides })}</p>
+        <p className="text-xs bg-yellow-50 p-2 rounded text-yellow-900">{res.score_note}</p>
+        <div className="grid md:grid-cols-2 gap-3">{res.top_guides.map((g: any, i: number) => (
+          <div key={i} className="border rounded-lg p-3 bg-red-50">
+            <p className="font-mono text-sm break-all" dir="ltr">{g.guide} <span className="text-red-700">[{g.pam}]</span></p>
+            <p className="text-xs text-slate-600 mt-1" dir="ltr">{t.score} {g.score} · GC {g.gc_content}% · {t.strand} {g.strand} · {t.position} {g.start1}–{g.end1}</p>
+            {g.cut && (<p className="text-xs mt-1">{t.cutAt} {g.cut.pos}: {t["region_" + g.cut.region]}{g.cut.exon ? ` · ${t.exon} ${g.cut.exon}` : ""}{g.cut.aa_pos ? ` · ${g.cut.aa}${g.cut.aa_pos}` : ""}
+              {g.cut.aa_pos && <button className="ms-2 text-blue-700 underline" onClick={() => p.openExplorer(g.cut.aa_pos)}>{t.showInExplorer}</button>}</p>)}
+          </div>))}</div>
+      </div>)}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Toolbox                                                             */
+/* ------------------------------------------------------------------ */
+function ToolboxTab({ t, call, fail }: Ctx) {
+  const [s, setS] = useState(""); const [name, setName] = useState("primer"); const [company, setCompany] = useState("IDT");
+  const [tm, setTm] = useState<any>(null); const [fmtRes, setFmtRes] = useState<any>(null);
+  return (
+    <div className="space-y-5">
+      <Field label={t.sequence}><textarea dir="ltr" className={seqCls + " h-20"} value={s} onChange={(e) => setS(e.target.value)} placeholder="ATGC…" /></Field>
+      <div className="flex flex-wrap gap-3 items-end">
+        <Btn onClick={async () => { try { setTm(await call("/calculate-tm", { method: "POST", body: JSON.stringify({ sequence: s }) })); } catch (e) { fail(e); } }}>{t.tmBtn}</Btn>
+        <Field label={t.nameLabel}><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label={t.companyLabel}><select className={inputCls} value={company} onChange={(e) => setCompany(e.target.value)}><option>IDT</option><option>Eurofins</option><option>Generic</option></select></Field>
+        <Btn kind="ghost" onClick={async () => { try { setFmtRes(await call("/order-format", { method: "POST", body: JSON.stringify({ sequence: s, name, company }) })); } catch (e) { fail(e); } }}>{t.convert}</Btn>
+      </div>
+      {tm && (<div className="bg-blue-50 p-4 rounded-lg text-sm space-y-1" dir="ltr">
+        <p className="text-lg"><b>Tm {tm.tm} °C</b> · GC {tm.gc}% · {tm.length} nt</p>
+        <p>{t.hairpin}: {tm.hairpin.tm} °C / {tm.hairpin.dg} kcal · {t.selfDimer}: {tm.homodimer.tm} °C / {tm.homodimer.dg} kcal</p>
+        <p className="text-xs text-slate-500">{tm.method} · {tm.conditions}</p></div>)}
+      {fmtRes && (<div className="bg-green-50 p-4 rounded-lg" dir="ltr"><pre className="text-sm whitespace-pre-wrap">{fmtRes.formatted}</pre>
+        <p className="text-xs text-slate-600 mt-1">{t.recPur}: {fmtRes.recommended_purification}</p>
+        <div className="mt-2 flex gap-2"><CopyBtn text={fmtRes.formatted} t={t} /><button className="text-xs text-blue-700" onClick={() => download("order.csv", fmtRes.formatted, "text/csv")}>CSV</button></div></div>)}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Explorer: transcript map + AlphaFold 3D with hover/click evidence    */
+/* ------------------------------------------------------------------ */
+const plddtColor = (b: number) => (b > 90 ? 0x0053d6 : b > 70 ? 0x65cbf3 : b > 50 ? 0xffdb13 : 0xff7d45);
+const plddtBand = (b: number) => (b > 90 ? "conf_vh" : b > 70 ? "conf_h" : b > 50 ? "conf_l" : "conf_vl");
+
+function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa: number | null; llm: boolean }) {
+  const { t, call, fail, gene, markers, token } = p;
+  const [acc, setAcc] = useState(gene?.uniprot?.accession || "");
+  const [af, setAf] = useState<any>(null); const [ann, setAnn] = useState<any>(null);
+  const [custom, setCustom] = useState(""); const [source, setSource] = useState("");
+  const [loading, setLoading] = useState(false); const [libReady, setLibReady] = useState(false);
+  const [hover, setHover] = useState<any>(null); const [sel, setSel] = useState<number | null>(p.focusAa);
+  const [selMarker, setSelMarker] = useState<any>(null);
+  const [papers, setPapers] = useState<any[] | null>(null); const [explain, setExplain] = useState<any>(null); const [busy, setBusy] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null); const viewerRef = useRef<any>(null);
+  const cds = gene?.annotation?.cds_start ? gene.annotation : null;
+
+  useEffect(() => { if (p.focusAa) setSel(p.focusAa); }, [p.focusAa]);
+  useEffect(() => { if ((window as any).$3Dmol) setLibReady(true); }, []);
+
+  const load = async () => {
+    if (!acc.trim()) return p.notify(t.noGeneYet);
+    setLoading(true); setSource("AlphaFold DB");
+    try {
+      const [s, a] = await Promise.all([call(`/protein-structure?uniprot=${encodeURIComponent(acc.trim())}`), call(`/protein-annotations?uniprot=${encodeURIComponent(acc.trim())}`).catch(() => null)]);
+      setAf(s.pdb); setAnn(a); setPapers(null); setExplain(null);
+    } catch (e) { fail(e); } finally { setLoading(false); }
+  };
+  const predict = async () => {
+    setLoading(true); setSource("ESMFold");
+    try { const r = await call("/predict-structure", { method: "POST", body: JSON.stringify({ sequence: custom }) }); setAf(r.pdb_data); setAnn(null); } catch (e) { fail(e); } finally { setLoading(false); }
+  };
+
+  // build viewer
+  useEffect(() => {
+    const $3 = (window as any).$3Dmol;
+    if (!af || !libReady || !boxRef.current || !$3) return;
+    boxRef.current.innerHTML = "";
+    const v = $3.createViewer(boxRef.current, { backgroundColor: "white" });
+    v.addModel(af, "pdb");
+    v.setStyle({}, { cartoon: { colorfunc: (a: any) => plddtColor(a.b) } });
+    v.setHoverable({}, true, (a: any) => { if (a) setHover({ resi: a.resi, resn: a.resn, b: a.b }); }, () => {});
+    v.setClickable({}, true, (a: any) => { if (a) { setSel(a.resi); setSelMarker(null); } });
+    v.zoomTo(); v.render();
+    viewerRef.current = v;
+    return () => { try { v.clear(); } catch { /* ignore */ } };
+  }, [af, libReady]);
+
+  // highlights
+  useEffect(() => {
+    const v = viewerRef.current; if (!v) return;
+    v.setStyle({}, { cartoon: { colorfunc: (a: any) => plddtColor(a.b) } });
+    if (selMarker?.aaFrom) v.addStyle({ resi: `${selMarker.aaFrom}-${selMarker.aaTo}` }, { stick: { color: "orange", radius: 0.22 } });
+    if (sel) { v.addStyle({ resi: sel }, { stick: { color: "magenta", radius: 0.3 }, sphere: { color: "magenta", radius: 0.6 } }); }
+    v.render();
+  }, [sel, selMarker, af]);
+
+  const aaAt = (pos: number) => (cds && pos >= cds.cds_start && pos <= cds.cds_end ? Math.floor((pos - cds.cds_start) / 3) + 1 : null);
+  const active = sel ?? hover?.resi ?? null;
+  const resn = hover && hover.resi === active ? hover.resn : null;
+  const feats = useMemo(() => (ann && active ? ann.features.filter((f: any) => f.start <= active && active <= f.end).sort((a: any, b: any) => (a.end - a.start) - (b.end - b.start)) : []), [ann, active]);
+  const dnaStart = cds && active ? cds.cds_start + 3 * (active - 1) : null;
+  const covering = dnaStart ? markers.filter((m) => m.start1 <= dnaStart + 2 && m.end1 >= dnaStart) : [];
+
+  const findPapers = async () => {
+    if (!ann?.gene) return; setBusy(true);
+    try { const term = feats[0]?.description?.split(";")[0].slice(0, 40) || ""; setPapers((await call(`/literature?gene=${encodeURIComponent(ann.gene)}&term=${encodeURIComponent(term)}`)).results); }
+    catch (e) { fail(e); } finally { setBusy(false); }
+  };
+  const doExplain = async () => {
+    if (!token) return p.notify(t.loginRequired); setBusy(true);
+    try { setExplain(await call("/explain-residue", { method: "POST", body: JSON.stringify({ uniprot: acc.trim(), residue: active, lang: p.lang }) })); }
+    catch (e) { fail(e); } finally { setBusy(false); }
+  };
+
+  const L = cds ? gene!.sequence.length : 0;
+  const mk = markers.map((m) => ({ ...m, aaFrom: aaAt(m.start1), aaTo: aaAt(m.end1) }));
+
+  return (
+    <div className="space-y-5">
+      <Script src="https://3dmol.org/build/3Dmol-min.js" strategy="afterInteractive" onReady={() => setLibReady(true)} />
+      <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end">
+        <Field label={t.uniprot}><input dir="ltr" className={seqCls} value={acc} onChange={(e) => setAcc(e.target.value.toUpperCase())} placeholder="P38398" /></Field>
+        <Btn onClick={load} disabled={loading}>{loading ? t.working : t.loadStruct}</Btn>
+      </div>
+      {!gene && !acc && <p className="text-sm text-slate-500">{t.noGeneYet}</p>}
+
+      {cds && (
+        <section className="border rounded-xl p-4 bg-white" aria-label={t.mapTitle}>
+          <h4 className="font-bold text-sm mb-1">{t.mapTitle} — {gene!.symbol} {gene!.accession}</h4>
+          <p className="text-xs text-slate-500 mb-2">{t.mapHint}</p>
+          <svg viewBox="0 0 1000 110" className="w-full" direction="ltr">
+            {gene!.annotation.exons.map((e: number[], i: number) => (<rect key={i} x={(e[0] / L) * 1000} y="40" width={Math.max(1, ((e[1] - e[0] + 1) / L) * 1000)} height="26" fill={i % 2 ? "#93c5fd" : "#3b82f6"}><title>{t.exon} {i + 1}: {e[0]}–{e[1]}</title></rect>))}
+            <rect x={(cds.cds_start / L) * 1000} y="70" width={((cds.cds_end - cds.cds_start + 1) / L) * 1000} height="6" fill="#0f172a"><title>CDS {cds.cds_start}–{cds.cds_end}</title></rect>
+            {mk.map((m, i) => { const x = (m.start1 / L) * 1000; const w = Math.max(3, ((m.end1 - m.start1 + 1) / L) * 1000); const y = m.kind === "primer" ? 18 : 84;
+              return (<g key={i} className="cursor-pointer" onClick={() => { setSelMarker(m); if (m.aaFrom) setSel(m.aaFrom); }}>
+                <rect x={x} y={y} width={w} height="14" rx="2" fill={m.kind === "primer" ? "#ea580c" : "#16a34a"} stroke={selMarker === m ? "#000" : "none"} /><title>{m.label} {m.start1}–{m.end1}{m.aaFrom ? ` · aa ${m.aaFrom}-${m.aaTo}` : ""}</title></g>); })}
+          </svg>
+        </section>
+      )}
+
+      {af && (
+        <div className="grid lg:grid-cols-[1.4fr_1fr] gap-4">
+          <div>
+            <div ref={boxRef} className="w-full border rounded-xl overflow-hidden relative bg-white" style={{ height: 480 }} />
+            <div className="flex flex-wrap gap-3 text-xs mt-2" dir="ltr">
+              {[["#0053d6", ">90"], ["#65cbf3", "70–90"], ["#ffdb13", "50–70"], ["#ff7d45", "<50"]].map(([c, l]) => (<span key={l} className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: c }} />{l}</span>))}
+              <span className="text-slate-500">pLDDT · {source}</span></div>
+          </div>
+          <aside className="border rounded-xl p-4 bg-white text-sm space-y-3 min-h-[200px]" aria-live="polite">
+            {!active ? <p className="text-slate-500">{t.hoverHint}</p> : (<>
+              <h4 className="font-bold text-blue-800" dir="ltr">{resn ? `${resn} ${active}${AA3[resn] ? ` (${AA3[resn]})` : ""}` : `${t.residue} ${active}`}</h4>
+              {hover && hover.resi === active && <p className="text-xs">{t.plddt}: {Math.round(hover.b)} — {t[plddtBand(hover.b)]}</p>}
+              <div><p className="font-semibold text-xs mb-1">{t.features}</p>
+                {feats.length === 0 ? <p className="text-xs text-slate-500">{t.noFeat}</p> : (<ul className="space-y-1 text-xs">{feats.slice(0, 6).map((f: any, i: number) => (
+                  <li key={i}><b>{f.type}</b> {f.start}–{f.end}{f.description ? `: ${f.description}` : ""}{f.variant ? ` (${f.variant})` : ""}
+                    {f.pubmed.map((id: string) => <a key={id} className="text-blue-700 ms-1 underline" href={`https://pubmed.ncbi.nlm.nih.gov/${id}/`} target="_blank" rel="noreferrer">PMID {id}</a>)}</li>))}</ul>)}</div>
+              {dnaStart && <p className="text-xs" dir="ltr"><b>{t.dnaCodon}:</b> {dnaStart}–{dnaStart + 2}{covering.length > 0 && <> · {t.covers}: {covering.map((m) => m.label).join(", ")}</>}</p>}
+              {ann && (<div className="flex flex-wrap gap-2">
+                <Btn kind="ghost" onClick={findPapers} disabled={busy}>{t.findPapers}</Btn>
+                {p.llm && <Btn kind="dark" onClick={doExplain} disabled={busy}>{t.explain}</Btn>}</div>)}
+              {explain && (<div className="bg-slate-50 p-3 rounded text-xs space-y-2"><p className="whitespace-pre-wrap">{explain.text}</p>
+                <ul className="space-y-1">{explain.sources.map((s: any) => <li key={s.n}>[{s.n}] <a className="text-blue-700 underline" href={s.link} target="_blank" rel="noreferrer">{s.title}</a></li>)}</ul>
+                <p className="text-slate-500">{t.explainNote}</p></div>)}
+              {papers && (<div><p className="font-semibold text-xs mb-1">{t.papers}</p><ul className="space-y-2 text-xs">{papers.map((x: any, i: number) => (
+                <li key={i}><a className="text-blue-700 underline" href={x.link} target="_blank" rel="noreferrer" dir="ltr">{x.title}</a><br /><span className="text-slate-500" dir="ltr">{x.authors} · {x.journal} {x.year}{x.open_access ? " · OA" : ""}</span></li>))}</ul></div>)}
+            </>)}
+            {ann?.function && <details className="text-xs"><summary className="cursor-pointer font-semibold">{t.functionTxt}</summary><p className="mt-1" dir="ltr">{ann.function}</p></details>}
+          </aside>
+        </div>
+      )}
+      <details className="text-sm"><summary className="cursor-pointer font-semibold">{t.orSeq}</summary>
+        <textarea dir="ltr" className={seqCls + " h-20 mt-2"} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="MKTIIALSYIFCLVFADYKDDDDK…" />
+        <div className="mt-2"><Btn kind="ghost" onClick={predict} disabled={loading || !custom.trim()}>{t.predict}</Btn></div></details>
+      <p className="text-xs text-slate-500">{t.licenseTxt}</p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Library                                                             */
+/* ------------------------------------------------------------------ */
+function LibraryTab({ t, call, token, notify, fail }: Ctx) {
+  const [rows, setRows] = useState<any[]>([]);
+  const load = useCallback(async () => { if (!token) return; try { setRows((await call("/my-primers")).primers); } catch (e) { fail(e); } }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
+  if (!token) return <p className="text-sm">{t.loginRequired}</p>;
+  const exportAll = () => {
+    const lines = ["Name,Sequence,Scale,Purification"];
+    rows.forEach((r) => { lines.push(`${r.name}_F,${r.left_seq},25nm,STD`); lines.push(`${r.name}_R,${r.right_seq},25nm,STD`); });
+    download("my_primers.csv", lines.join("\n") + "\n", "text/csv");
+  };
+  return (
+    <div className="space-y-3">
+      {rows.length === 0 ? <p>{t.libEmpty}</p> : <Btn kind="dark" onClick={exportAll}>{t.libExport}</Btn>}
+      {rows.map((r, i) => (
+        <div key={r.id ?? `l${i}`} className="border rounded-lg p-3 bg-slate-50 flex justify-between gap-3">
+          <div className="min-w-0"><p className="font-semibold">{r.name} {r.legacy && <span className="text-xs text-slate-500">({t.legacy})</span>}</p>
+            <p className="font-mono text-xs break-all" dir="ltr">{r.left_seq} / {r.right_seq}</p>
+            <p className="text-xs text-slate-500" dir="ltr">Tm {Number(r.left_tm || 0).toFixed(1)}/{Number(r.right_tm || 0).toFixed(1)} °C{r.product_size ? ` · ${r.product_size} bp` : ""}{r.gene ? ` · ${r.gene}` : ""}</p></div>
+          {r.id && <Btn kind="danger" onClick={async () => { try { await call(`/my-primers/${r.id}`, { method: "DELETE" }); load(); } catch (e) { notify(String((e as any).message)); } }}>{t.libDelete}</Btn>}
+        </div>))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page shell                                                          */
+/* ------------------------------------------------------------------ */
+export default function Home() {
+  const [lang, setLang] = useState<Lang>("en");
+  const [tab, setTab] = useState<TabId>("design");
+  const [token, setToken] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ msg: string; kind: "error" | "ok" } | null>(null);
+  const [config, setConfig] = useState<any>({ llm: false, max_seq_len: 30000 });
+  const [seq, setSeq] = useState("");
+  const [gene, setGene] = useState<GeneState | null>(null);
+  const [design, setDesign] = useState<any>(null);
+  const [guides, setGuides] = useState<any[]>([]);
+  const [focusAa, setFocusAa] = useState<number | null>(null);
+  const t = T[lang];
+
+  useEffect(() => {
+    setToken(localStorage.getItem("token"));
+    const l = localStorage.getItem("lang"); if (l === "fa" || l === "en") setLang(l);
+    apiFetch("/config", null).then(setConfig).catch(() => {});
+  }, []);
+  useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = lang === "fa" ? "rtl" : "ltr"; localStorage.setItem("lang", lang); }, [lang]);
+  useEffect(() => { if (!notice) return; const x = setTimeout(() => setNotice(null), 7000); return () => clearTimeout(x); }, [notice]);
+
+  const call = useCallback((path: string, init?: RequestInit) => apiFetch(path, token, init), [token]);
+  const notify = useCallback((msg: string, kind: "error" | "ok" = "error") => setNotice({ msg, kind }), []);
+  const fail = useCallback((e: any) => {
+    if (e?.code === "network") notify(t.networkErr);
+    else if (e?.code === "rate") notify(t.rateLimited);
+    else if (e?.code === "auth") { notify(t.loginRequired); }
+    else notify(String(e?.message || e));
+  }, [notify, t]);
+
+  const annotation = gene && gene.annotation && norm(seq) === gene.sequence ? gene.annotation : null;
+
+  const markers = useMemo(() => {
+    const m: any[] = [];
+    design?.pairs?.slice(0, 3).forEach((pr: any, i: number) => {
+      m.push({ kind: "primer", label: `P${i + 1}-F`, start1: pr.left.start1, end1: pr.left.end1 });
+      m.push({ kind: "primer", label: `P${i + 1}-R`, start1: pr.right.start1, end1: pr.right.end1 });
+    });
+    guides.slice(0, 8).forEach((g, i) => m.push({ kind: "guide", label: `gRNA${i + 1}`, start1: g.start1, end1: g.end1 }));
+    return m;
+  }, [design, guides]);
+
+  const ctx: Ctx = { t, lang, call, token, notify, fail };
+  const tabs: TabId[] = ["design", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "library"];
+
+  const logout = () => { localStorage.removeItem("token"); setToken(null); };
+  const del = async () => {
+    if (!confirm(t.deleteConfirm)) return;
+    try { await call("/delete-account", { method: "DELETE" }); logout(); } catch (e) { fail(e); }
+  };
+
+  return (
+    <main dir={lang === "fa" ? "rtl" : "ltr"} className="min-h-screen bg-slate-50 p-4 md:p-10 text-slate-800">
+      <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-5 md:p-8">
+        <header className="flex flex-wrap justify-between items-start gap-4 mb-6">
+          <div><h1 className="text-3xl font-bold text-blue-800">{t.title}</h1><p className="text-slate-500 mt-1 max-w-xl">{t.subtitle}</p></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <a href="/pricing" className="text-blue-700 text-sm font-semibold hover:underline">{t.pricing}</a>
+            <a href="/privacy" className="text-slate-500 text-sm hover:underline">{t.privacy}</a>
+            <button onClick={() => setLang(lang === "en" ? "fa" : "en")} className={`${btnBase} bg-slate-200`}>{lang === "en" ? "فارسی" : "English"}</button>
+            {token ? (<>
+              <Btn kind="ghost" onClick={logout}>{t.logout}</Btn>
+              <details className="relative"><summary className={`${btnBase} bg-slate-100 cursor-pointer list-none`}>{t.settings}</summary>
+                <div className="absolute end-0 mt-1 bg-white border rounded-lg shadow p-2 z-10"><Btn kind="danger" onClick={del}>{t.deleteAccount}</Btn></div></details>
+            </>) : <a href="/login" className={`${btnBase} bg-blue-700 text-white`}>{t.login}</a>}
+          </div>
+        </header>
+
+        {notice && <div role="alert" className={`mb-4 p-3 rounded-lg text-sm ${notice.kind === "error" ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"}`}>{notice.msg}</div>}
+
+        <nav className="flex border-b mb-6 overflow-x-auto" aria-label="tabs">
+          {tabs.map((id) => (<button key={id} onClick={() => setTab(id)} aria-current={tab === id} className={`px-4 py-2 font-semibold whitespace-nowrap ${tab === id ? "border-b-2 border-blue-700 text-blue-700" : "text-slate-500 hover:text-slate-800"}`}>{t["tab_" + id]}</button>))}
+        </nav>
+
+        {tab === "design" && <DesignTab {...ctx} seq={seq} setSeq={setSeq} gene={gene} setGene={setGene} annotation={annotation} maxLen={config.max_seq_len} onDesign={setDesign} />}
+        {tab === "multiplex" && <MultiplexTab {...ctx} />}
+        {tab === "gibson" && <GibsonTab {...ctx} />}
+        {tab === "crispr" && <CrisprTab {...ctx} seq={seq} setSeq={setSeq} annotation={annotation} onGuides={setGuides} openExplorer={(aa) => { setFocusAa(aa); setTab("explorer"); }} />}
+        {tab === "toolbox" && <ToolboxTab {...ctx} />}
+        {tab === "explorer" && <ExplorerTab {...ctx} gene={annotation ? gene : gene} markers={annotation ? markers : []} focusAa={focusAa} llm={!!config.llm} />}
+        {tab === "tutorial" && (<div className="space-y-5 max-w-3xl">{TUT[lang].map((s) => (<section key={s.h}><h3 className="text-lg font-bold text-blue-800">{s.h}</h3><p className="mt-1 text-slate-700 leading-relaxed">{s.p}</p></section>))}</div>)}
+        {tab === "library" && <LibraryTab {...ctx} />}
+
+        <footer className="mt-10 pt-4 border-t text-xs text-slate-500">{t.footer}</footer>
+      </div>
+    </main>
+  );
 }
