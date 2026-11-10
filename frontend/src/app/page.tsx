@@ -456,7 +456,7 @@ export default function Home() {
             
             setTimeout(() => {
                 if ((window as any).$3Dmol && viewerRef.current) {
-                    viewerRef.current.innerHTML = ""; // پاک کردن قبلی
+                    viewerRef.current.innerHTML = "";
                     const viewer = (window as any).$3Dmol.createViewer(viewerRef.current, { backgroundColor: "white" });
                     viewer.addModel(data.pdb_data, "pdb");
                     viewer.setStyle({}, { cartoon: { color: "spectrum" } });
@@ -804,21 +804,27 @@ export default function Home() {
 
                 {activeTab === "tutorial" && (
                     <div className="space-y-6 bg-white p-6 rounded-lg border">
-                        <h2 className="text-2xl font-bold text-blue-700">Primer Design Tutorial</h2>
-                        <div className="prose max-w-none">
-                            <h3 className="text-xl font-semibold mt-4">1. What is a Primer?</h3>
-                            <p>A primer is a short single-stranded nucleic acid used by all living organisms in the initiation of DNA synthesis. In PCR, primers define the region of DNA to be amplified.</p>
+                        <h2 className="text-2xl font-bold text-blue-700">📚 Primer Design Tutorial</h2>
+                        <div className="prose max-w-none text-gray-700">
+                            <h3 className="text-xl font-semibold mt-6 text-blue-600">1. What is a Primer?</h3>
+                            <p className="mt-2">A primer is a short, single-stranded nucleic acid sequence that serves as a starting point for DNA synthesis. In a Polymerase Chain Reaction (PCR), the Forward and Reverse primers define the exact boundaries of the DNA region that will be exponentially amplified.</p>
                             
-                            <h3 className="text-xl font-semibold mt-4">2. Key Parameters</h3>
-                            <ul className="list-disc pl-6">
-                                <li><strong>Tm (Melting Temperature):</strong> The temperature at which 50% of the primer binds to its complementary sequence. It's crucial for the annealing step. Usually between 55-65°C.</li>
-                                <li><strong>GC Content:</strong> The percentage of Guanine and Cytosine bases. Should be between 40-60% for optimal binding.</li>
-                                <li><strong>Hairpin:</strong> When a primer folds onto itself due to complementary bases. High risk can prevent binding to the target.</li>
-                                <li><strong>Dimer:</strong> When two primers bind to each other. This wastes primers and reduces efficiency.</li>
+                            <h3 className="text-xl font-semibold mt-6 text-blue-600">2. Key Parameters for a Successful PCR</h3>
+                            <ul className="list-disc pl-6 mt-2 space-y-2">
+                                <li><strong>Tm (Melting Temperature):</strong> The temperature at which 50% of the primer binds to its complementary sequence. For a successful PCR, the Tm of the Forward and Reverse primers should be within 2-3°C of each other, ideally between 55°C and 65°C. Your annealing temperature is usually set 3-5°C below the primer Tm.</li>
+                                <li><strong>GC Content:</strong> The percentage of Guanine and Cytosine bases. GC pairs have three hydrogen bonds (vs. two for AT), making them stronger. Aim for 40-60% for optimal binding and stability.</li>
+                                <li><strong>Hairpin:</strong> Occurs when a primer folds onto itself due to internal complementary bases. A strong hairpin (high risk) will compete with the target DNA and prevent proper amplification.</li>
+                                <li><strong>Dimer:</strong> Occurs when primers bind to each other (Primer-Dimer) or to themselves (Self-Dimer). This consumes your primers and creates unwanted by-products. Always check for strong dimers before ordering.</li>
                             </ul>
 
-                            <h3 className="text-xl font-semibold mt-4">3. Ordering Primers</h3>
-                            <p>Once designed, you can order primers from companies like IDT or Twist. Always check the Tm and GC content provided by the company.</p>
+                            <h3 className="text-xl font-semibold mt-6 text-blue-600">3. Pro Tips for qPCR & Cloning</h3>
+                            <ul className="list-disc pl-6 mt-2 space-y-2">
+                                <li><strong>For qPCR:</strong> To prevent amplifying genomic DNA, design one of your primers to sit on an exon-exon junction (if you are using cDNA).</li>
+                                <li><strong>For Cloning:</strong> If you need to add restriction sites or overlaps (e.g., for Gibson Assembly), use the <strong>Tail Sequence</strong> feature to append extra nucleotides to the 5' end of your primers.</li>
+                            </ul>
+
+                            <h3 className="text-xl font-semibold mt-6 text-blue-600">4. Ordering Your Primers</h3>
+                            <p className="mt-2">Once designed, you can order your oligos from companies like IDT or Twist Bioscience. Always make sure to select the correct purification method (like Standard Desalting for PCR, or PAGE for cloning). Our <strong>Primer Toolbox</strong> automatically formats your sequences for IDT, so you can copy and paste them directly!</p>
                         </div>
                     </div>
                 )}
