@@ -79,6 +79,14 @@ experimental_feedback_table = sqlalchemy.Table(
     sqlalchemy.Column("result", sqlalchemy.String),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
 )
+crispr_guides_table = sqlalchemy.Table(
+    "crispr_guides", metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("guide_seq", sqlalchemy.String),
+    sqlalchemy.Column("pam", sqlalchemy.String),
+    sqlalchemy.Column("target_seq", sqlalchemy.String),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=sqlalchemy.func.now()),
+)
 
 engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 metadata.create_all(engine)
@@ -134,6 +142,7 @@ class SavePrimerRequest(BaseModel):
 class ExperimentalFeedbackRequest(BaseModel):
     primer_pair: str
     result: str
+    details: str = ""
 
 class TmRequest(BaseModel):
     sequence: str
@@ -147,6 +156,13 @@ class GibsonRequest(BaseModel):
     insert_sequence: str
     vector_sequence: str
     overlap_length: int = 20
+
+class CRISPRRequest(BaseModel):
+    sequence: str
+    pam: str = "NGG"
+
+class StructureRequest(BaseModel):
+    sequence: str
 
 # ================== توابع امنیتی ==================
 def verify_password(plain_password, hashed_password):
@@ -204,6 +220,43 @@ def format_for_company(seq, company):
         return f"{seq} (Twist Bioscience)"
     else:
         return seq
+
+def find_crispr_guides(sequence, pam="NGG"):
+    sequence = sequence.upper()
+    guides = []
+    pam_len = len(pam)
+    
+    for i in range(len(sequence) - 20 - pam_len + 1):
+        candidate_pam = sequence[i+20:i+20+pam_len]
+        is_pam_valid = True
+        for j in range(pam_len):
+            if pam[j] != 'N' and pam[j] != candidate_pam[j]:
+                is_pam_valid = False
+                break
+        
+        if is_pam_valid:
+            guide_seq = sequence[i:i+20]
+            guides.append({
+                "guide": guide_seq,
+                "pam": candidate_pam,
+                "start": i,
+                "gc_content": round((guide_seq.count('G') + guide_seq.count('C')) / 20 * 100, 1)
+            })
+            
+    return guides
+
+def predict_structure_esm(sequence):
+    url = "https://api.esmatlas.com/foldSequence/v1/pdb/"
+    headers = {"Content-Type": "text/plain"}
+    try:
+        response = requests.post(url, data=sequence, headers=headers, timeout=120)
+        if response.status_code == 200:
+            return response.text
+        else:
+            return None
+    except Exception as e:
+        print(f"ESMFold Error: {e}")
+        return None
 
 # ================== مسیرهای احراز هویت ==================
 @app.post("/register")
@@ -389,19 +442,23 @@ def gibson_design(req: GibsonRequest):
         forward_overlap = vector[-overlap:]
         reverse_overlap = vector[:overlap]
         
+        # ✅ محدوده انعطاف‌پذیر برای طول محصول
+        min_product_size = int(len(insert) * 0.8)
+        max_product_size = len(insert) + 10
+        
         result = primer3.bindings.design_primers(
             seq_args={"SEQUENCE_ID": "gibson_insert", "SEQUENCE_TEMPLATE": insert},
             global_args={
                 "PRIMER_OPT_TM": 60.0,
                 "PRIMER_MIN_TM": 57.0,
                 "PRIMER_MAX_TM": 63.0,
-                "PRIMER_PRODUCT_SIZE_RANGE": [[len(insert), len(insert)]],
+                "PRIMER_PRODUCT_SIZE_RANGE": [[min_product_size, max_product_size]],
                 "PRIMER_NUM_RETURN": 1
             },
         )
         
         if result.get("PRIMER_LEFT_NUM_RETURNED", 0) == 0:
-            raise HTTPException(status_code=400, detail="Could not design primers for insert")
+            raise HTTPException(status_code=400, detail="Could not design primers for insert. Try a different sequence or increase product size range.")
         
         left_seq = result["PRIMER_LEFT_0_SEQUENCE"]
         right_seq = result["PRIMER_RIGHT_0_SEQUENCE"]
@@ -420,6 +477,25 @@ def gibson_design(req: GibsonRequest):
                 "reverse_tm": calculate_tm(gibson_reverse)
             }
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/crispr-design")
+def crispr_design(req: CRISPRRequest):
+    try:
+        guides = find_crispr_guides(req.sequence, req.pam)
+        guides.sort(key=lambda x: abs(x["gc_content"] - 50))
+        return {"status": "success", "total_guides": len(guides), "top_guides": guides[:10]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict-structure")
+def predict_structure(req: StructureRequest):
+    try:
+        pdb_data = predict_structure_esm(req.sequence)
+        if pdb_data is None:
+            raise HTTPException(status_code=500, detail="ESMFold API failed to predict structure")
+        return {"status": "success", "pdb_data": pdb_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
