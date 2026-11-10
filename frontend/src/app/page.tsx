@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 
 const translations = {
     en: {
@@ -77,6 +78,17 @@ const translations = {
       reversePrimer: "Reverse Primer",
       overlapSeq: "Overlap Sequence",
       tutorialTab: "Tutorial",
+      crisprTab: "CRISPR gRNA",
+      targetSeqLabel: "Target DNA Sequence",
+      pamLabel: "PAM Sequence",
+      crisprButton: "Find gRNAs",
+      guideSeq: "Guide Sequence",
+      pamSeq: "PAM",
+      position: "Position",
+      gcPercent: "GC %",
+      structureTab: "Structure Prediction",
+      proteinSeqLabel: "Protein Sequence (1-letter code)",
+      predictButton: "Predict 3D Structure",
     },
     fa: {
       title: "طراحی هوشمند پرایمر",
@@ -151,17 +163,31 @@ const translations = {
       reversePrimer: "پرایمر برگشت",
       overlapSeq: "توالی همپوشان",
       tutorialTab: "آموزش",
+      crisprTab: "CRISPR gRNA",
+      targetSeqLabel: "توالی هدف DNA",
+      pamLabel: "توالی PAM",
+      crisprButton: "یافتن gRNA",
+      guideSeq: "توالی راهنما",
+      pamSeq: "PAM",
+      position: "موقعیت",
+      gcPercent: "درصد GC",
+      structureTab: "پیش‌بینی ساختار",
+      proteinSeqLabel: "توالی پروتئین (کد یک حرفی)",
+      predictButton: "پیش‌بینی ساختار سه‌بعدی",
     },
 };
 
 export default function Home() {
     const router = useRouter();
     const [lang, setLang] = useState<"en" | "fa">("en");
-    const [activeTab, setActiveTab] = useState<"primer" | "library" | "multiplex" | "toolbox" | "gibson" | "tutorial">("primer");
+    const [activeTab, setActiveTab] = useState<"primer" | "library" | "multiplex" | "toolbox" | "gibson" | "tutorial" | "crispr" | "structure">("primer");
     
+    // Auth states
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    // Primer states
     const [geneName, setGeneName] = useState("");
     const [geneLoading, setGeneLoading] = useState(false);
-
     const [sequence, setSequence] = useState("");
     const [prompt, setPrompt] = useState("");
     const [tailSequence, setTailSequence] = useState("");
@@ -171,20 +197,18 @@ export default function Home() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState("");
-    
     const [feedbackStatus, setFeedbackStatus] = useState<string | null>(null);
     const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
     const [savedStatus, setSavedStatus] = useState<string | null>(null);
-    
-    const [myPrimers, setMyPrimers] = useState<any[]>([]);
     const [expFeedbackStatus, setExpFeedbackStatus] = useState<string | null>(null);
+    const [protocol, setProtocol] = useState<any>(null);
 
+    // Library states
+    const [myPrimers, setMyPrimers] = useState<any[]>([]);
+
+    // Multiplex states
     const [multiplexSequences, setMultiplexSequences] = useState("");
     const [multiplexResult, setMultiplexResult] = useState<any>(null);
-
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-    const [protocol, setProtocol] = useState<any>(null);
 
     // Toolbox states
     const [toolboxSeq, setToolboxSeq] = useState("");
@@ -197,6 +221,17 @@ export default function Home() {
     const [vectorSeq, setVectorSeq] = useState("");
     const [overlapLength, setOverlapLength] = useState(20);
     const [gibsonResult, setGibsonResult] = useState<any>(null);
+
+    // CRISPR states
+    const [crisprTarget, setCrisprTarget] = useState("");
+    const [pamSeq, setPamSeq] = useState("NGG");
+    const [crisprResult, setCrisprResult] = useState<any>(null);
+
+    // Structure Prediction states
+    const [structureSeq, setStructureSeq] = useState("");
+    const [structurePdb, setStructurePdb] = useState("");
+    const [structureLoading, setStructureLoading] = useState(false);
+    const viewerRef = useRef<HTMLDivElement>(null);
 
     const t = translations[lang];
 
@@ -392,6 +427,46 @@ export default function Home() {
         } catch (err) { alert("Error designing Gibson primers"); } finally { setLoading(false); }
     };
 
+    const handleCRISPR = async () => {
+        if (!crisprTarget) return;
+        setLoading(true);
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/crispr-design", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sequence: crisprTarget, pam: pamSeq }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            setCrisprResult(await res.json());
+        } catch (err) { alert("Error finding gRNAs"); } finally { setLoading(false); }
+    };
+
+    const handlePredictStructure = async () => {
+        if (!structureSeq) return;
+        setStructureLoading(true);
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/predict-structure", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sequence: structureSeq }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            const data = await res.json();
+            setStructurePdb(data.pdb_data);
+            
+            setTimeout(() => {
+                if ((window as any).$3Dmol && viewerRef.current) {
+                    viewerRef.current.innerHTML = ""; // پاک کردن قبلی
+                    const viewer = (window as any).$3Dmol.createViewer(viewerRef.current, { backgroundColor: "white" });
+                    viewer.addModel(data.pdb_data, "pdb");
+                    viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+                    viewer.zoomTo();
+                    viewer.render();
+                }
+            }, 500);
+        } catch (err) { alert("Error predicting structure"); } finally { setStructureLoading(false); }
+    };
+
     const getRiskColor = (risk: string) => {
         if (risk === t.low) return "text-green-600";
         if (risk === t.medium) return "text-yellow-600";
@@ -400,6 +475,7 @@ export default function Home() {
 
     return (
         <main dir={t.dir} className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-800">
+            <Script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js" strategy="lazyOnload" />
             <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
                 
                 <div className="flex justify-between items-center mb-8">
@@ -421,6 +497,8 @@ export default function Home() {
                     <button onClick={() => setActiveTab("multiplex")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "multiplex" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.multiplexTab}</button>
                     <button onClick={() => setActiveTab("toolbox")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "toolbox" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.toolboxTab}</button>
                     <button onClick={() => setActiveTab("gibson")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "gibson" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.gibsonTab}</button>
+                    <button onClick={() => setActiveTab("crispr")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "crispr" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.crisprTab}</button>
+                    <button onClick={() => setActiveTab("structure")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "structure" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.structureTab}</button>
                     <button onClick={() => setActiveTab("tutorial")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "tutorial" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>{t.tutorialTab}</button>
                     <button onClick={() => setActiveTab("library")} className={`px-4 py-2 font-semibold whitespace-nowrap ${activeTab === "library" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>My Primer Library</button>
                 </div>
@@ -671,6 +749,54 @@ export default function Home() {
                                         <p className="text-xs text-gray-500">Tm: {gibsonResult.insert_primers.reverse_tm} °C</p>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === "crispr" && (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block font-semibold mb-2">{t.targetSeqLabel}</label>
+                            <textarea value={crisprTarget} onChange={(e) => setCrisprTarget(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="ATGC..." />
+                        </div>
+                        <div>
+                            <label className="block font-semibold mb-2">{t.pamLabel}</label>
+                            <input type="text" value={pamSeq} onChange={(e) => setPamSeq(e.target.value)} className="w-32 border rounded-lg p-3 font-mono" placeholder="NGG" />
+                        </div>
+                        <button onClick={handleCRISPR} disabled={loading} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg">{loading ? t.loading : t.crisprButton}</button>
+                        
+                        {crisprResult && (
+                            <div className="mt-6">
+                                <h3 className="font-bold text-lg mb-4">Top gRNAs Found: {crisprResult.total_guides}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {crisprResult.top_guides.map((guide: any, idx: number) => (
+                                        <div key={idx} className="border p-4 rounded-lg bg-red-50">
+                                            <p className="text-xs text-gray-500">{t.position}: {guide.start + 1}</p>
+                                            <p className="font-mono text-sm break-all mt-1"><strong>{t.guideSeq}:</strong> {guide.guide} <span className="text-red-600">[{guide.pam}]</span></p>
+                                            <p className="text-xs text-gray-500 mt-1">{t.gcPercent}: {guide.gc_content}%</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === "structure" && (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block font-semibold mb-2">{t.proteinSeqLabel}</label>
+                            <textarea value={structureSeq} onChange={(e) => setStructureSeq(e.target.value)} className="w-full border rounded-lg p-3 h-24 font-mono text-sm" placeholder="MKTIIALSYIFCLVFADYKDDDDK..." />
+                        </div>
+                        <button onClick={handlePredictStructure} disabled={structureLoading} className="w-full bg-pink-600 text-white font-bold py-3 rounded-lg">
+                            {structureLoading ? t.loading : t.predictButton}
+                        </button>
+                        
+                        {structurePdb && (
+                            <div className="mt-6 border rounded-lg overflow-hidden">
+                                <h3 className="font-bold p-4 bg-pink-50">Predicted Structure</h3>
+                                <div ref={viewerRef} className="w-full h-96 relative" />
                             </div>
                         )}
                     </div>
