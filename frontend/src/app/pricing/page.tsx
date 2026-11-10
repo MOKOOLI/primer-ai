@@ -1,0 +1,42 @@
+"use client";
+
+export default function Pricing() {
+  return (
+    <main className="min-h-screen bg-gray-50 p-8" dir="ltr">
+      <div className="max-w-5xl mx-auto text-center">
+        <h1 className="text-4xl font-bold mb-8">Simple, Transparent Pricing</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Free Plan */}
+          <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+            <h2 className="text-2xl font-bold mb-4">Free</h2>
+            <p className="text-4xl font-bold mb-6">$0<span className="text-lg text-gray-500">/mo</span></p>
+            <ul className="text-left space-y-3 mb-8">
+              <li>✅ 10 designs per minute</li>
+              <li>✅ Standard PCR</li>
+              <li>✅ qPCR + Sanger</li>
+              <li>❌ NCBI BLAST</li>
+              <li>❌ Multiplex PCR</li>
+            </ul>
+            <a href="https://primer-ai-nu.vercel.app" className="block w-full bg-gray-200 text-gray-800 font-bold py-3 rounded-lg text-center">Current Plan</a>
+          </div>
+          {/* Pro Plan */}
+          <div className="bg-blue-600 text-white p-8 rounded-2xl shadow-lg">
+            <h2 className="text-2xl font-bold mb-4">Pro</h2>
+            <p className="text-4xl font-bold mb-6">$19<span className="text-lg text-blue-200">/mo</span></p>
+            <ul className="text-left space-y-3 mb-8">
+              <li>✅ Unlimited designs</li>
+              <li>✅ qPCR + Sanger</li>
+              <li>✅ NCBI BLAST</li>
+              <li>✅ Multiplex PCR</li>
+              <li>✅ Export to SnapGene</li>
+            </ul>
+            <button className="block w-full bg-white text-blue-600 font-bold py-3 rounded-lg hover:bg-gray-100 text-center">Upgrade to Pro</button>
+          </div>
+        </div>
+        <div className="mt-8">
+          <a href="/" className="text-blue-600 hover:underline">← Back to Home</a>
+        </div>
+      </div>
+    </main>
+  );
+}
