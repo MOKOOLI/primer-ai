@@ -143,7 +143,7 @@ export default function Home() {
 
     const t = translations[lang];
 
-    // Authentication check
+    // ✅ همه هوک‌ها (useEffect) باید قبل از هر return شرطی باشند
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -153,6 +153,20 @@ export default function Home() {
         }
     }, [router]);
 
+    const fetchMyPrimers = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/my-primers", { headers: { "Authorization": `Bearer ${token}` } });
+            if (res.ok) { const data = await res.json(); setMyPrimers(data.primers); }
+        } catch (e) { console.error(e); }
+    };
+
+    useEffect(() => { 
+        if (activeTab === "library") fetchMyPrimers(); 
+    }, [activeTab]);
+
+    // ✅ حالا شرط return را بعد از همه هوک‌ها بگذارید
     if (!isAuthenticated) return null;
 
     const handleLogout = () => {
@@ -179,17 +193,6 @@ export default function Home() {
             }
         }
     };
-
-    const fetchMyPrimers = async () => {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        try {
-            const res = await fetch("https://primer-ai.onrender.com/my-primers", { headers: { "Authorization": `Bearer ${token}` } });
-            if (res.ok) { const data = await res.json(); setMyPrimers(data.primers); }
-        } catch (e) { console.error(e); }
-    };
-
-    useEffect(() => { if (activeTab === "library") fetchMyPrimers(); }, [activeTab]);
 
     const handleGeneSearch = async () => {
         if (!geneName) return;
@@ -290,7 +293,7 @@ export default function Home() {
         <main dir={t.dir} className="min-h-screen bg-gray-50 p-6 md:p-12 font-sans text-gray-800">
             <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
                 
-                {/* Header with Links and Auth Buttons */}
+                {/* Header */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-blue-700">{t.title}</h1>
@@ -314,7 +317,6 @@ export default function Home() {
 
                 {activeTab === "primer" && (
                     <div className="space-y-6">
-                        {/* Gene Search Section */}
                         <div className="bg-blue-50 p-4 rounded-lg flex gap-4 items-end">
                             <div className="flex-1">
                                 <label className="block font-semibold mb-2">{t.geneSearchLabel}</label>
