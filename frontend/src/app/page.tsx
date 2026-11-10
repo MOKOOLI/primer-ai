@@ -62,8 +62,9 @@ const translations = {
       tmLabel: "Calculate Tm",
       tmButton: "Calculate Tm",
       seqLabel: "Primer Sequence",
-      formatLabel: "Format",
+      formatLabel: "Order Format",
       formatButton: "Convert Format",
+      companyLabel: "Company",
       standardMode: "Standard PCR",
       qpcrMode: "qPCR (Real-Time)",
       sangerMode: "Sanger Sequencing",
@@ -126,8 +127,9 @@ const translations = {
       tmLabel: "محاسبه Tm",
       tmButton: "محاسبه Tm",
       seqLabel: "توالی پرایمر",
-      formatLabel: "فرمت",
+      formatLabel: "فرمت سفارش",
       formatButton: "تبدیل فرمت",
+      companyLabel: "شرکت",
       standardMode: "PCR استاندارد",
       qpcrMode: "qPCR (Real-Time)",
       sangerMode: "توالی‌یابی سنگر",
@@ -169,10 +171,11 @@ export default function Home() {
     // Toolbox states
     const [toolboxSeq, setToolboxSeq] = useState("");
     const [toolboxTm, setToolboxTm] = useState<number | null>(null);
+    const [company, setCompany] = useState("IDT");
+    const [formattedSeq, setFormattedSeq] = useState("");
 
     const t = translations[lang];
 
-    // ✅ همه هوک‌ها قبل از هر return
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -334,6 +337,21 @@ export default function Home() {
                 setToolboxTm(data.tm);
             }
         } catch (e) { alert("Error calculating Tm"); }
+    };
+
+    const handleFormatOrder = async () => {
+        if (!toolboxSeq) return;
+        try {
+            const res = await fetch("https://primer-ai.onrender.com/order-format", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sequence: toolboxSeq, company: company }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setFormattedSeq(data.formatted);
+            }
+        } catch (e) { alert("Error converting format"); }
     };
 
     const getRiskColor = (risk: string) => {
@@ -558,10 +576,23 @@ export default function Home() {
                         </div>
                         <div className="flex gap-4">
                             <button onClick={handleCalculateTm} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">{t.tmButton}</button>
+                            <div className="flex items-center gap-2">
+                                <label className="font-semibold text-sm">{t.companyLabel}:</label>
+                                <select value={company} onChange={(e) => setCompany(e.target.value)} className="border rounded-lg p-2">
+                                    <option value="IDT">IDT</option>
+                                    <option value="Twist">Twist</option>
+                                </select>
+                                <button onClick={handleFormatOrder} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold">{t.formatButton}</button>
+                            </div>
                         </div>
                         {toolboxTm !== null && (
                             <div className="bg-blue-50 p-4 rounded-lg">
                                 <p className="text-lg"><strong>Tm (Nearest-Neighbor):</strong> {toolboxTm} °C</p>
+                            </div>
+                        )}
+                        {formattedSeq && (
+                            <div className="bg-green-50 p-4 rounded-lg">
+                                <p className="text-lg"><strong>Formatted for {company}:</strong> {formattedSeq}</p>
                             </div>
                         )}
                     </div>

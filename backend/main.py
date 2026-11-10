@@ -139,6 +139,10 @@ class TmRequest(BaseModel):
     sequence: str
     method: str = "nearest_neighbor"
 
+class OrderFormatRequest(BaseModel):
+    sequence: str
+    company: str = "IDT"
+
 # ================== توابع امنیتی ==================
 def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
@@ -183,13 +187,18 @@ def apply_mutation(seq, mutation_str):
 
 def calculate_tm(seq, method="nearest_neighbor"):
     if method == "basic":
-        # فرمول ساده: 2*(A+T) + 4*(G+C)
         a = seq.upper().count('A'); t = seq.upper().count('T'); g = seq.upper().count('G'); c = seq.upper().count('C')
         return 2*(a+t) + 4*(g+c)
     else:
-        # Nearest-Neighbor (دقیق‌تر)
-        res = primer3.calc_tm(seq)
-        return round(res, 2)
+        return round(primer3.calc_tm(seq), 2)
+
+def format_for_company(seq, company):
+    if company == "IDT":
+        return f"{seq} (IDT Standard Desalting)"
+    elif company == "Twist":
+        return f"{seq} (Twist Bioscience)"
+    else:
+        return seq
 
 # ================== مسیرهای احراز هویت ==================
 @app.post("/register")
@@ -356,6 +365,11 @@ def suggest_protocol(anneal_temp: float, gc_content: float):
 def calculate_tm_endpoint(req: TmRequest):
     tm = calculate_tm(req.sequence, req.method)
     return {"sequence": req.sequence, "tm": tm, "method": req.method}
+
+@app.post("/order-format")
+def order_format(req: OrderFormatRequest):
+    formatted = format_for_company(req.sequence, req.company)
+    return {"original": req.sequence, "formatted": formatted, "company": req.company}
 
 @app.post("/feedback")
 async def submit_feedback(req: FeedbackRequest):
