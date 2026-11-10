@@ -140,7 +140,6 @@ class SavePrimerRequest(BaseModel):
 class ExperimentalFeedbackRequest(BaseModel):
     primer_pair: str
     result: str
-    details: str = ""
 
 class TmRequest(BaseModel):
     sequence: str
@@ -164,7 +163,6 @@ class StructureRequest(BaseModel):
 
 # ================== توابع امنیتی ==================
 def verify_password(plain_password, hashed_password):
-    # bcrypt فقط 72 بایت اول را می‌خواند
     password_bytes = plain_password.encode('utf-8')[:72]
     return bcrypt.checkpw(password_bytes, hashed_password.encode('utf-8'))
 
@@ -192,14 +190,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 # ================== توابع کمکی ==================
 def sanitize_sequence(seq):
-    """پاکسازی توالی از کاراکترهای غیرمجاز و هدر FASTA"""
     if not seq: return ""
     lines = [line for line in seq.strip().split('\n') if not line.startswith('>')]
     clean_seq = "".join(lines).upper().replace(" ", "").replace("\r", "")
     return re.sub(r'[^ATGC]', '', clean_seq)
 
 def get_risk_level(value, anneal_temp):
-    """محاسبه ریسک بر اساس اختلاف با دمای اتصال (معیار علمی‌تر)"""
     diff = value - anneal_temp
     if diff < 5: return "Low"
     elif diff < 10: return "Medium"
@@ -216,7 +212,6 @@ def apply_mutation(seq, mutation_str):
     return seq[:pos-1] + new + seq[pos:], True
 
 def translate_persian_numbers(text):
-    """ترجمه اعداد فارسی و عربی به انگلیسی برای regex"""
     translation_table = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
     return text.translate(translation_table)
 
@@ -240,19 +235,17 @@ def find_crispr_guides(sequence, pam="NGG"):
     guides = []
     pam_len = len(pam)
     
-    # جستجو در رشته Forward
     for i in range(len(sequence) - 20 - pam_len + 1):
         candidate_pam = sequence[i+20:i+20+pam_len]
         is_pam_valid = all(pam[j] == 'N' or pam[j] == candidate_pam[j] for j in range(pam_len))
         if is_pam_valid:
             guide_seq = sequence[i:i+20]
-            if "TTTT" not in guide_seq: # فیلتر ترمیناتور
+            if "TTTT" not in guide_seq:
                 guides.append({
                     "guide": guide_seq, "pam": candidate_pam, "start": i, "strand": "+",
                     "gc_content": round((guide_seq.count('G') + guide_seq.count('C')) / 20 * 100, 1)
                 })
 
-    # جستجو در رشته Reverse-Complement
     rev_comp = str(Seq(sequence).reverse_complement())
     for i in range(len(rev_comp) - 20 - pam_len + 1):
         candidate_pam = rev_comp[i+20:i+20+pam_len]
@@ -313,7 +306,6 @@ def read_root(): return {"message": "Server is running perfectly!"}
 @app.post("/fetch-gene")
 def fetch_gene(gene_name: str):
     try:
-        # استفاده از RefSeq برای دریافت توالی مرجع mRNA
         handle = Entrez.esearch(db="nucleotide", term=f"{gene_name}[Gene] AND Homo sapiens[Organism] AND refseq[Filter]", retmax=1)
         record = Entrez.read(handle)
         handle.close()
@@ -333,27 +325,21 @@ def fetch_gene(gene_name: str):
 @limiter.limit("10/minute")
 async def chat_design(request: Request, req: ChatRequest):
     try:
-        # ۱. پاکسازی توالی و ترجمه اعداد
         seq = sanitize_sequence(req.sequence)
         if not seq or len(seq) > 5000:
             raise HTTPException(status_code=400, detail="Invalid sequence length (max 5000 bp)")
         
         cleaned_prompt = translate_persian_numbers(req.user_prompt)
         
-        # ۲. استخراج دما (بهبود regex)
-        # جستجو برای الگوهای "۶۵ درجه" یا "65°C" یا "temp 65"
         temp_match = re.search(r'(?:دما|temp|temperature)\s*(?:را\s*)?(?:روی\s*)?(\d{2})', cleaned_prompt, re.IGNORECASE)
         if temp_match:
             target_temp = float(temp_match.group(1))
         else:
-            # اگر الگو پیدا نشد، اولین عدد بین 50-75 را بگیر
             match = re.search(r'\b(5[0-9]|6[0-9]|7[0-5])\b', cleaned_prompt)
             target_temp = float(match.group(1)) if match else 60.0
 
-        # ۳. اعمال جهش
         mutated_seq, mutation_success = apply_mutation(seq, req.mutation)
         if req.mutation and not mutation_success:
-            # به جای خطا، فقط یک هشدار می‌دهیم یا نادیده می‌گیریم
             print(f"Mutation {req.mutation} could not be applied.")
 
         global_args = {
@@ -374,15 +360,11 @@ async def chat_design(request: Request, req: ChatRequest):
         else:
             global_args["PRIMER_PRODUCT_SIZE_RANGE"] = [[50, 300]]
 
-        # حذف پارامترهای ناسازگار degenerate (چون احتمالاً کار نمی‌کند)
-        # if req.degenerate: ...
-
         result = primer3.bindings.design_primers(
             seq_args={"SEQUENCE_ID": "user_seq", "SEQUENCE_TEMPLATE": mutated_seq},
             global_args=global_args,
         )
         
-        # ۴. محاسبه ریسک (نسبت به دمای اتصال) و دمای Annealing
         for i in range(result.get("PRIMER_LEFT_NUM_RETURNED", 0)):
             left_tm = result.get(f"PRIMER_LEFT_{i}_TM", 0)
             right_tm = result.get(f"PRIMER_RIGHT_{i}_TM", 0)
@@ -391,7 +373,6 @@ async def chat_design(request: Request, req: ChatRequest):
             
             result[f"PRIMER_LEFT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_LEFT_{i}_HAIRPIN_TH", 0), ann_temp)
             result[f"PRIMER_RIGHT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_RIGHT_{i}_HAIRPIN_TH", 0), ann_temp)
-            # استفاده از COMPL_END_TH برای Dimer در انتهای ۳'
             result[f"PRIMER_PAIR_{i}_DIMER_RISK"] = get_risk_level(result.get(f"PRIMER_PAIR_{i}_COMPL_END_TH", 0), ann_temp)
             
             if req.mode == "qpcr":
@@ -411,7 +392,6 @@ async def chat_design(request: Request, req: ChatRequest):
 
 @app.post("/multiplex-design")
 def multiplex_design(req: MultiplexRequest):
-    # برای سادگی، فعلاً همان طراحی مستقل را انجام می‌دهیم
     results = []
     for seq in req.sequences:
         cleaned_seq = sanitize_sequence(seq)
@@ -444,7 +424,6 @@ async def analyze_sequence(file: UploadFile = File(...), reference: str = Form(.
 
 @app.post("/suggest-protocol")
 def suggest_protocol(anneal_temp: float, gc_content: float, product_size: int = 1000):
-    # محاسبه زمان extension بر اساس طول محصول
     ext_time_sec = int((product_size / 1000) * 60)
     if ext_time_sec < 30: ext_time_sec = 30
     
@@ -480,57 +459,37 @@ def gibson_design(req: GibsonRequest):
         vector = sanitize_sequence(req.vector_sequence)
         overlap = req.overlap_length
         
-        if len(vector) < overlap * 2:
-            raise HTTPException(status_code=400, detail="Vector sequence too short")
+        if len(vector) < overlap * 2 or len(insert) < overlap:
+            raise HTTPException(status_code=400, detail="Sequences too short for the specified overlap length.")
         
-        # ✅ اصلاح Gibson: reverse-complement کردن دنباله و اجبار پرایمرها به انتهای Insert
         forward_overlap = vector[-overlap:]
+        forward_annealing = insert[:20]
+        forward_primer = forward_overlap + forward_annealing
+        
         reverse_overlap = str(Seq(vector[:overlap]).reverse_complement())
+        reverse_annealing = str(Seq(insert[-20:]).reverse_complement())
+        reverse_primer = reverse_overlap + reverse_annealing
         
-        seq_args = {
-            "SEQUENCE_ID": "gibson_insert", 
-            "SEQUENCE_TEMPLATE": insert,
-            "SEQUENCE_FORCE_LEFT_START": 0,
-            "SEQUENCE_FORCE_RIGHT_END": len(insert) - 1
-        }
-        
-        result = primer3.bindings.design_primers(
-            seq_args=seq_args,
-            global_args={
-                "PRIMER_OPT_TM": 60.0, "PRIMER_MIN_TM": 57.0, "PRIMER_MAX_TM": 63.0,
-                "PRIMER_PRODUCT_SIZE_RANGE": [[len(insert), len(insert)]],
-                "PRIMER_NUM_RETURN": 1
-            },
-        )
-        
-        if result.get("PRIMER_LEFT_NUM_RETURNED", 0) == 0:
-            raise HTTPException(status_code=400, detail="Could not design primers for insert")
-        
-        left_seq = result["PRIMER_LEFT_0_SEQUENCE"]
-        right_seq = result["PRIMER_RIGHT_0_SEQUENCE"]
-        
-        # ✅ محاسبه Tm فقط روی بخش annealing (بدون Overlap)
         return {
             "status": "success",
             "insert_primers": {
-                "forward": forward_overlap + left_seq,
-                "reverse": reverse_overlap + right_seq,
+                "forward": forward_primer,
+                "reverse": reverse_primer,
                 "forward_overlap": forward_overlap,
                 "reverse_overlap": reverse_overlap,
-                "forward_tm": calculate_tm(left_seq),   # فقط بخش annealing
-                "reverse_tm": calculate_tm(right_seq)   # فقط بخش annealing
+                "forward_tm": calculate_tm(forward_annealing),
+                "reverse_tm": calculate_tm(reverse_annealing)
             }
         }
     except HTTPException: raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Gibson assembly failed")
+        raise HTTPException(status_code=500, detail=f"Gibson assembly failed: {str(e)}")
 
 @app.post("/crispr-design")
 def crispr_design(req: CRISPRRequest):
     try:
         cleaned_seq = sanitize_sequence(req.sequence)
         guides = find_crispr_guides(cleaned_seq, req.pam)
-        # مرتب‌سازی ساده بر اساس GC (نزدیک به ۵۰)
         guides.sort(key=lambda x: abs(x["gc_content"] - 50))
         return {"status": "success", "total_guides": len(guides), "top_guides": guides[:10]}
     except Exception as e:
@@ -557,7 +516,6 @@ async def submit_feedback(req: FeedbackRequest):
 async def verify_primer(request: Request, req: BlastRequest):
     try:
         from Bio.Blast import NCBIWWW, NCBIXML
-        # ✅ اصلاح BLAST: megablast=False و word_size=7
         handle = NCBIWWW.qblast(
             program="blastn", database="refseq_rna", sequence=req.primer_sequence,
             megablast=False, word_size=7, expect=1000, filter=None,
@@ -569,7 +527,7 @@ async def verify_primer(request: Request, req: BlastRequest):
         hits = []
         for alignment in record.alignments:
             for hsp in alignment.hsps:
-                if hsp.expect < 0.1: # فقط نتایج معنادار
+                if hsp.expect < 0.1:
                     hits.append({"title": alignment.title, "e_value": hsp.expect})
         
         return {"status": "success", "total_hits": len(hits), "top_hits": hits}

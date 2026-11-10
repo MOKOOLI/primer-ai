@@ -456,7 +456,6 @@ export default function Home() {
         } catch (err) { alert("Error predicting structure"); } finally { setStructureLoading(false); }
     };
 
-    // ✅ اصلاح رنگ ریسک (بر اساس کلمات کلیدی بک‌اند)
     const getRiskColor = (risk: string) => {
         const lowerRisk = risk?.toLowerCase() || "";
         if (lowerRisk === "low") return "text-green-600";
@@ -546,14 +545,12 @@ export default function Home() {
                         {result && (
                             <div className="mt-8 border-t pt-6">
                                 {result.primers["PRIMER_PAIR_NUM_RETURNED"] === 0 ? (
-                                    // ✅ نمایش پیام "پرایمر پیدا نشد"
                                     <div className="p-6 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg">
                                         <h3 className="font-bold text-lg text-yellow-800">No primers found</h3>
                                         <p className="text-yellow-700 mt-2">{t.noPrimer}</p>
                                         <p className="text-xs text-gray-500 mt-4">Details: {result.primers["PRIMER_PAIR_EXPLAIN"]}</p>
                                     </div>
                                 ) : (
-                                    // نمایش نتایج
                                     <>
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-xl font-bold text-green-600">{t.success}</h2>
