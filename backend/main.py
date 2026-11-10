@@ -376,7 +376,6 @@ def order_format(req: OrderFormatRequest):
     formatted = format_for_company(req.sequence, req.company)
     return {"original": req.sequence, "formatted": formatted, "company": req.company}
 
-# ✅ مسیر جدید: Gibson Assembly
 @app.post("/gibson-design")
 def gibson_design(req: GibsonRequest):
     try:
@@ -387,12 +386,9 @@ def gibson_design(req: GibsonRequest):
         if len(vector) < overlap * 2:
             raise HTTPException(status_code=400, detail="Vector sequence too short for given overlap length")
         
-        # دنباله همولوگ برای پرایمر Forward (از انتهای 3' وکتور)
         forward_overlap = vector[-overlap:]
-        # دنباله همولوگ برای پرایمر Reverse (از ابتدای 5' وکتور)
         reverse_overlap = vector[:overlap]
         
-        # طراحی پرایمرهای Insert
         result = primer3.bindings.design_primers(
             seq_args={"SEQUENCE_ID": "gibson_insert", "SEQUENCE_TEMPLATE": insert},
             global_args={
@@ -410,7 +406,6 @@ def gibson_design(req: GibsonRequest):
         left_seq = result["PRIMER_LEFT_0_SEQUENCE"]
         right_seq = result["PRIMER_RIGHT_0_SEQUENCE"]
         
-        # اضافه کردن دنباله همولوگ
         gibson_forward = forward_overlap + left_seq
         gibson_reverse = reverse_overlap + right_seq
         
