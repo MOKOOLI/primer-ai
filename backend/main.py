@@ -32,7 +32,6 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///./primerai.db"
 
-# پاکسازی رشته اتصال برای سازگاری با asyncpg
 if "neon.tech" in DATABASE_URL:
     parsed = urlparse(DATABASE_URL)
     query = parse_qs(parsed.query)
@@ -47,7 +46,6 @@ if DATABASE_URL.startswith("postgres://"):
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
-# ================== تعریف جدول‌ها ==================
 users_table = sqlalchemy.Table(
     "users", metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
@@ -137,6 +135,10 @@ class ExperimentalFeedbackRequest(BaseModel):
     primer_pair: str
     result: str
 
+class TmRequest(BaseModel):
+    sequence: str
+    method: str = "nearest_neighbor"
+
 # ================== توابع امنیتی ==================
 def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
@@ -178,6 +180,16 @@ def apply_mutation(seq, mutation_str):
     if pos < 1 or pos > len(seq): return seq
     if seq[pos-1] != orig: return seq
     return seq[:pos-1] + new + seq[pos:]
+
+def calculate_tm(seq, method="nearest_neighbor"):
+    if method == "basic":
+        # فرمول ساده: 2*(A+T) + 4*(G+C)
+        a = seq.upper().count('A'); t = seq.upper().count('T'); g = seq.upper().count('G'); c = seq.upper().count('C')
+        return 2*(a+t) + 4*(g+c)
+    else:
+        # Nearest-Neighbor (دقیق‌تر)
+        res = primer3.calc_tm(seq)
+        return round(res, 2)
 
 # ================== مسیرهای احراز هویت ==================
 @app.post("/register")
@@ -273,7 +285,6 @@ async def chat_design(request: Request, req: ChatRequest):
         result[f"PRIMER_RIGHT_{i}_HAIRPIN_RISK"] = get_risk_level(result.get(f"PRIMER_RIGHT_{i}_HAIRPIN_TH", 0))
         result[f"PRIMER_PAIR_{i}_DIMER_RISK"] = get_risk_level(result.get(f"PRIMER_PAIR_{i}_COMPL_ANY_TH", 0))
         
-        # هشدار qPCR
         if req.mode == "qpcr":
             result[f"PRIMER_PAIR_{i}_QPCR_WARNING"] = "Warning: Primer may amplify genomic DNA. Ensure it spans an exon-exon junction."
 
@@ -340,6 +351,11 @@ def suggest_protocol(anneal_temp: float, gc_content: float):
         protocol["additives"].append("Consider adding BSA or increasing Mg2+ concentration due to low GC content.")
     
     return {"protocol": protocol}
+
+@app.post("/calculate-tm")
+def calculate_tm_endpoint(req: TmRequest):
+    tm = calculate_tm(req.sequence, req.method)
+    return {"sequence": req.sequence, "tm": tm, "method": req.method}
 
 @app.post("/feedback")
 async def submit_feedback(req: FeedbackRequest):
