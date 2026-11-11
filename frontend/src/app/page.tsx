@@ -84,6 +84,8 @@ const T: Record<Lang, Record<string, string>> = {
     explainConsent: "I agree to send retrieved UniProt and paper context to Anthropic for this explanation.",
     structureConsent: "I agree to send this protein sequence to ESMFold for structure prediction.",
     reproBundle: "Download reproducibility bundle (JSON)",
+    group_design: "Design", group_analyze: "Analyze", group_tools: "Tools", group_learn: "Learn & teach",
+    hero_kicker: "Molecular biology workbench", hero_lane: "Gene · primers · qPCR · structure",
     tab_classroom: "Classroom", classroom_title: "Classroom", classroom_desc: "Teachers create a class and share its one-time code. Students join, submit their design/qPCR output, and receive feedback.",
     classroom_create: "Create class", classroom_join: "Join with code", classroom_name: "Class name", classroom_code: "Class code",
     classroom_created_code: "Share this join code with students. It is shown only once:", classroom_select: "Select a class", classroom_assignment: "Assignment",
@@ -194,6 +196,8 @@ const T: Record<Lang, Record<string, string>> = {
     explainConsent: "موافقم اطلاعات بازیابی‌شده از UniProt و مقاله‌ها برای این توضیح به Anthropic فرستاده شود.",
     structureConsent: "موافقم این توالی پروتئین برای پیش‌بینی ساختار به ESMFold فرستاده شود.",
     reproBundle: "دانلود بسته‌ی بازتولید تحلیل (JSON)",
+    group_design: "طراحی", group_analyze: "تحلیل", group_tools: "ابزارها", group_learn: "آموزش و کلاس",
+    hero_kicker: "میز کار زیست‌شناسی مولکولی", hero_lane: "ژن · پرایمر · qPCR · ساختار",
     tab_classroom: "کلاس", classroom_title: "فضای کلاس", classroom_desc: "استاد کلاس می‌سازد و کد یک‌بارنمایش را به دانشجوها می‌دهد. دانشجو نتیجه‌ی طراحی/qPCR را تحویل می‌دهد و بازخورد می‌گیرد.",
     classroom_create: "ساخت کلاس", classroom_join: "عضویت با کد", classroom_name: "نام کلاس", classroom_code: "کد کلاس",
     classroom_created_code: "این کد را با دانشجوها به اشتراک بگذارید؛ فقط همین یک‌بار نمایش داده می‌شود:", classroom_select: "انتخاب کلاس", classroom_assignment: "تکلیف",
@@ -373,24 +377,24 @@ ${sections.map((s) => `<h2>${esc(s.h)}</h2>${s.html}`).join("\n")}
   download(`${fileBase}.html`, doc, "text/html");
 }
 
-const inputCls = "w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500";
+const inputCls = "w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white shadow-sm transition focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 placeholder:text-slate-400";
 const seqCls = inputCls + " font-mono text-sm";
-const btnBase = "px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-50 transition-colors";
+const btnBase = "px-4 py-2 rounded-xl font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/25";
 const riskCls: Record<string, string> = { low: "bg-green-100 text-green-800", medium: "bg-yellow-100 text-yellow-800", high: "bg-red-100 text-red-800" };
 
 type Ctx = { t: Record<string, string>; lang: Lang; call: (p: string, i?: RequestInit) => Promise<any>; token: string | null; notify: (m: string, k?: "error" | "ok") => void; fail: (e: any) => void };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: any }) {
-  return (<label className="block"><span className="block text-sm font-semibold mb-1 text-slate-700">{label}</span>{children}{hint && <span className="block text-xs text-slate-500 mt-1">{hint}</span>}</label>);
+  return (<label className="block"><span className="block text-sm font-semibold mb-1.5 text-slate-700">{label}</span>{children}{hint && <span className="block text-xs text-slate-500 mt-1">{hint}</span>}</label>);
 }
 function Btn({ children, onClick, disabled, kind = "primary", title }: { children: any; onClick?: () => void; disabled?: boolean; kind?: "primary" | "ghost" | "danger" | "dark"; title?: string }) {
-  const k = { primary: "bg-blue-700 hover:bg-blue-800 text-white", ghost: "bg-slate-100 hover:bg-slate-200 text-slate-800", danger: "bg-red-50 hover:bg-red-100 text-red-700", dark: "bg-slate-800 hover:bg-slate-900 text-white" }[kind];
+  const k = { primary: "bg-[#16233f] hover:bg-[#22345c] text-white shadow-sm shadow-[#16233f]/20", ghost: "bg-white hover:bg-emerald-50 text-slate-800 border border-slate-200", danger: "bg-red-50 hover:bg-red-100 text-red-700 border border-red-100", dark: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-700/20" }[kind];
   return <button title={title} onClick={onClick} disabled={disabled} className={`${btnBase} ${k}`}>{children}</button>;
 }
 function Risk({ v, t }: { v: string; t: Record<string, string> }) { return <span className={`px-2 py-0.5 rounded text-xs font-semibold ${riskCls[v] || "bg-slate-100"}`}>{t["risk_" + v] || v}</span>; }
 function CopyBtn({ text, t }: { text: string; t: Record<string, string> }) {
   const [ok, setOk] = useState(false);
-  return <button className="text-xs text-blue-700 shrink-0 ms-2" onClick={() => { navigator.clipboard?.writeText(text); setOk(true); setTimeout(() => setOk(false), 1500); }}>{ok ? t.copied : t.copy}</button>;
+  return <button className="text-xs text-emerald-700 shrink-0 ms-2" onClick={() => { navigator.clipboard?.writeText(text); setOk(true); setTimeout(() => setOk(false), 1500); }}>{ok ? t.copied : t.copy}</button>;
 }
 function worstOf(...r: string[]) { return r.sort((a, b) => ["low", "medium", "high"].indexOf(b) - ["low", "medium", "high"].indexOf(a))[0]; }
 
@@ -450,7 +454,7 @@ function TroubleshootTab({ t, call, fail }: Ctx) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-blue-800">{t.ts_title}</h2>
+      <h2 className="text-xl font-bold text-[#16233f]">{t.ts_title}</h2>
       <p className="text-sm text-slate-600">{t.ts_desc}</p>
       
       <div className="grid md:grid-cols-2 gap-4">
@@ -538,8 +542,8 @@ function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (
 
   return (
     <div className="space-y-5">
-      <section className="border rounded-xl p-4 bg-blue-50 space-y-3">
-        <h2 className="text-xl font-bold text-blue-800">{t.qpcr_title}</h2>
+      <section className="border rounded-xl p-4 bg-emerald-50/70 space-y-3">
+        <h2 className="text-xl font-bold text-[#16233f]">{t.qpcr_title}</h2>
         <p className="text-sm text-slate-700">{t.qpcr_desc}</p>
         <div className="grid md:grid-cols-2 gap-3">
           <Field label={t.qpcr_control_group}><input className={inputCls} value={controlGroup} onChange={(e) => { setControlGroup(e.target.value); clearAnalysis(); }} placeholder="control" /></Field>
@@ -565,7 +569,7 @@ function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (
       {result && (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-bold text-blue-800">{t.qpcr_results}</h3>
+            <h3 className="text-lg font-bold text-[#16233f]">{t.qpcr_results}</h3>
             <div className="flex flex-wrap gap-2">
               <Btn kind="dark" onClick={() => downloadQpcrReport(result, lang, t, referenceTarget, controlGroup)}>{t.report}</Btn>
               <Btn kind="ghost" onClick={() => download("qpcr_reproducibility.json", JSON.stringify({
@@ -798,7 +802,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
 
   return (
     <div className="space-y-6">
-      <section className="bg-blue-50 rounded-xl p-4 space-y-3">
+      <section className="bg-emerald-50/70 rounded-xl p-4 space-y-3">
         <div className="grid md:grid-cols-[1fr_220px_auto] gap-3 items-end">
           <Field label={t.geneSearch}><input className={inputCls} dir="ltr" value={geneName} onChange={(e) => setGeneName(e.target.value)} placeholder="BRCA1" onKeyDown={(e) => e.key === "Enter" && fetchGene()} /></Field>
           <Field label={t.organism}><select className={inputCls} value={organism} onChange={(e) => setOrganism(e.target.value)}>{ORGS.map((o) => <option key={o}>{o}</option>)}</select></Field>
@@ -835,12 +839,12 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
         <Field label={t.tailRight}><input dir="ltr" className={seqCls} value={tailR} onChange={(e) => setTailR(e.target.value)} placeholder="AAGCTT" /></Field>
         <div className="md:col-span-2"><Field label={t.mutation} hint={t.mutationHint}><input dir="ltr" className={seqCls} value={mutation} onChange={(e) => setMutation(e.target.value)} placeholder="A120G" /></Field></div>
       </div>
-      <button onClick={submit} disabled={loading || !seq.trim()} className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-bold py-3 rounded-lg">{loading ? t.working : t.designBtn}</button>
+      <button onClick={submit} disabled={loading || !seq.trim()} className="w-full bg-[#16233f] hover:bg-[#22345c] disabled:opacity-50 text-white font-bold py-3 rounded-lg">{loading ? t.working : t.designBtn}</button>
 
       {result && (
         <section className="space-y-5 border-t pt-6">
           <div className="flex flex-wrap gap-2 items-center text-sm">
-            <span className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full">{t.detectedTm}: {result.parameters.tm} °C ({t["src_" + result.parameters.source]})</span>
+            <span className="bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full">{t.detectedTm}: {result.parameters.tm} °C ({t["src_" + result.parameters.source]})</span>
             <span className="bg-slate-100 px-3 py-1 rounded-full">{t.size}: {result.parameters.size_range[0]}–{result.parameters.size_range[1]} bp</span>
             {result.pairs.length > 0 && <Btn kind="dark" onClick={exportCsv}>{t.csvIdt}</Btn>}
             {result.pairs.length > 0 && <Btn kind="dark" onClick={() => downloadDesignReport(result, designSnapshot?.gene, designSnapshot?.sequence || seq, p.lang, t)}>{t.report}</Btn>}
@@ -857,8 +861,8 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
           ) : (
             <div className="grid lg:grid-cols-3 gap-5">
               {result.pairs.map((pr: any, i: number) => (
-                <article key={i} className="border rounded-xl p-4 bg-white shadow-sm flex flex-col gap-3">
-                  <header className="flex justify-between items-center border-b pb-2"><h4 className="font-bold text-blue-800">{t.pair} {i + 1}</h4><Risk v={pr.risk.overall} t={t} /></header>
+                <article key={i} className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm shadow-sm flex flex-col gap-3">
+                  <header className="flex justify-between items-center border-b pb-2"><h4 className="font-bold text-[#16233f]">{t.pair} {i + 1}</h4><Risk v={pr.risk.overall} t={t} /></header>
                   {(["left", "right"] as const).map((sd) => (
                     <div key={sd}>
                       <p className="text-xs font-semibold text-slate-500 mb-1">{side(sd)} · {pr[sd].start1}–{pr[sd].end1}</p>
@@ -888,7 +892,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
                   </div>
                   {blast[i]?.status === "error" && <p className="text-xs text-red-700">{blast[i].error}</p>}
                   {blast[i]?.status === "done" && (() => { const b = blast[i].result; return (
-                    <div className="text-xs bg-purple-50 border border-purple-200 rounded p-2 space-y-1">
+                    <div className="text-xs bg-purple-50 border border-violet-200 rounded p-2 space-y-1">
                       <p className="font-semibold">{b.n_products === 0 ? t.blastNone : fmt(t.blastSummary, { n: b.n_products, on: b.n_on_target, other: b.n_other })}</p>
                       <ul className="list-disc ps-4" dir="ltr">{b.products.slice(0, 5).map((x: any) => <li key={x.accession} className="truncate" title={x.title}>{x.on_target ? "✓ " : "⚠ "}{x.accession} · {x.size} bp · {x.mismatches} mm</li>)}</ul>
                       <p className="text-slate-500">{t.blastNote}</p></div>); })()}
@@ -899,7 +903,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
           {result.pairs.length > 0 && <p className="text-xs text-slate-500" dir="ltr">{fmt(t.provenance, { v: result.parameters.primer3 })}</p>}
 
           {result.mutation && (
-            <div className="border rounded-xl p-4 bg-white">
+            <div className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm">
               <h4 className="font-bold mb-1">{t.sdm}: {result.mutation.notation}{result.mutation.aa_change ? ` (p.${result.mutation.aa_change}, ${t["eff_" + result.mutation.effect]})` : ""}</h4>
               <p className="text-xs text-slate-500 mb-3">{t.sdmHint}</p>
               {result.sdm && (<div className="space-y-2 font-mono text-sm" dir="ltr">
@@ -910,7 +914,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
           )}
 
           {protocol && (
-            <div className="border rounded-xl p-4 bg-white text-sm space-y-1" dir="ltr">
+            <div className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm text-sm space-y-1" dir="ltr">
               <h4 className="font-bold mb-2">{t.protocolTitle} — {t.pair} {protoFor + 1} ({protocol.polymerase_profile})</h4>
               {["initial_denaturation", "denaturation", "annealing", "extension", "final_extension", "cycles"].map((k) => <p key={k}><b>{k.replace(/_/g, " ")}:</b> {protocol[k]}</p>)}
               {protocol.additives.map((a: string) => <p key={a} className="bg-yellow-50 p-2 rounded text-yellow-900">{t["additive_" + a]}</p>)}
@@ -918,7 +922,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
             </div>
           )}
 
-          {result.pairs.length > 0 && (<div className="border rounded-xl p-4 bg-white"><h4 className="font-bold mb-3">{t.gel}</h4><Gel sizes={result.pairs.map((x: any) => x.product_size)} t={t} /></div>)}
+          {result.pairs.length > 0 && (<div className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm"><h4 className="font-bold mb-3">{t.gel}</h4><Gel sizes={result.pairs.map((x: any) => x.product_size)} t={t} /></div>)}
 
           {result.pairs.length > 0 && (
             <div className="border rounded-xl p-4 bg-purple-50 text-center space-y-3">
@@ -963,7 +967,7 @@ function MultiplexTab({ t, call, fail }: Ctx) {
         <p className={`font-semibold ${res.ok ? "text-green-700" : "text-yellow-800"}`}>{res.ok ? t.mpOk : t.mpBad}</p>
         {!res.ok && <ul className="text-sm list-disc ps-5">{res.conflicts.map((c: any, i: number) => <li key={i}>{t.target} {c.a + 1} ↔ {c.b + 1}: {c.type === "size" ? t.mpSize : t.mpDimer}</li>)}</ul>}
         {res.pairs.map((x: any, i: number) => (<div key={i} className="border rounded-lg p-3 bg-slate-50 font-mono text-sm" dir="ltr">
-          <b className="font-sans text-blue-800">{t.target} {i + 1}</b> · {x.size} bp<br />F: {x.left} ({x.ltm} °C)<br />R: {x.right} ({x.rtm} °C)</div>))}
+          <b className="font-sans text-[#16233f]">{t.target} {i + 1}</b> · {x.size} bp<br />F: {x.left} ({x.ltm} °C)<br />R: {x.right} ({x.rtm} °C)</div>))}
       </div>)}
     </div>
   );
@@ -981,7 +985,7 @@ function GibsonTab({ t, call, fail }: Ctx) {
     catch (e) { fail(e); } finally { setLoading(false); }
   };
   const P = ({ label, ovs, ann, tmv, risk }: any) => (
-    <div className="bg-white border rounded-lg p-4"><p className="font-semibold text-blue-800">{label}</p>
+    <div className="bg-white border rounded-lg p-4"><p className="font-semibold text-[#16233f]">{label}</p>
       <p className="font-mono text-sm break-all mt-1" dir="ltr"><span className="text-purple-700">{ovs}</span><span>{ann}</span></p>
       <p className="text-xs text-slate-500 mt-1" dir="ltr">{t.annealSeq} Tm {tmv} °C · {t.hairpin}: <Risk v={risk} t={t} /></p></div>);
   return (
@@ -1033,7 +1037,7 @@ function CrisprTab(p: Ctx & { seq: string; setSeq: (s: string) => void; annotati
             <p className="font-mono text-sm break-all" dir="ltr">{g.guide} <span className="text-red-700">[{g.pam}]</span></p>
             <p className="text-xs text-slate-600 mt-1" dir="ltr">{t.score} {g.score} · GC {g.gc_content}% · {t.strand} {g.strand} · {t.position} {g.start1}–{g.end1}</p>
             {g.cut && (<p className="text-xs mt-1">{t.cutAt} {g.cut.pos}: {t["region_" + g.cut.region]}{g.cut.exon ? ` · ${t.exon} ${g.cut.exon}` : ""}{g.cut.aa_pos ? ` · ${g.cut.aa}${g.cut.aa_pos}` : ""}
-              {g.cut.aa_pos && <button className="ms-2 text-blue-700 underline" onClick={() => p.openExplorer(g.cut.aa_pos)}>{t.showInExplorer}</button>}</p>)}
+              {g.cut.aa_pos && <button className="ms-2 text-emerald-700 underline" onClick={() => p.openExplorer(g.cut.aa_pos)}>{t.showInExplorer}</button>}</p>)}
           </div>))}</div>
       </div>)}
     </div>
@@ -1055,13 +1059,13 @@ function ToolboxTab({ t, call, fail }: Ctx) {
         <Field label={t.companyLabel}><select className={inputCls} value={company} onChange={(e) => setCompany(e.target.value)}><option>IDT</option><option>Eurofins</option><option>Generic</option></select></Field>
         <Btn kind="ghost" onClick={async () => { try { setFmtRes(await call("/order-format", { method: "POST", body: JSON.stringify({ sequence: s, name, company }) })); } catch (e) { fail(e); } }}>{t.convert}</Btn>
       </div>
-      {tm && (<div className="bg-blue-50 p-4 rounded-lg text-sm space-y-1" dir="ltr">
+      {tm && (<div className="bg-emerald-50/70 p-4 rounded-lg text-sm space-y-1" dir="ltr">
         <p className="text-lg"><b>Tm {tm.tm} °C</b> · GC {tm.gc}% · {tm.length} nt</p>
         <p>{t.hairpin}: {tm.hairpin.tm} °C / {tm.hairpin.dg} kcal · {t.selfDimer}: {tm.homodimer.tm} °C / {tm.homodimer.dg} kcal</p>
         <p className="text-xs text-slate-500">{tm.method} · {tm.conditions}</p></div>)}
       {fmtRes && (<div className="bg-green-50 p-4 rounded-lg" dir="ltr"><pre className="text-sm whitespace-pre-wrap">{fmtRes.formatted}</pre>
         <p className="text-xs text-slate-600 mt-1">{t.recPur}: {fmtRes.recommended_purification}</p>
-        <div className="mt-2 flex gap-2"><CopyBtn text={fmtRes.formatted} t={t} /><button className="text-xs text-blue-700" onClick={() => download("order.csv", fmtRes.formatted, "text/csv")}>CSV</button></div></div>)}
+        <div className="mt-2 flex gap-2"><CopyBtn text={fmtRes.formatted} t={t} /><button className="text-xs text-emerald-700" onClick={() => download("order.csv", fmtRes.formatted, "text/csv")}>CSV</button></div></div>)}
     </div>
   );
 }
@@ -1159,7 +1163,7 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
       {!gene && !acc && <p className="text-sm text-slate-500">{t.noGeneYet}</p>}
 
       {cds && (
-        <section className="border rounded-xl p-4 bg-white" aria-label={t.mapTitle}>
+        <section className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm" aria-label={t.mapTitle}>
           <h4 className="font-bold text-sm mb-1">{t.mapTitle} — {gene!.symbol} {gene!.accession}</h4>
           <p className="text-xs text-slate-500 mb-2">{t.mapHint}</p>
           <svg viewBox="0 0 1000 110" className="w-full" direction="ltr">
@@ -1190,24 +1194,24 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
               {[["#0053d6", ">90"], ["#65cbf3", "70–90"], ["#ffdb13", "50–70"], ["#ff7d45", "<50"]].map(([c, l]) => (<span key={l} className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm" style={{ background: c }} />{l}</span>))}
               <span className="text-slate-500">pLDDT · {source}</span></div>
           </div>
-          <aside className="border rounded-xl p-4 bg-white text-sm space-y-3 min-h-[200px]" aria-live="polite">
+          <aside className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm text-sm space-y-3 min-h-[200px]" aria-live="polite">
             {!active ? <p className="text-slate-500">{t.hoverHint}</p> : (<>
-              <h4 className="font-bold text-blue-800" dir="ltr">{resn ? `${resn} ${active}${AA3[resn] ? ` (${AA3[resn]})` : ""}` : `${t.residue} ${active}`}</h4>
+              <h4 className="font-bold text-[#16233f]" dir="ltr">{resn ? `${resn} ${active}${AA3[resn] ? ` (${AA3[resn]})` : ""}` : `${t.residue} ${active}`}</h4>
               {hover && hover.resi === active && <p className="text-xs">{t.plddt}: {Math.round(hover.b)} — {t[plddtBand(hover.b)]}</p>}
               <div><p className="font-semibold text-xs mb-1">{t.features}</p>
                 {feats.length === 0 ? <p className="text-xs text-slate-500">{t.noFeat}</p> : (<ul className="space-y-1 text-xs">{feats.slice(0, 6).map((f: any, i: number) => (
                   <li key={i}><b>{f.type}</b> {f.start}–{f.end}{f.description ? `: ${f.description}` : ""}{f.variant ? ` (${f.variant})` : ""}
-                    {f.pubmed.map((id: string) => <a key={id} className="text-blue-700 ms-1 underline" href={`https://pubmed.ncbi.nlm.nih.gov/${id}/`} target="_blank" rel="noreferrer">PMID {id}</a>)}</li>))}</ul>)}</div>
+                    {f.pubmed.map((id: string) => <a key={id} className="text-emerald-700 ms-1 underline" href={`https://pubmed.ncbi.nlm.nih.gov/${id}/`} target="_blank" rel="noreferrer">PMID {id}</a>)}</li>))}</ul>)}</div>
               {dnaStart && <p className="text-xs" dir="ltr"><b>{t.dnaCodon}:</b> {dnaStart}–{dnaStart + 2}{covering.length > 0 && <> · {t.covers}: {covering.map((m) => m.label).join(", ")}</>}</p>}
               {ann && (<div className="flex flex-wrap gap-2">
                 <Btn kind="ghost" onClick={findPapers} disabled={busy}>{t.findPapers}</Btn>
                 {p.llm && <Btn kind="dark" onClick={doExplain} disabled={busy || !allowExplainUpload}>{t.explain}</Btn>}</div>)}
                {p.llm && ann && <label className="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" checked={allowExplainUpload} onChange={(e) => setAllowExplainUpload(e.target.checked)} className="mt-0.5" />{t.explainConsent}</label>}
               {explain && (<div className="bg-slate-50 p-3 rounded text-xs space-y-2"><p className="whitespace-pre-wrap">{explain.text}</p>
-                <ul className="space-y-1">{explain.sources.map((s: any) => <li key={s.n}>[{s.n}] <a className="text-blue-700 underline" href={s.link} target="_blank" rel="noreferrer">{s.title}</a></li>)}</ul>
+                <ul className="space-y-1">{explain.sources.map((s: any) => <li key={s.n}>[{s.n}] <a className="text-emerald-700 underline" href={s.link} target="_blank" rel="noreferrer">{s.title}</a></li>)}</ul>
                 <p className="text-slate-500">{t.explainNote}</p></div>)}
               {papers && (<div><p className="font-semibold text-xs mb-1">{t.papers}</p><ul className="space-y-2 text-xs">{papers.map((x: any, i: number) => (
-                <li key={i}><a className="text-blue-700 underline" href={x.link} target="_blank" rel="noreferrer" dir="ltr">{x.title}</a><br /><span className="text-slate-500" dir="ltr">{x.authors} · {x.journal} {x.year}{x.open_access ? " · OA" : ""}</span></li>))}</ul></div>)}
+                <li key={i}><a className="text-emerald-700 underline" href={x.link} target="_blank" rel="noreferrer" dir="ltr">{x.title}</a><br /><span className="text-slate-500" dir="ltr">{x.authors} · {x.journal} {x.year}{x.open_access ? " · OA" : ""}</span></li>))}</ul></div>)}
             </>)}
             {ann?.function && <details className="text-xs"><summary className="cursor-pointer font-semibold">{t.functionTxt}</summary><p className="mt-1" dir="ltr">{ann.function}</p></details>}
           </aside>
@@ -1281,11 +1285,11 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
   return (
     <div className="fixed bottom-4 end-4 z-50 flex flex-col items-end gap-2">
       {open && (
-        <section role="dialog" aria-label={t.chat_title} className="w-[min(92vw,380px)] h-[min(75vh,560px)] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-          <header className="bg-blue-800 text-white px-4 py-3 flex items-center justify-between gap-2">
-            <div><p className="font-bold">{t.chat_title}</p><p className="text-xs text-blue-100">{t.aiDisclosure}</p></div>
+        <section role="dialog" aria-label={t.chat_title} className="pa-panel w-[min(92vw,400px)] h-[min(75vh,580px)] bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+          <header className="bg-[#101a30] text-white px-4 py-3 flex items-center justify-between gap-2">
+            <div><p className="font-bold">{t.chat_title}</p><p className="text-xs text-emerald-100">{t.aiDisclosure}</p></div>
             <div className="flex gap-1">
-              {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="text-xs bg-blue-700 hover:bg-blue-600 rounded px-2 py-1">{t.chat_clear}</button>}
+              {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="text-xs bg-[#16233f] hover:bg-white/20 rounded px-2 py-1">{t.chat_clear}</button>}
               <button type="button" aria-label="close" onClick={() => setOpen(false)} className="text-lg leading-none px-2 hover:text-blue-200">×</button>
             </div>
           </header>
@@ -1293,11 +1297,11 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
             {msgs.length === 0 && (<div className="space-y-2">
               <p className="text-sm bg-white border rounded-xl p-3">{t.chat_hello}</p>
               {[t.chat_s1, t.chat_s2, t.chat_s3].map((sug) => (
-                <button key={sug} type="button" onClick={() => send(sug)} disabled={!allowAiRequest} className="block w-full text-start text-sm bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg px-3 py-2 disabled:opacity-50">{sug}</button>))}
+                <button key={sug} type="button" onClick={() => send(sug)} disabled={!allowAiRequest} className="block w-full text-start text-sm bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900 rounded-lg px-3 py-2 disabled:opacity-50">{sug}</button>))}
             </div>)}
             {msgs.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <p dir="auto" className={`max-w-[85%] whitespace-pre-wrap text-sm rounded-2xl px-3 py-2 ${m.role === "user" ? "bg-blue-700 text-white" : "bg-white border text-slate-800"}`}>{m.content}</p>
+                <p dir="auto" className={`max-w-[85%] whitespace-pre-wrap text-sm rounded-2xl px-3 py-2 ${m.role === "user" ? "bg-[#16233f] text-white" : "bg-white border text-slate-800"}`}>{m.content}</p>
               </div>))}
             {busy && <p className="text-sm text-slate-500">{t.working}</p>}
             <div ref={endRef} />
@@ -1315,7 +1319,7 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
         </section>
       )}
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-        className="bg-blue-800 hover:bg-blue-900 text-white font-semibold rounded-full shadow-xl px-5 py-3">{open ? "×" : `✦ ${t.chat_open}`}</button>
+        className="rounded-full bg-[#101a30] px-5 py-3 font-semibold text-white shadow-xl shadow-[#101a30]/30 ring-1 ring-emerald-300/30 transition hover:bg-[#1a2846] hover:shadow-emerald-500/20">{open ? "×" : `✦ ${t.chat_open}`}</button>
     </div>
   );
 }
@@ -1347,7 +1351,7 @@ function AccountTools({ t, token, onLogin, onLogout, call, notify, fail }: Ctx &
     {(oneTimeToken||resetPassword)&&<div className="grid md:grid-cols-2 gap-2"><input className={seqCls} value={oneTimeToken} onChange={e=>setOneTimeToken(e.target.value)} placeholder={t.auth_code}/><input type="password" className={inputCls} value={resetPassword} onChange={e=>setResetPassword(e.target.value)} placeholder={t.auth_new_password}/>
       <Btn kind="ghost" onClick={verify} disabled={busy||!oneTimeToken}>{t.auth_verify_token}</Btn><Btn onClick={reset} disabled={busy||!oneTimeToken||resetPassword.length<8}>{t.auth_reset_token}</Btn></div>}
     <div className="flex flex-wrap gap-2">{token&&<><Btn kind="ghost" onClick={exportData}>{t.auth_export}</Btn><Btn kind="danger" onClick={onLogout}>{t.logout}</Btn></>}</div>
-    {message&&<p role="status" className="text-sm text-blue-800">{message}</p>}
+    {message&&<p role="status" className="text-sm text-[#16233f]">{message}</p>}
   </div>;
 }
 
@@ -1373,7 +1377,7 @@ function ClassroomTab({ t, call, token, notify, fail, design, qpcrRes }: Ctx & {
     catch(e){fail(e);} };
   const saveReview = async (submissionId:number) => { if(!selected)return; const r=review[submissionId]||{feedback:"",grade:""}; try { await call(`/classrooms/${selected}/submissions/${submissionId}/feedback`,{method:"POST",body:JSON.stringify(r)}); await loadDetail(selected); }
     catch(e){fail(e);} };
-  return <div className="space-y-5"><section className="border rounded-xl p-4 bg-blue-50 space-y-3"><h2 className="text-xl font-bold text-blue-800">{t.classroom_title}</h2><p className="text-sm">{t.classroom_desc}</p>
+  return <div className="space-y-5"><section className="border rounded-xl p-4 bg-emerald-50/70 space-y-3"><h2 className="text-xl font-bold text-[#16233f]">{t.classroom_title}</h2><p className="text-sm">{t.classroom_desc}</p>
     <div className="grid md:grid-cols-2 gap-3"><div className="flex gap-2"><input className={inputCls} value={className} onChange={e=>setClassName(e.target.value)} placeholder={t.classroom_name}/><Btn onClick={createClass} disabled={className.trim().length<2}>{t.classroom_create}</Btn></div>
       <div className="flex gap-2"><input dir="ltr" className={seqCls} value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())} placeholder={t.classroom_code}/><Btn kind="ghost" onClick={joinClass} disabled={!joinCode.trim()}>{t.classroom_join}</Btn></div></div>
     {newCode && <p className="p-3 bg-white border rounded text-sm"><b>{t.classroom_created_code}</b> <code className="font-mono text-lg select-all">{newCode}</code></p>}
@@ -1396,6 +1400,195 @@ function ClassroomTab({ t, call, token, notify, fail, design, qpcrRes }: Ctx & {
   </div>;
 }
 
+const TAB_GROUPS: { key: string; tabs: TabId[] }[] = [
+  { key: "group_design", tabs: ["design", "multiplex", "gibson", "crispr"] },
+  { key: "group_analyze", tabs: ["qpcr", "explorer"] },
+  { key: "group_tools", tabs: ["toolbox", "troubleshoot", "library"] },
+  { key: "group_learn", tabs: ["tutorial", "classroom"] },
+];
+
+/** Decorative agarose-gel lanes: bands glow like SYBR-stained DNA under blue light. */
+function GelHero({ rtl }: { rtl: boolean }) {
+  const lanes = [[0.18, 0.46, 0.7], [0.3, 0.55], [0.22, 0.4, 0.62, 0.82], [0.36, 0.74], [0.15, 0.5, 0.66]];
+  return (
+    <div aria-hidden="true" className={`pa-gel absolute top-20 bottom-6 hidden md:flex w-[40%] items-stretch justify-end gap-3 opacity-90 ${rtl ? "left-8" : "right-8"}`} dir="ltr">
+      <div className="flex flex-col justify-between py-1 pe-1">{[3000, 1000, 500, 200, 100].map((bp, i) => (
+        <span key={bp} className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-200/60"><i className="pa-band block h-[3px] w-6 rounded-full bg-emerald-200/50" style={{ animationDelay: `${i * 0.4}s` }} />{bp}</span>))}</div>
+      {lanes.map((bands, li) => (
+        <div key={li} className="relative w-10 rounded-md bg-white/[0.04] ring-1 ring-white/10">
+          <span className="absolute -top-1 start-1/2 h-2 w-7 -translate-x-1/2 rounded-sm bg-black/40" />
+          {bands.map((y, bi) => (<i key={bi} className="pa-band absolute start-1 end-1 h-[5px] rounded-full bg-[#5ef0a8]"
+            style={{ top: `${y * 100}%`, animationDelay: `${(li * 3 + bi) * 0.35}s`, boxShadow: "0 0 12px 2px rgba(94,240,168,.55)" }} />))}
+        </div>))}
+    </div>
+  );
+}
+
+const SHELL_CSS = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+@layer base{.pa-root *,.pa-root ::before,.pa-root ::after{border-color:#e2e8f0}}
+.pa-root{font-family:"Inter","Vazirmatn",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.pa-root[dir=rtl]{font-family:"Vazirmatn","Inter",system-ui,sans-serif}
+.pa-root .font-mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
+.pa-root table th{font-weight:600;color:#334155}
+.pa-root ::selection{background:#bbf7d0;color:#052e1c}
+@keyframes paBand{0%,100%{opacity:.55;filter:saturate(.8)}50%{opacity:1;filter:saturate(1.2)}}
+@keyframes paRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pa-band{animation:paBand 4.8s ease-in-out infinite}
+.pa-panel{animation:paRise .35s cubic-bezier(.2,.7,.2,1) both}
+.pa-step{animation:paRise .5s cubic-bezier(.2,.7,.2,1) both}
+.pa-demo{animation:paFloat 7s ease-in-out infinite}
+@keyframes paFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.pa-lanes{background-image:repeating-linear-gradient(90deg,#fff 0 46px,transparent 46px 70px)}
+@media (prefers-reduced-motion:reduce){.pa-band,.pa-panel,.pa-step,.pa-demo{animation:none}}`;
+
+const LANDING: Record<Lang, any> = {
+  en: {
+    nav_tools: "Tools", nav_classroom: "For classrooms", nav_sources: "Data sources", open: "Open workbench",
+    kicker: "Free molecular biology workbench",
+    h1a: "From gene to primers,", h1b: "qPCR and 3D structure.", h1c: "One workbench.",
+    sub: "Fetch a RefSeq transcript, design exon-aware primers, check specificity, analyze Ct data and map residues on AlphaFold models. Ask in English or Persian. Nothing to install.",
+    cta_start: "Start for free", cta_try: "Try it without an account", cta_note: "Most tools work without signing in. An account saves your primers and joins classrooms.",
+    demo_gene: "GENE_X · example transcript", demo_prompt: "qPCR, Tm 60, span an exon junction", demo_pair: "Pair 1", demo_fwd: "Forward", demo_rev: "Reverse",
+    demo_junction: "Spans an exon–exon junction", demo_size: "Product 118 bp", demo_risk: "Dimer risk: low", demo_label: "Illustrative example",
+    flow_title: "The path a student actually takes", flow: [["Fetch", "Gene symbol to RefSeq mRNA with exon map"], ["Design", "Primer3 pairs, probes, tails, mutagenesis"], ["Verify", "Hairpins, dimers, BLAST specificity"], ["Analyze", "ΔΔCt or Pfaffl with replicate statistics"]],
+    tools_title: "Everything on the bench", tools_sub: "Open any tool directly.",
+    tools: { design: ["PCR", "Primer design", "Standard, qPCR and Sanger modes with exon-junction awareness."], qpcr: ["ΔΔCt", "RT-qPCR analysis", "Fold change, NTC/−RT checks, standard curves, Welch tests."],
+      multiplex: ["MPX", "Multiplex", "Pick compatible pairs with separated band sizes."], gibson: ["GIB", "Gibson assembly", "Overlap primers and junction preview."],
+      crispr: ["gRNA", "CRISPR guides", "SpCas9, SaCas9 and Cas12a PAM scanning."], explorer: ["3D", "Gene & protein explorer", "AlphaFold structure, UniProt features, literature."],
+      toolbox: ["Tm", "Toolbox", "Tm calculator and vendor order formats."], library: ["LIB", "My library", "Save pairs and export order sheets."] },
+    class_kicker: "For instructors", class_title: "Run a lab course from one link.", class_body: "Create a class, share a join code, publish assignments and review each student's submitted design or qPCR result with feedback and a grade.",
+    class_points: ["Join codes, not spreadsheets", "Submissions keep the exact inputs", "Bilingual: English and Persian"], class_cta: "Open classroom",
+    trust_title: "Built on the references you would cite", trust_sub: "Results show their method and source so they can go into a report.",
+    privacy_title: "Your sequences, your call.", privacy_body: "BLAST, ESMFold and AI features ask before sending data to an outside service. Export or delete your data anytime.",
+    final_title: "Design your next primer pair now.", contact: "Contact",
+  },
+  fa: {
+    nav_tools: "ابزارها", nav_classroom: "برای کلاس‌ها", nav_sources: "منابع داده", open: "ورود به میز کار",
+    kicker: "میز کار رایگان زیست‌شناسی مولکولی",
+    h1a: "از ژن تا پرایمر،", h1b: "qPCR و ساختار سه‌بعدی.", h1c: "همه در یک میز کار.",
+    sub: "ترنسکریپت RefSeq را بگیرید، پرایمر آگاه از اگزون طراحی کنید، اختصاصیت را بسنجید، داده‌ی Ct را تحلیل کنید و residueها را روی مدل AlphaFold ببینید. به فارسی یا انگلیسی بپرسید؛ بدون نصب.",
+    cta_start: "شروع رایگان", cta_try: "امتحان بدون حساب", cta_note: "بیشتر ابزارها بدون ورود کار می‌کنند. با حساب کاربری پرایمرها ذخیره می‌شوند و می‌توانید عضو کلاس شوید.",
+    demo_gene: "GENE_X · ترنسکریپت نمونه", demo_prompt: "qPCR، Tm ۶۰، روی اتصال اگزون", demo_pair: "جفت ۱", demo_fwd: "رفت", demo_rev: "برگشت",
+    demo_junction: "روی اتصال اگزون–اگزون", demo_size: "محصول ۱۱۸ bp", demo_risk: "خطر دایمر: کم", demo_label: "نمونه‌ی نمایشی",
+    flow_title: "مسیری که یک دانشجو واقعاً طی می‌کند", flow: [["دریافت", "از نماد ژن تا mRNA مرجع با نقشه‌ی اگزون"], ["طراحی", "جفت‌های Primer3، پروب، دنباله و موتاژنز"], ["سنجش", "سنجاقی، دایمر و اختصاصیت با BLAST"], ["تحلیل", "ΔΔCt یا Pfaffl با آمار تکرارهای زیستی"]],
+    tools_title: "همه‌چیز روی میز کار", tools_sub: "هر ابزار را مستقیم باز کنید.",
+    tools: { design: ["PCR", "طراحی پرایمر", "حالت‌های معمولی، qPCR و سنگر با توجه به اتصال اگزون‌ها."], qpcr: ["ΔΔCt", "تحلیل RT-qPCR", "تغییر بیان، کنترل NTC و −RT، منحنی استاندارد، آزمون Welch."],
+      multiplex: ["MPX", "مولتی‌پلکس", "انتخاب جفت‌های سازگار با باندهای جدا از هم."], gibson: ["GIB", "مونتاژ Gibson", "پرایمرهای همپوشان و پیش‌نمایش محل اتصال."],
+      crispr: ["gRNA", "گایدهای CRISPR", "جست‌وجوی PAM برای SpCas9، SaCas9 و Cas12a."], explorer: ["3D", "کاوشگر ژن و پروتئین", "ساختار AlphaFold، ویژگی‌های UniProt و مقالات."],
+      toolbox: ["Tm", "ابزارها", "محاسبه‌گر Tm و فرمت سفارش شرکت‌ها."], library: ["LIB", "کتابخانه‌ی من", "ذخیره‌ی جفت‌ها و خروجی فرم سفارش."] },
+    class_kicker: "برای استادها", class_title: "یک درس عملی را با یک لینک اداره کنید.", class_body: "کلاس بسازید، کد عضویت را به دانشجوها بدهید، تکلیف منتشر کنید و نتیجه‌ی طراحی یا qPCR هر دانشجو را با بازخورد و نمره بررسی کنید.",
+    class_points: ["کد عضویت به‌جای فایل اکسل", "تحویل‌ها ورودی دقیق را نگه می‌دارند", "دوزبانه: فارسی و انگلیسی"], class_cta: "ورود به کلاس",
+    trust_title: "ساخته‌شده روی منابعی که در مقاله ارجاع می‌دهید", trust_sub: "هر نتیجه روش و منبعش را نشان می‌دهد تا در گزارش قابل استفاده باشد.",
+    privacy_title: "توالی شما، تصمیم شما.", privacy_body: "BLAST، ESMFold و قابلیت‌های هوش مصنوعی پیش از ارسال داده به سرویس بیرونی از شما اجازه می‌گیرند. هر زمان بخواهید داده‌هایتان را خروجی بگیرید یا حذف کنید.",
+    final_title: "جفت پرایمر بعدی‌تان را همین حالا طراحی کنید.", contact: "تماس",
+  },
+};
+
+const SOURCES = ["Primer3", "NCBI RefSeq", "BLAST", "UniProt", "AlphaFold DB", "Europe PMC", "ESMFold"];
+
+function DemoCard({ L }: { L: any }) {
+  return (
+    <div className="pa-demo relative rounded-3xl bg-white p-5 text-slate-800 shadow-2xl shadow-black/30 ring-1 ring-white/20" dir="ltr">
+      <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold text-slate-500" dir="auto">{L.demo_gene}</span>
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">{L.demo_label}</span></div>
+      <div className="pa-step mt-3 rounded-xl bg-[#f3f6f4] px-3 py-2 text-sm text-slate-600" style={{ animationDelay: ".2s" }} dir="auto">› <span className="pa-type">{L.demo_prompt}</span></div>
+      <div className="mt-4 grid gap-3">
+        <div className="pa-step rounded-2xl border border-slate-200 p-3" style={{ animationDelay: "1.1s" }}>
+          <div className="flex items-center justify-between"><b className="text-sm text-[#16233f]" dir="auto">{L.demo_pair}</b><span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800" dir="auto">{L.demo_risk}</span></div>
+          {[[L.demo_fwd, "GAGCCCACAGATACCTGGAAG", "60.1"], [L.demo_rev, "TCCTCTGCATCCTCTTGGTCA", "60.4"]].map(([side, sq, tm]) => (
+            <div key={side} className="mt-2"><span className="text-[11px] font-semibold text-slate-500" dir="auto">{side} · Tm {tm} °C</span>
+              <div className="font-mono text-[13px] tracking-wide text-slate-800">{sq}</div></div>))}
+        </div>
+        <div className="pa-step flex items-center gap-3" style={{ animationDelay: "1.9s" }}>
+          <div className="flex h-16 w-28 items-end justify-around rounded-xl bg-[#101a30] px-2 pb-2">
+            {[0.25, 0.5, 0.7].map((y, i) => <i key={i} className="flex h-full w-5 flex-col justify-start pt-1"><span className={`pa-band block h-[3px] rounded-full ${i === 1 ? "bg-[#5ef0a8] shadow-[0_0_8px_rgba(94,240,168,.8)]" : "bg-emerald-200/40"}`} style={{ marginTop: `${y * 40}px` }} /></i>)}
+          </div>
+          <div className="space-y-1 text-xs"><p className="font-semibold text-emerald-700" dir="auto">✓ {L.demo_junction}</p><p className="text-slate-500" dir="auto">{L.demo_size}</p></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<string, string>; lang: Lang; setLang: (l: Lang) => void; onEnter: (tab?: TabId) => void; onStart: () => void; token: string | null }) {
+  const L = LANDING[lang];
+  const toolIds: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "explorer", "toolbox", "library"];
+  return (
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-[2rem] bg-[#101a30] text-white shadow-2xl shadow-[#101a30]/30">
+        <div className="absolute inset-0 bg-[radial-gradient(700px_380px_at_80%_30%,rgba(94,240,168,.18),transparent_70%)]" />
+        <div className="pa-lanes absolute inset-0 opacity-[0.035] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+        <div className="relative flex flex-wrap items-center justify-between gap-3 px-6 pt-6 md:px-10">
+          <span className="text-lg font-extrabold tracking-tight">Primer<span className="text-[#5ef0a8]"> AI</span></span>
+          <nav className="flex flex-wrap items-center gap-1 text-sm">
+            <a href="#tools" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_tools}</a>
+            <a href="#classroom" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_classroom}</a>
+            <a href="/pricing" className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{t.pricing}</a>
+            <button type="button" onClick={() => setLang(lang === "en" ? "fa" : "en")} className="rounded-full bg-white/10 px-3.5 py-1.5 font-semibold ring-1 ring-white/15 hover:bg-white/20">{lang === "en" ? "فارسی" : "English"}</button>
+            <button type="button" onClick={() => onEnter()} className="rounded-full bg-white px-4 py-1.5 font-bold text-[#101a30] hover:bg-emerald-50">{token ? L.open : t.login}</button>
+          </nav>
+        </div>
+        <div className="relative grid items-center gap-10 px-6 pb-12 pt-12 md:grid-cols-[1.15fr_1fr] md:px-10 md:pb-16 md:pt-16">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-200 ring-1 ring-white/10"><i className="pa-band block h-2 w-2 rounded-full bg-[#5ef0a8]" />{L.kicker}</span>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight md:text-[3.4rem]">{L.h1a}<br />{L.h1b}<br /><span className="text-[#5ef0a8]">{L.h1c}</span></h1>
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300 md:text-lg">{L.sub}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button type="button" onClick={onStart} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 text-base font-bold text-[#06231a] shadow-[0_0_28px_rgba(94,240,168,.35)] transition hover:bg-[#7bf5b9] active:scale-[0.98]">{token ? L.open : L.cta_start}</button>
+              {!token && <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-white/10 px-6 py-3.5 text-base font-semibold ring-1 ring-white/20 transition hover:bg-white/15">{L.cta_try}</button>}
+            </div>
+            {!token && <p className="mt-4 max-w-md text-sm text-slate-400">{L.cta_note}</p>}
+          </div>
+          <DemoCard L={L} />
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm md:p-8">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">{L.flow_title}</h2>
+        <ol className="mt-5 grid gap-4 md:grid-cols-4">{L.flow.map(([h, p]: string[], i: number) => (
+          <li key={h} className="relative rounded-2xl bg-[#f3f6f4] p-4"><span className="font-mono text-xs font-semibold text-emerald-700">{String(i + 1).padStart(2, "0")}</span>
+            <p className="mt-1 text-lg font-bold text-[#16233f]">{h}</p><p className="mt-1 text-sm leading-relaxed text-slate-600">{p}</p></li>))}</ol>
+      </section>
+
+      <section id="tools" className="scroll-mt-6">
+        <div className="flex flex-wrap items-end justify-between gap-2 px-1"><h2 className="text-2xl font-extrabold tracking-tight text-[#16233f] md:text-3xl">{L.tools_title}</h2><p className="text-sm text-slate-500">{L.tools_sub}</p></div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-4">{toolIds.map((id) => { const [tag, name, desc] = L.tools[id]; return (
+          <button key={id} type="button" onClick={() => onEnter(id)} className="group rounded-2xl border border-slate-200/80 bg-white p-5 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-900/5">
+            <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-[#101a30] px-2 font-mono text-xs font-bold text-[#5ef0a8]" dir="ltr">{tag}</span>
+            <p className="mt-4 font-bold text-[#16233f]">{name}</p><p className="mt-1 text-sm leading-relaxed text-slate-600">{desc}</p>
+            <span className="mt-3 inline-block text-sm font-semibold text-emerald-700 opacity-0 transition group-hover:opacity-100">{lang === "fa" ? "← باز کردن" : "Open →"}</span>
+          </button>); })}</div>
+      </section>
+
+      <section id="classroom" className="grid scroll-mt-6 gap-6 overflow-hidden rounded-3xl bg-[#e3f3ea] p-6 md:grid-cols-[1.2fr_1fr] md:p-10">
+        <div><span className="text-sm font-bold uppercase tracking-wider text-emerald-800">{L.class_kicker}</span>
+          <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#16233f] md:text-4xl">{L.class_title}</h2>
+          <p className="mt-3 max-w-xl leading-relaxed text-slate-700">{L.class_body}</p>
+          <button type="button" onClick={() => onEnter("classroom")} className="mt-6 rounded-2xl bg-[#16233f] px-5 py-3 font-bold text-white transition hover:bg-[#22345c]">{L.class_cta}</button></div>
+        <ul className="space-y-3 self-center">{L.class_points.map((pt: string) => (
+          <li key={pt} className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-3 font-semibold text-[#16233f] shadow-sm"><i className="block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />{pt}</li>))}</ul>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-sm md:p-8">
+        <h2 className="text-xl font-extrabold text-[#16233f] md:text-2xl">{L.trust_title}</h2><p className="mt-1 text-sm text-slate-500">{L.trust_sub}</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-x-8 gap-y-3" dir="ltr">{SOURCES.map((s) => <span key={s} className="font-mono text-base font-semibold text-slate-400 transition hover:text-[#16233f]">{s}</span>)}</div>
+      </section>
+
+      <section className="grid gap-6 rounded-3xl bg-[#101a30] p-6 text-white md:grid-cols-[1fr_auto] md:items-center md:p-10">
+        <div><h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">{L.final_title}</h2>
+          <p className="mt-2 max-w-2xl text-slate-300"><b className="text-[#5ef0a8]">{L.privacy_title}</b> {L.privacy_body}</p></div>
+        <button type="button" onClick={onStart} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{token ? L.open : L.cta_start}</button>
+      </section>
+
+      <footer className="flex flex-wrap items-center justify-between gap-3 px-2 pb-10 text-sm text-slate-500">
+        <span className="font-extrabold text-[#16233f]">Primer<span className="text-emerald-600"> AI</span></span>
+        <nav className="flex flex-wrap gap-4"><a href="/pricing" className="hover:text-[#16233f]">{t.pricing}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
+        <p className="w-full font-mono text-[11px] text-slate-400">{t.footer}</p>
+      </footer>
+    </div>
+  );
+}
+
 export default function Home() {
   const [lang, setLang] = useState<Lang>("en");
   const [tab, setTab] = useState<TabId>("design");
@@ -1408,13 +1601,18 @@ export default function Home() {
   const [guides, setGuides] = useState<any[]>([]);
   const [focusAa, setFocusAa] = useState<number | null>(null);
   const [qpcrRes, setQpcrRes] = useState<any>(null);
+  const [view, setView] = useState<"landing" | "app">("landing");
   const t = T[lang];
+  const enterApp = (next?: TabId) => { if (next) setTab(next); setView("app"); sessionStorage.setItem("pa_view", "app"); window.scrollTo({ top: 0 }); };
+  const goHome = () => { setView("landing"); sessionStorage.removeItem("pa_view"); window.scrollTo({ top: 0 }); };
+  const startFree = () => { enterApp(); setTimeout(() => { const el = document.getElementById("account-tools") as HTMLDetailsElement | null; if (el) { el.open = true; el.scrollIntoView({ behavior: "smooth", block: "start" }); } }, 60); };
 
   useEffect(() => {
     const oldToken = localStorage.getItem("token");
     if (oldToken && !sessionStorage.getItem("token")) sessionStorage.setItem("token", oldToken);
     localStorage.removeItem("token");
     setToken(sessionStorage.getItem("token"));
+    if (sessionStorage.getItem("token") || sessionStorage.getItem("pa_view") === "app") setView("app");
     const l = localStorage.getItem("lang"); if (l === "fa" || l === "en") setLang(l);
     apiFetch("/config", null).then(setConfig).catch(() => {});
   }, []);
@@ -1476,29 +1674,55 @@ export default function Home() {
   };
 
   return (
-    <main dir={lang === "fa" ? "rtl" : "ltr"} className="min-h-screen bg-slate-50 p-4 md:p-10 text-slate-800">
-      <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-5 md:p-8">
-        <header className="flex flex-wrap justify-between items-start gap-4 mb-6">
-          <div><h1 className="text-3xl font-bold text-blue-800">{t.title}</h1><p className="text-slate-500 mt-1 max-w-xl">{t.subtitle}</p></div>
-          <div className="flex flex-wrap items-center gap-2">
-            <a href="/pricing" className="text-blue-700 text-sm font-semibold hover:underline">{t.pricing}</a>
-            <a href="/privacy" className="text-slate-500 text-sm hover:underline">{t.privacy}</a>
-            <button onClick={() => setLang(lang === "en" ? "fa" : "en")} className={`${btnBase} bg-slate-200`}>{lang === "en" ? "فارسی" : "English"}</button>
-            {token ? (<>
-              <Btn kind="ghost" onClick={logout}>{t.logout}</Btn>
-              <details className="relative"><summary className={`${btnBase} bg-slate-100 cursor-pointer list-none`}>{t.settings}</summary>
-                <div className="absolute end-0 mt-1 bg-white border rounded-lg shadow p-2 z-10"><Btn kind="danger" onClick={del}>{t.deleteAccount}</Btn></div></details>
-            </>) : <a href="#account-tools" className={`${btnBase} bg-blue-700 text-white`}>{t.login}</a>}
+    <main dir={lang === "fa" ? "rtl" : "ltr"} className="pa-root min-h-screen bg-[#f3f6f4] bg-[radial-gradient(1200px_500px_at_100%_-10%,#dcefe6_0%,transparent_60%)] p-3 md:p-8 text-slate-800">
+      <style>{SHELL_CSS}</style>
+      {view === "landing" ? <div className="max-w-6xl mx-auto"><Landing t={t} lang={lang} setLang={setLang} onEnter={enterApp} onStart={token ? () => enterApp() : startFree} token={token} /></div> : (
+      <div className="max-w-6xl mx-auto space-y-5">
+        <header className="relative overflow-hidden rounded-3xl bg-[#101a30] text-white shadow-2xl shadow-[#101a30]/25">
+          <div className="absolute inset-0 bg-[radial-gradient(600px_260px_at_85%_40%,rgba(94,240,168,.16),transparent_70%)]" />
+          <GelHero rtl={lang === "fa"} />
+          <div className="relative flex flex-wrap items-center justify-between gap-3 px-5 pt-5 md:px-8">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-200 ring-1 ring-white/10">
+              <i className="pa-band block h-2 w-2 rounded-full bg-[#5ef0a8] shadow-[0_0_10px_rgba(94,240,168,.9)]" />{t.hero_kicker}</span>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <button type="button" onClick={goHome} className="rounded-lg px-2.5 py-1.5 font-semibold text-slate-200 hover:bg-white/10">{lang === "fa" ? "خانه" : "Home"}</button>
+              <a href="/pricing" className="rounded-lg px-2.5 py-1.5 font-semibold text-emerald-200 hover:bg-white/10">{t.pricing}</a>
+              <a href="/privacy" className="rounded-lg px-2.5 py-1.5 text-slate-300 hover:bg-white/10">{t.privacy}</a>
+              <button type="button" onClick={() => setLang(lang === "en" ? "fa" : "en")} className="rounded-full bg-white/10 px-3.5 py-1.5 font-semibold ring-1 ring-white/15 hover:bg-white/20 transition">{lang === "en" ? "فارسی" : "English"}</button>
+              {token ? (<>
+                <button type="button" onClick={logout} className="rounded-full px-3.5 py-1.5 font-semibold text-slate-200 hover:bg-white/10">{t.logout}</button>
+                <details className="relative"><summary className="cursor-pointer list-none rounded-full bg-white/10 px-3.5 py-1.5 font-semibold ring-1 ring-white/15 hover:bg-white/20">{t.settings}</summary>
+                  <div className="absolute end-0 z-20 mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"><Btn kind="danger" onClick={del}>{t.deleteAccount}</Btn></div></details>
+              </>) : <a href="#account-tools" className="rounded-full bg-[#5ef0a8] px-4 py-1.5 font-bold text-[#06231a] shadow-[0_0_18px_rgba(94,240,168,.45)] hover:bg-[#7bf5b9] transition">{t.login}</a>}
+            </div>
+          </div>
+          <div className="relative px-5 pb-8 pt-8 md:px-8 md:pb-12 md:pt-10 md:max-w-[58%]">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">{t.title}</h1>
+            <p className="mt-3 max-w-xl text-base md:text-lg leading-relaxed text-slate-300">{t.subtitle}</p>
+            <p className="mt-5 font-mono text-xs uppercase tracking-[0.2em] text-emerald-300/80">{t.hero_lane}</p>
           </div>
         </header>
 
-        {notice && <div role="alert" className={`mb-4 p-3 rounded-lg text-sm ${notice.kind === "error" ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"}`}>{notice.msg}</div>}
-        <details id="account-tools" className="mb-5" open={!token}><summary className="cursor-pointer text-sm font-semibold text-blue-800">{t.account_tools}</summary>
-          <div className="mt-2"><AccountTools {...ctx} token={token} onLogin={setToken} onLogout={logout} /></div></details>
+        {notice && <div role="alert" className={`pa-panel flex items-start gap-3 rounded-2xl border p-4 text-sm shadow-sm ${notice.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}><b>{notice.kind === "error" ? "!" : "✓"}</b><span>{notice.msg}</span></div>}
 
-        <nav className="flex border-b mb-6 overflow-x-auto" aria-label="tabs">
-          {tabs.map((id) => (<button key={id} onClick={() => setTab(id)} aria-current={tab === id} className={`px-4 py-2 font-semibold whitespace-nowrap ${tab === id ? "border-b-2 border-blue-700 text-blue-700" : "text-slate-500 hover:text-slate-800"}`}>{t["tab_" + id]}</button>))}
+        <details id="account-tools" className="group rounded-2xl border border-slate-200/80 bg-white/80 px-5 py-3 shadow-sm backdrop-blur" open={!token}>
+          <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-[#16233f]"><span>{t.account_tools}</span><span className="text-slate-400 transition group-open:rotate-180">⌄</span></summary>
+          <div className="mt-3"><AccountTools {...ctx} token={token} onLogin={setToken} onLogout={logout} /></div></details>
+
+        <nav aria-label="tabs" className="sticky top-2 z-30 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm backdrop-blur">
+          <div className="flex min-w-max items-stretch gap-2">
+            {TAB_GROUPS.map((g, gi) => (
+              <div key={g.key} className={`flex items-center gap-1 ${gi ? "border-s border-slate-200 ps-2" : ""}`}>
+                <span className="px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{t[g.key]}</span>
+                {g.tabs.filter((id) => tabs.includes(id)).map((id) => (
+                  <button key={id} type="button" onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined}
+                    className={`whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-semibold transition ${tab === id ? "bg-[#16233f] text-white shadow-md shadow-[#16233f]/20" : "text-slate-600 hover:bg-emerald-50 hover:text-[#16233f]"}`}>
+                    {t["tab_" + id]}</button>))}
+              </div>))}
+          </div>
         </nav>
+
+        <section key={tab} className="pa-panel rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-8">
 
         {tab === "design" && <DesignTab {...ctx} seq={seq} setSeq={setSeq} gene={gene} setGene={setGene} annotation={annotation} maxLen={config.max_seq_len} onDesign={setDesign} />}
         {tab === "qpcr" && <QPCRTab {...ctx} onResult={setQpcrRes} />}
@@ -1508,13 +1732,15 @@ export default function Home() {
         {tab === "toolbox" && <ToolboxTab {...ctx} />}
         {tab === "explorer" && <ExplorerTab {...ctx} gene={annotation ? gene : gene} markers={annotation ? markers : []} focusAa={focusAa} llm={!!config.llm} />}
         {tab === "troubleshoot" && <TroubleshootTab {...ctx} />}
-        {tab === "tutorial" && (<div className="space-y-5 max-w-3xl">{TUT[lang].map((s) => (<section key={s.h}><h3 className="text-lg font-bold text-blue-800">{s.h}</h3><p className="mt-1 text-slate-700 leading-relaxed">{s.p}</p></section>))}</div>)}
+        {tab === "tutorial" && (<div className="grid gap-4 md:grid-cols-2">{TUT[lang].map((s) => (<section key={s.h} className="rounded-2xl border border-slate-200/80 bg-[#f7faf8] p-5"><h3 className="text-lg font-bold text-[#16233f]">{s.h}</h3><p className="mt-2 text-slate-700 leading-relaxed">{s.p}</p></section>))}</div>)}
         {tab === "library" && <LibraryTab {...ctx} />}
         {tab === "classroom" && <ClassroomTab {...ctx} design={design} qpcrRes={qpcrRes} />}
 
-        <footer className="mt-10 pt-4 border-t text-xs text-slate-500 space-y-2"><p>{t.privacyNotice}</p><p>{t.footer}</p></footer>
+        </section>
+
+        <footer className="space-y-1.5 px-2 pb-24 text-xs leading-relaxed text-slate-500"><p>{t.privacyNotice}</p><p className="font-mono text-[11px] text-slate-400">{t.footer}</p></footer>
         <ChatBox {...ctx} llm={!!config.llm} context={aiContext} />
-      </div>
+      </div>)}
     </main>
   );
 }
