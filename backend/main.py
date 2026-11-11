@@ -53,6 +53,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from pharma_module import create_pharma_router
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("primerai")
 
@@ -398,6 +400,11 @@ async def _user_from_token(token: str):
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     return await _user_from_token(token)
+
+
+app.include_router(
+    create_pharma_router(database, metadata, engine, users_table, get_current_user)
+)
 
 
 async def get_optional_user(token: Optional[str] = Depends(oauth2_optional)):

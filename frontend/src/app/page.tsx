@@ -3,12 +3,13 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Script from "next/script";
+import PharmaResearchTab from "./PharmaResearchTab";
 import type { Lang } from "./i18n";
 import { LANGUAGES, isRtl, isLang, EXTRA_T, EXTRA_TUT, EXTRA_LANDING } from "./i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://primer-ai.onrender.com";
 
-type TabId = "design" | "qpcr" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library" | "classroom";
+type TabId = "design" | "qpcr" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library" | "classroom" | "pharma";
 
 /* ------------------------------------------------------------------ */
 /* Translations                                                        */
@@ -17,7 +18,7 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
   en: {
     title: "Primer AI", subtitle: "From gene to structure to literature — designed in your language.",
     tab_design: "Primer design", tab_qpcr: "RT-qPCR analysis", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
-    tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_troubleshoot: "Troubleshooting", tab_library: "My library",
+    tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_troubleshoot: "Troubleshooting", tab_library: "My library", tab_pharma: "Pharma Research",
     login: "Log in / Sign up", logout: "Log out", deleteAccount: "Delete my account", settings: "Account",
     deleteConfirm: "Delete your account, saved data, classrooms you own, and their submissions? This cannot be undone.",
     loginRequired: "Please log in to use this feature.", networkErr: "Cannot reach the server. It may be waking up (free tier) — try again in ~1 minute.",
@@ -95,7 +96,7 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
     explainConsent: "I agree to send retrieved UniProt and paper context to Anthropic for this explanation.",
     structureConsent: "I agree to send this protein sequence to ESMFold for structure prediction.",
     reproBundle: "Download reproducibility bundle (JSON)",
-    group_design: "Design", group_analyze: "Analyze", group_tools: "Tools", group_learn: "Learn & teach",
+    group_design: "Design", group_analyze: "Analyze", group_research: "Research", group_tools: "Tools", group_learn: "Learn & teach",
     hero_kicker: "Molecular biology workbench", hero_lane: "Gene · primers · qPCR · structure",
     tab_classroom: "Classroom", classroom_title: "Classroom", classroom_desc: "Teachers create a class and share its one-time code. Students join, submit their design/qPCR output, and receive feedback.",
     classroom_create: "Create class", classroom_join: "Join with code", classroom_name: "Class name", classroom_code: "Class code",
@@ -139,7 +140,7 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
   fa: {
     title: "Primer AI", subtitle: "از ژن تا ساختار تا مقاله — به زبان خودتان.",
     tab_design: "طراحی پرایمر", tab_qpcr: "تحلیل RT-qPCR", tab_multiplex: "مولتی‌پلکس", tab_gibson: "مونتاژ Gibson", tab_crispr: "CRISPR gRNA",
-    tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_troubleshoot: "عیب‌یابی", tab_library: "کتابخانه من",
+    tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_troubleshoot: "عیب‌یابی", tab_library: "کتابخانه من", tab_pharma: "پژوهش دارویی",
     login: "ورود / ثبت‌نام", logout: "خروج", deleteAccount: "حذف حساب من", settings: "حساب کاربری",
     deleteConfirm: "حساب، داده‌های ذخیره‌شده، کلاس‌هایی که ساخته‌اید و تحویل‌های آن‌ها حذف شود؟ این کار برگشت‌پذیر نیست.",
     loginRequired: "برای استفاده از این قابلیت وارد شوید.", networkErr: "اتصال به سرور برقرار نشد. ممکن است سرور در حال بیدار شدن باشد (پلن رایگان) — حدود ۱ دقیقه بعد دوباره تلاش کنید.",
@@ -217,7 +218,7 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
     explainConsent: "موافقم اطلاعات بازیابی‌شده از UniProt و مقاله‌ها برای این توضیح به Anthropic فرستاده شود.",
     structureConsent: "موافقم این توالی پروتئین برای پیش‌بینی ساختار به ESMFold فرستاده شود.",
     reproBundle: "دانلود بسته‌ی بازتولید تحلیل (JSON)",
-    group_design: "طراحی", group_analyze: "تحلیل", group_tools: "ابزارها", group_learn: "آموزش و کلاس",
+    group_design: "طراحی", group_analyze: "تحلیل", group_research: "پژوهش", group_tools: "ابزارها", group_learn: "آموزش و کلاس",
     hero_kicker: "میز کار زیست‌شناسی مولکولی", hero_lane: "ژن · پرایمر · qPCR · ساختار",
     tab_classroom: "کلاس", classroom_title: "فضای کلاس", classroom_desc: "استاد کلاس می‌سازد و کد یک‌بارنمایش را به دانشجوها می‌دهد. دانشجو نتیجه‌ی طراحی/qPCR را تحویل می‌دهد و بازخورد می‌گیرد.",
     classroom_create: "ساخت کلاس", classroom_join: "عضویت با کد", classroom_name: "نام کلاس", classroom_code: "کد کلاس",
@@ -1566,6 +1567,7 @@ function ClassroomTab({ t, call, token, notify, fail, design, qpcrRes }: Ctx & {
 const TAB_GROUPS: { key: string; tabs: TabId[] }[] = [
   { key: "group_design", tabs: ["design", "multiplex", "gibson", "crispr"] },
   { key: "group_analyze", tabs: ["qpcr", "explorer"] },
+  { key: "group_research", tabs: ["pharma"] },
   { key: "group_tools", tabs: ["toolbox", "troubleshoot", "library"] },
   { key: "group_learn", tabs: ["tutorial", "classroom"] },
 ];
@@ -1872,7 +1874,7 @@ export default function Home() {
     }
     return lines.length > 1 ? lines.join("\n") : "";
   }, [tab, gene, design, qpcrRes]);
-  const tabs: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library", "classroom"];
+  const tabs: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library", "classroom", "pharma"];
 
   const logout = () => {
     const refresh=sessionStorage.getItem("refresh_token");
@@ -1946,6 +1948,7 @@ export default function Home() {
         {tab === "tutorial" && (<div className="grid gap-4 md:grid-cols-2">{TUT[lang].map((s) => (<section key={s.h} className="rounded-2xl border border-slate-200/80 bg-[#f7faf8] p-5"><h3 className="text-lg font-bold text-[#16233f]">{s.h}</h3><p className="mt-2 text-slate-700 leading-relaxed">{s.p}</p></section>))}</div>)}
         {tab === "library" && <LibraryTab {...ctx} />}
         {tab === "classroom" && <ClassroomTab {...ctx} design={design} qpcrRes={qpcrRes} />}
+        {tab === "pharma" && <PharmaResearchTab call={call} notify={notify} />}
 
         </section>
 
