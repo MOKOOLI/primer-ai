@@ -7,7 +7,7 @@ import Script from "next/script";
 const API = process.env.NEXT_PUBLIC_API_URL || "https://primer-ai.onrender.com";
 
 type Lang = "en" | "fa";
-type TabId = "design" | "qpcr" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library";
+type TabId = "design" | "qpcr" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library" | "classroom";
 
 /* ------------------------------------------------------------------ */
 /* Translations                                                        */
@@ -18,7 +18,7 @@ const T: Record<Lang, Record<string, string>> = {
     tab_design: "Primer design", tab_qpcr: "RT-qPCR analysis", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
     tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_troubleshoot: "Troubleshooting", tab_library: "My library",
     login: "Log in / Sign up", logout: "Log out", deleteAccount: "Delete my account", settings: "Account",
-    deleteConfirm: "Delete your account and all saved data? This cannot be undone.",
+    deleteConfirm: "Delete your account, saved data, classrooms you own, and their submissions? This cannot be undone.",
     loginRequired: "Please log in to use this feature.", networkErr: "Cannot reach the server. It may be waking up (free tier) — try again in ~1 minute.",
     rateLimited: "Too many requests. Please wait a minute.", working: "Working…", wake: "The first request can take up to a minute while the server wakes up.",
     geneSearch: "Gene symbol (e.g. BRCA1)", organism: "Organism", fetchSeq: "Fetch RefSeq mRNA", transcript: "Transcript",
@@ -76,7 +76,24 @@ const T: Record<Lang, Record<string, string>> = {
     functionTxt: "Protein function (UniProt)", licenseTxt: "Structure: AlphaFold DB (CC-BY 4.0). Annotations: UniProt. Papers: Europe PMC.",
     noGeneYet: "Fetch a gene in the Primer design tab first, or type a UniProt accession.",
     libEmpty: "No saved primers yet.", libDelete: "Delete", libExport: "Export all (CSV)", legacy: "imported",
-    footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC", pricing: "Pricing", privacy: "Privacy",
+    footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC",
+    privacyNotice: "Sequences and qPCR data are processed by the Primer AI server. BLAST, ESMFold sequence prediction, and Anthropic AI each ask before sending data to that provider.",
+    pricing: "Pricing", privacy: "Privacy", blastConsent: "I agree to send these primers and target details to NCBI for BLAST.",
+    aiDisclosure: "Your question is sent to Anthropic. Current-session details are not shared unless you opt in.",
+    aiConsent: "I understand my question will be sent to Anthropic.", aiContextConsent: "Also include my current gene, primer and qPCR summary (optional).",
+    explainConsent: "I agree to send retrieved UniProt and paper context to Anthropic for this explanation.",
+    structureConsent: "I agree to send this protein sequence to ESMFold for structure prediction.",
+    reproBundle: "Download reproducibility bundle (JSON)",
+    tab_classroom: "Classroom", classroom_title: "Classroom", classroom_desc: "Teachers create a class and share its one-time code. Students join, submit their design/qPCR output, and receive feedback.",
+    classroom_create: "Create class", classroom_join: "Join with code", classroom_name: "Class name", classroom_code: "Class code",
+    classroom_created_code: "Share this join code with students. It is shown only once:", classroom_select: "Select a class", classroom_assignment: "Assignment",
+    classroom_assignment_title: "Assignment title", classroom_instructions: "Instructions", classroom_due: "Due date (optional)",
+    classroom_publish: "Publish assignment", classroom_submit: "Submit current results", classroom_no_results: "Run a primer design or qPCR analysis first.",
+    classroom_submissions: "Student submissions", classroom_review: "Feedback", classroom_grade: "Grade / mark", classroom_save_review: "Save feedback",
+    account_tools: "Account security & recovery", auth_email: "Email", auth_password: "Password", auth_register: "Create account", auth_login: "Sign in",
+    auth_verify_request: "Resend verification email", auth_reset_request: "Send password-reset email", auth_verify_token: "Verify email", auth_reset_token: "Set new password",
+    auth_new_password: "New password", auth_code: "One-time token", auth_export: "Export my data (JSON)", auth_notice: "Email verification and password recovery require SMTP settings on the server.", auth_ok: "Done.",
+    classroom_role_teacher: "Teacher", classroom_role_student: "Student", classroom_empty: "No assignments yet.",
     // Troubleshooting translations
     ts_title: "Troubleshooting", ts_desc: "Describe the problem you see in your PCR or cloning experiment.",
     ts_symptom: "Symptom", ts_select: "Select a symptom...", ts_analyze: "Analyze", ts_cause: "Likely Cause", ts_solutions: "Suggested Solutions",
@@ -92,6 +109,10 @@ const T: Record<Lang, Record<string, string>> = {
     chat_hello: "Hi! Ask me anything about your primers, qPCR data or exon/intron structure.",
     chat_s1: "Why is an exon–exon junction primer better for qPCR?", chat_s2: "Explain my ΔΔCt result like I'm a student", chat_s3: "What do NTC and −RT controls tell me?",
     qpcr_title: "RT-qPCR Ct analysis", qpcr_desc: "Upload or paste one well per row. The comparative ΔΔCt method assumes near-100% and similar amplification efficiencies; use cDNA Ct values and a validated reference target.",
+    qpcr_model_label: "Expression model", qpcr_model_ddct: "Comparative ΔΔCt", qpcr_model_pfaffl: "Pfaffl (standard-curve corrected)",
+    qpcr_pfaffl_hint: "Pfaffl needs at least 3 standard-curve dilution levels for every target and the reference assay.",
+    qpcr_stats: "Biological-replicate statistics", qpcr_stats_note: "Welch test on biological samples, not technical wells. Exploratory only; no multiple-testing correction.",
+    qpcr_stat_group: "Comparison", qpcr_stat_n: "n (control / group)", qpcr_stat_diff: "Mean difference", qpcr_stat_ci: "95% CI", qpcr_stat_p: "p-value", qpcr_stat_tested: "Tested value",
     qpcr_csv_label: "Ct data (CSV)", qpcr_csv_hint: "Required columns: sample, target, ct. Optional: group, replicate. Use a blank Ct or Undetermined for no amplification.",
     qpcr_csv_example: "sample,target,ct,group,replicate,type,quantity\ncontrol_1,ACTB,20.1,control,1,sample,\ncontrol_1,GENE_X,25.0,control,1,sample,\ntreated_1,ACTB,20.3,treated,1,sample,\ntreated_1,GENE_X,22.4,treated,1,sample,\nNTC,GENE_X,,,,ntc,\nRT_minus,GENE_X,,,,nrt,",
     qpcr_upload: "Choose CSV file", qpcr_control_group: "Control group", qpcr_reference_target: "Reference target",
@@ -107,7 +128,7 @@ const T: Record<Lang, Record<string, string>> = {
     tab_design: "طراحی پرایمر", tab_qpcr: "تحلیل RT-qPCR", tab_multiplex: "مولتی‌پلکس", tab_gibson: "مونتاژ Gibson", tab_crispr: "CRISPR gRNA",
     tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_troubleshoot: "عیب‌یابی", tab_library: "کتابخانه من",
     login: "ورود / ثبت‌نام", logout: "خروج", deleteAccount: "حذف حساب من", settings: "حساب کاربری",
-    deleteConfirm: "حساب و همه‌ی داده‌های ذخیره‌شده حذف شود؟ این کار برگشت‌پذیر نیست.",
+    deleteConfirm: "حساب، داده‌های ذخیره‌شده، کلاس‌هایی که ساخته‌اید و تحویل‌های آن‌ها حذف شود؟ این کار برگشت‌پذیر نیست.",
     loginRequired: "برای استفاده از این قابلیت وارد شوید.", networkErr: "اتصال به سرور برقرار نشد. ممکن است سرور در حال بیدار شدن باشد (پلن رایگان) — حدود ۱ دقیقه بعد دوباره تلاش کنید.",
     rateLimited: "درخواست‌ها زیاد بود. یک دقیقه صبر کنید.", working: "در حال پردازش…", wake: "اولین درخواست ممکن است تا یک دقیقه طول بکشد (بیدار شدن سرور).",
     geneSearch: "نماد ژن (مثلاً BRCA1)", organism: "گونه", fetchSeq: "دریافت mRNA مرجع (RefSeq)", transcript: "ترنسکریپت",
@@ -165,7 +186,24 @@ const T: Record<Lang, Record<string, string>> = {
     functionTxt: "عملکرد پروتئین (UniProt)", licenseTxt: "ساختار: AlphaFold DB (CC-BY 4.0). حاشیه‌نویسی: UniProt. مقالات: Europe PMC.",
     noGeneYet: "ابتدا در تب طراحی پرایمر یک ژن دریافت کنید یا شناسه‌ی UniProt را بنویسید.",
     libEmpty: "هنوز پرایمری ذخیره نشده.", libDelete: "حذف", libExport: "خروجی همه (CSV)", legacy: "قدیمی",
-    footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC", pricing: "تعرفه‌ها", privacy: "حریم خصوصی",
+    footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC",
+    privacyNotice: "توالی‌ها و داده‌های qPCR برای پردازش به سرور Primer AI فرستاده می‌شوند. برای ارسال به BLAST، پیش‌بینی ESMFold و قابلیت‌های هوش مصنوعی Anthropic، پیش از ارسال از شما اجازه گرفته می‌شود.",
+    pricing: "تعرفه‌ها", privacy: "حریم خصوصی", blastConsent: "موافقم این پرایمرها و اطلاعات هدف برای BLAST به NCBI فرستاده شوند.",
+    aiDisclosure: "پرسش شما به Anthropic فرستاده می‌شود. جزئیات این نشست فقط با انتخاب شما ارسال می‌شوند.",
+    aiConsent: "می‌دانم پرسشم به Anthropic فرستاده می‌شود.", aiContextConsent: "خلاصه‌ی ژن، پرایمر و qPCR فعلی هم ارسال شود (اختیاری).",
+    explainConsent: "موافقم اطلاعات بازیابی‌شده از UniProt و مقاله‌ها برای این توضیح به Anthropic فرستاده شود.",
+    structureConsent: "موافقم این توالی پروتئین برای پیش‌بینی ساختار به ESMFold فرستاده شود.",
+    reproBundle: "دانلود بسته‌ی بازتولید تحلیل (JSON)",
+    tab_classroom: "کلاس", classroom_title: "فضای کلاس", classroom_desc: "استاد کلاس می‌سازد و کد یک‌بارنمایش را به دانشجوها می‌دهد. دانشجو نتیجه‌ی طراحی/qPCR را تحویل می‌دهد و بازخورد می‌گیرد.",
+    classroom_create: "ساخت کلاس", classroom_join: "عضویت با کد", classroom_name: "نام کلاس", classroom_code: "کد کلاس",
+    classroom_created_code: "این کد را با دانشجوها به اشتراک بگذارید؛ فقط همین یک‌بار نمایش داده می‌شود:", classroom_select: "انتخاب کلاس", classroom_assignment: "تکلیف",
+    classroom_assignment_title: "عنوان تکلیف", classroom_instructions: "راهنما", classroom_due: "مهلت (اختیاری)",
+    classroom_publish: "ثبت تکلیف", classroom_submit: "تحویل نتایج فعلی", classroom_no_results: "اول طراحی پرایمر یا تحلیل qPCR را اجرا کنید.",
+    classroom_submissions: "تحویل‌های دانشجویان", classroom_review: "بازخورد", classroom_grade: "نمره / ارزیابی", classroom_save_review: "ذخیره‌ی بازخورد",
+    account_tools: "امنیت حساب و بازیابی", auth_email: "ایمیل", auth_password: "گذرواژه", auth_register: "ساخت حساب", auth_login: "ورود",
+    auth_verify_request: "ارسال دوباره‌ی ایمیل تأیید", auth_reset_request: "ارسال ایمیل بازنشانی گذرواژه", auth_verify_token: "تأیید ایمیل", auth_reset_token: "ثبت گذرواژه‌ی جدید",
+    auth_new_password: "گذرواژه‌ی جدید", auth_code: "توکن یک‌بارمصرف", auth_export: "خروجی داده‌های من (JSON)", auth_notice: "تأیید ایمیل و بازیابی گذرواژه به تنظیم SMTP در سرور نیاز دارد.", auth_ok: "انجام شد.",
+    classroom_role_teacher: "استاد", classroom_role_student: "دانشجو", classroom_empty: "هنوز تکلیفی ثبت نشده است.",
     // Troubleshooting translations
     ts_title: "عیب‌یابی", ts_desc: "مشکلی که در آزمایش PCR یا کلونینگ خود می‌بینید را توصیف کنید.",
     ts_symptom: "علامت", ts_select: "یک علامت انتخاب کنید...", ts_analyze: "تحلیل", ts_cause: "علت احتمالی", ts_solutions: "راه‌حل‌های پیشنهادی",
@@ -181,6 +219,10 @@ const T: Record<Lang, Record<string, string>> = {
     chat_hello: "سلام! هر سؤالی درباره‌ی پرایمرها، داده‌ی qPCR یا ساختار اگزون/اینترون دارید بپرسید.",
     chat_s1: "چرا پرایمر روی اتصال اگزون–اگزون برای qPCR بهتر است؟", chat_s2: "نتیجه‌ی ΔΔCt من را ساده توضیح بده", chat_s3: "کنترل‌های NTC و −RT چه چیزی را نشان می‌دهند؟",
     qpcr_title: "تحلیل Ct در RT-qPCR", qpcr_desc: "برای هر چاهک یک ردیف بارگذاری یا جای‌گذاری کنید. روش مقایسه‌ای ΔΔCt فرض می‌کند بازده تکثیر نزدیک ۱۰۰٪ و بین assayها مشابه است؛ از Ct مربوط به cDNA و ژن مرجع اعتبارسنجی‌شده استفاده کنید.",
+    qpcr_model_label: "مدل بیان", qpcr_model_ddct: "روش مقایسه‌ای ΔΔCt", qpcr_model_pfaffl: "Pfaffl با اصلاح منحنی استاندارد",
+    qpcr_pfaffl_hint: "برای Pfaffl باید برای هر هدف و ژن مرجع حداقل ۳ سطح رقت منحنی استاندارد وارد شود.",
+    qpcr_stats: "آمار تکرارهای زیستی", qpcr_stats_note: "آزمون Welch روی نمونه‌های زیستی است، نه چاهک‌های فنی. اکتشافی است و اصلاح آزمون‌های متعدد ندارد.",
+    qpcr_stat_group: "مقایسه", qpcr_stat_n: "n (کنترل / گروه)", qpcr_stat_diff: "اختلاف میانگین", qpcr_stat_ci: "بازه اطمینان ۹۵٪", qpcr_stat_p: "مقدار p", qpcr_stat_tested: "متغیر آزمون‌شده",
     qpcr_csv_label: "داده‌های Ct (CSV)", qpcr_csv_hint: "ستون‌های لازم: sample، target، ct. ستون‌های اختیاری: group، replicate. برای عدم تکثیر Ct را خالی یا Undetermined بگذارید.",
     qpcr_csv_example: "sample,target,ct,group,replicate,type,quantity\ncontrol_1,ACTB,20.1,control,1,sample,\ncontrol_1,GENE_X,25.0,control,1,sample,\ntreated_1,ACTB,20.3,treated,1,sample,\ntreated_1,GENE_X,22.4,treated,1,sample,\nNTC,GENE_X,,,,ntc,\nRT_minus,GENE_X,,,,nrt,",
     qpcr_upload: "انتخاب فایل CSV", qpcr_control_group: "گروه کنترل", qpcr_reference_target: "ژن مرجع",
@@ -269,16 +311,30 @@ const AA3: Record<string, string> = { ALA: "A", ARG: "R", ASN: "N", ASP: "D", CY
 async function apiFetch(path: string, token: string | null, init: RequestInit = {}) {
   const headers: Record<string, string> = { ...((init.headers as any) || {}) };
   if (init.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const storedAccess = typeof window !== "undefined" ? (sessionStorage.getItem("token") || localStorage.getItem("token")) : null;
+  let activeToken = storedAccess || token;
+  const send = (access: string | null) => {
+    const h = { ...headers };
+    if (access) h.Authorization = `Bearer ${access}`; else delete h.Authorization;
+    return fetch(API + path, { ...init, headers: h });
+  };
   let res: Response;
-  try { res = await fetch(API + path, { ...init, headers }); } catch { throw Object.assign(new Error("network"), { code: "network" }); }
+  try { res = await send(activeToken); } catch { throw Object.assign(new Error("network"), { code: "network" }); }
+  if (res.status === 401 && !path.startsWith("/auth/") && typeof window !== "undefined") {
+    const refresh = sessionStorage.getItem("refresh_token");
+    if (refresh) {
+      try {
+        const rr = await fetch(API + "/auth/refresh", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: refresh }) });
+        if (rr.ok) {
+          const fresh = await rr.json(); sessionStorage.setItem("token", fresh.access_token); sessionStorage.setItem("refresh_token", fresh.refresh_token);
+          activeToken = fresh.access_token; res = await send(activeToken);
+        }
+      } catch { /* normal auth error below */ }
+    }
+  }
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
-    try {
-      const j = await res.json();
-      if (typeof j.detail === "string") msg = j.detail;
-      else if (Array.isArray(j.detail)) msg = j.detail.map((d: any) => d.msg).join("; ");
-    } catch { /* ignore */ }
+    try { const j = await res.json(); if (typeof j.detail === "string") msg = j.detail; else if (Array.isArray(j.detail)) msg = j.detail.map((d: any) => d.msg).join("; "); } catch { /* ignore */ }
     throw Object.assign(new Error(msg), { code: res.status === 429 ? "rate" : res.status === 401 ? "auth" : "http" });
   }
   return res.json();
@@ -434,16 +490,18 @@ function StatusPill({ v, t }: { v: string; t: Record<string, string> }) {
 
 function downloadQpcrReport(r: any, lang: Lang, t: Record<string, string>, ref: string, control: string) {
   downloadReport(lang, t, "qpcr_report", t.report_title_qpcr, [
-    { h: t.report_inputs, html: htmlTable(["Reference target", "Control group", "Wells analysed", "Platform version"],
-      [[ref, control, String((r.qc || []).reduce((n: number, q: any) => n + q.n, 0)), r.version || ""]]) },
-    { h: t.report_results, html: htmlTable(["Group", "Target", "n", "Mean ΔCt", "ΔΔCt", "Fold change (2^−ΔΔCt)"],
+    { h: t.report_inputs, html: htmlTable(["Reference target", "Control group", "Wells analysed", "Platform version", "Analysis time (UTC)", "Input SHA-256", "Hash basis"],
+      [[ref, control, String((r.qc || []).reduce((n: number, q: any) => n + q.n, 0)), r.version || "", r.analyzed_at || "", r.input_sha256 || "", r.input_hash_scope || ""]]) },
+    { h: t.report_results, html: htmlTable(["Group", "Target", "n", "Mean ΔCt", "ΔΔCt", "Fold change"],
       (r.groups || []).map((g: any) => [g.group, g.target, g.n, g.mean_delta_ct, g.ddct, g.fold_change])) +
-      htmlTable(["Group", "Sample", "Target", "ΔCt", "ΔΔCt", "Fold change"], (r.samples || []).map((x: any) => [x.group, x.sample, x.target, x.delta_ct, x.ddct, x.fold_change])) },
+      htmlTable(["Group", "Sample", "Target", "ΔCt", "ΔΔCt", "log2 fold", "Fold change"], (r.samples || []).map((x: any) => [x.group, x.sample, x.target, x.delta_ct, x.ddct, x.log2_fold_change, x.fold_change])) +
+      ((r.statistics || []).length ? htmlTable(["Group", "Target", "n control", "n group", "Mean difference", "95% CI", "p-value", "Tested value"],
+        r.statistics.map((x: any) => [x.group, x.target, x.n_control, x.n_treatment, x.mean_difference, `${x.ci95_low} to ${x.ci95_high}`, x.p_value, x.tested_value])) : "") },
     { h: t.qpcr_qc, html: htmlTable(["Group", "Sample", "Target", "Replicates", "Mean Ct", "SD Ct"], (r.qc || []).map((q: any) => [q.group, q.sample, q.target, q.n, q.mean_ct, q.sd_ct])) +
       ((r.controls || []).length ? htmlTable(["Control", "Sample", "Target", "Ct", "Status", "Note"], r.controls.map((c: any) => [c.type === "nrt" ? "-RT" : c.type.toUpperCase(), c.sample, c.target, c.ct ?? "not detected", c.status, c.note])) : "") +
       ((r.standard_curves || []).length ? htmlTable(["Target", "Points", "Slope", "Intercept", "Efficiency %", "R²", "Status"], r.standard_curves.map((c: any) => [c.target, c.points, c.slope, c.intercept, c.efficiency, c.r2, c.status])) : "") +
       ((r.warnings || []).length ? `<ul>${r.warnings.map((w: string) => `<li>${esc(w)}</li>`).join("")}</ul>` : "") },
-    { h: t.report_method, html: `<p>${esc(r.method)}. Technical replicates are averaged per sample; ΔCt = Ct(target) − Ct(reference); ΔΔCt is calibrated to the mean ΔCt of the control group. Analysed ${esc(r.analyzed_at || "")}.</p>` },
+    { h: t.report_method, html: `<p>${esc(r.method)}. ${r.analysis_method === "pfaffl" ? "Sample-level relative expression uses target and reference amplification factors derived from passing standard curves; group values are summarized on the log2 scale." : "Technical replicates are averaged per biological sample; ΔCt = Ct(target) − Ct(reference); ΔΔCt is calibrated to the mean control-group ΔCt."} Welch tests compare biological-replicate values and are exploratory (no multiple-testing correction). Analysed ${esc(r.analyzed_at || "")}.</p>` },
   ]);
 }
 
@@ -454,25 +512,27 @@ function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (
   const [csv, setCsv] = useState("");
   const [controlGroup, setControlGroup] = useState("control");
   const [referenceTarget, setReferenceTarget] = useState("");
+  const [analysisMethod, setAnalysisMethod] = useState("ddct");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const clearAnalysis = () => { setResult(null); onResult?.(null); };
 
   const analyze = async () => {
     let wells: any[];
     try { wells = parseQpcrCsv(csv); }
     catch { notify(t.qpcr_bad_csv); return; }
     if (!referenceTarget.trim() || !controlGroup.trim()) { notify(t.qpcr_bad_csv); return; }
-    setLoading(true); setResult(null);
+    setLoading(true); clearAnalysis();
     try {
       setResult(await call("/analyze-qpcr", { method: "POST", body: JSON.stringify({
-        wells, reference_target: referenceTarget.trim(), control_group: controlGroup.trim(),
+        wells, reference_target: referenceTarget.trim(), control_group: controlGroup.trim(), analysis_method: analysisMethod,
       }) }).then((r: any) => { onResult?.(r); return r; }));
     } catch (e) { fail(e); } finally { setLoading(false); }
   };
 
   const loadFile = async (file?: File) => {
     if (!file) return;
-    try { setCsv(await file.text()); setResult(null); }
+    try { setCsv(await file.text()); clearAnalysis(); }
     catch { notify(t.qpcr_bad_csv); }
   };
 
@@ -482,11 +542,13 @@ function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (
         <h2 className="text-xl font-bold text-blue-800">{t.qpcr_title}</h2>
         <p className="text-sm text-slate-700">{t.qpcr_desc}</p>
         <div className="grid md:grid-cols-2 gap-3">
-          <Field label={t.qpcr_control_group}><input className={inputCls} value={controlGroup} onChange={(e) => setControlGroup(e.target.value)} placeholder="control" /></Field>
-          <Field label={t.qpcr_reference_target}><input className={inputCls} value={referenceTarget} onChange={(e) => setReferenceTarget(e.target.value)} placeholder="ACTB" /></Field>
+          <Field label={t.qpcr_control_group}><input className={inputCls} value={controlGroup} onChange={(e) => { setControlGroup(e.target.value); clearAnalysis(); }} placeholder="control" /></Field>
+          <Field label={t.qpcr_reference_target}><input className={inputCls} value={referenceTarget} onChange={(e) => { setReferenceTarget(e.target.value); clearAnalysis(); }} placeholder="ACTB" /></Field>
+          <Field label={t.qpcr_model_label} hint={analysisMethod === "pfaffl" ? t.qpcr_pfaffl_hint : undefined}><select className={inputCls} value={analysisMethod} onChange={(e) => { setAnalysisMethod(e.target.value); clearAnalysis(); }}>
+            <option value="ddct">{t.qpcr_model_ddct}</option><option value="pfaffl">{t.qpcr_model_pfaffl}</option></select></Field>
         </div>
         <Field label={t.qpcr_csv_label} hint={`${t.qpcr_csv_hint} ${t.qpcr_types_hint}`}>
-          <textarea dir="ltr" className={seqCls + " h-48"} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={t.qpcr_csv_example} />
+          <textarea dir="ltr" className={seqCls + " h-48"} value={csv} onChange={(e) => { setCsv(e.target.value); clearAnalysis(); }} placeholder={t.qpcr_csv_example} />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
           <label className={`${btnBase} bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer`}>
@@ -506,8 +568,13 @@ function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (
             <h3 className="text-lg font-bold text-blue-800">{t.qpcr_results}</h3>
             <div className="flex flex-wrap gap-2">
               <Btn kind="dark" onClick={() => downloadQpcrReport(result, lang, t, referenceTarget, controlGroup)}>{t.report}</Btn>
-              <Btn kind="ghost" onClick={() => download("qpcr_results.csv", toCsv(["group", "sample", "target", "delta_ct", "ddct", "fold_change"],
-                (result.samples || []).map((r: any) => [r.group, r.sample, r.target, r.delta_ct, r.ddct, r.fold_change])), "text/csv")}>{t.reportCsv}</Btn>
+              <Btn kind="ghost" onClick={() => download("qpcr_reproducibility.json", JSON.stringify({
+                schema_version: 1, platform: "Primer AI", platform_version: result.version, analyzed_at: result.analyzed_at,
+                input_sha256: result.input_sha256, input_hash_scope: result.input_hash_scope,
+                inputs: { csv, reference_target: referenceTarget.trim(), control_group: controlGroup.trim(), analysis_method: analysisMethod }, analysis: result,
+              }, null, 2), "application/json")}>{t.reproBundle}</Btn>
+              <Btn kind="ghost" onClick={() => download("qpcr_results.csv", toCsv(["analysis_method", "group", "sample", "target", "delta_ct", "ddct", "log2_fold_change", "fold_change"],
+                (result.samples || []).map((r: any) => [result.analysis_method, r.group, r.sample, r.target, r.delta_ct, r.ddct, r.log2_fold_change, r.fold_change])), "text/csv")}>{t.reportCsv}</Btn>
             </div>
           </div>
           <p className="text-xs text-slate-500">{result.method} · {t.reportPrint}</p>
@@ -527,6 +594,16 @@ function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (
               <tbody>{result.standard_curves.map((c: any, i: number) => <tr key={i} className="border-t">
                 <td className="p-2">{c.target}</td><td className="p-2">{c.slope}</td><td className="p-2">{c.efficiency ?? "—"}%</td><td className="p-2">{c.r2}</td><td className="p-2"><StatusPill v={c.status} t={t} /></td>
               </tr>)}</tbody></table></div>
+          </div>}
+          {result.statistics?.length > 0 && <div className="space-y-1">
+            <p className="font-semibold text-sm">{t.qpcr_stats}</p><p className="text-xs text-slate-500">{t.qpcr_stats_note}</p>
+            <div className="overflow-x-auto border rounded-lg"><table className="w-full text-xs" dir="ltr">
+              <thead className="bg-slate-100"><tr>{[t.qpcr_stat_group,t.qpcr_target,t.qpcr_stat_n,t.qpcr_stat_diff,t.qpcr_stat_ci,t.qpcr_stat_p,t.qpcr_stat_tested].map((h,i)=><th key={i} className="text-start p-2 whitespace-nowrap">{h}</th>)}</tr></thead>
+              <tbody>{result.statistics.map((x:any,i:number)=><tr key={i} className="border-t"><td className="p-2">{x.group}</td><td className="p-2">{x.target}</td>
+                <td className="p-2">{x.n_control} / {x.n_treatment}</td><td className="p-2">{x.mean_difference?.toFixed?.(3) ?? "—"}</td>
+                <td className="p-2">{x.ci95_low?.toFixed?.(3) ?? "—"} to {x.ci95_high?.toFixed?.(3) ?? "—"}</td>
+                <td className="p-2">{x.p_value == null ? x.note : Number(x.p_value).toExponential(3)}</td><td className="p-2">{x.tested_value || "—"}</td></tr>)}</tbody>
+            </table></div>
           </div>}
           {result.warnings?.length > 0 && <div className="bg-yellow-50 border-s-4 border-yellow-500 p-3 text-sm">
             <b>{t.qpcr_warnings}</b><ul className="list-disc ps-5 mt-1">{result.warnings.map((w: string, i: number) => <li key={i}>{w}</li>)}</ul>
@@ -568,6 +645,16 @@ function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (
 /* ------------------------------------------------------------------ */
 /* Design tab                                                          */
 /* ------------------------------------------------------------------ */
+function downloadDesignBundle(r: any, input: any) {
+  const bundle = {
+    schema_version: 1, platform: "Primer AI", platform_version: r.version || null,
+    created_at: r.created_at || null, input_sha256: r.input_sha256 || null,
+    input_hash_scope: r.input_hash_scope || null, input,
+    result: r,
+  };
+  download(`${input?.gene?.symbol || "primer"}_reproducibility.json`, JSON.stringify(bundle, null, 2), "application/json");
+}
+
 function downloadDesignReport(r: any, gene: any, seq: string, lang: Lang, t: Record<string, string>) {
   const pr = r.parameters || {};
   const exonTxt: Record<string, string> = { junction_primer: "primer spans an exon-exon junction", intron_spanning: "amplicon spans an intron", none: "no exon junction covered", unknown: "no exon annotation" };
@@ -576,7 +663,9 @@ function downloadDesignReport(r: any, gene: any, seq: string, lang: Lang, t: Rec
       [[gene?.symbol || "custom sequence", gene?.accession || "—", gene?.organism || "—", `${seq.length} nt`, gene?.annotation?.exons?.length ?? "—",
         gene?.annotation?.cds_start ? `${gene.annotation.cds_start}-${gene.annotation.cds_end}` : "—"]]) +
       htmlTable(["Application", "qPCR chemistry", "Polymerase", "Target Tm", "Product size", "Region", "Junction mode"],
-      [[pr.mode, pr.qpcr_chemistry || "—", pr.polymerase, `${pr.tm} °C (${pr.source})`, `${pr.size_range?.[0]}-${pr.size_range?.[1]} bp`, pr.region ? pr.region.join("-") : "whole template", pr.junction_mode ? "yes" : "no"]]) },
+      [[pr.mode, pr.qpcr_chemistry || "—", pr.polymerase, `${pr.tm} °C (${pr.source})`, `${pr.size_range?.[0]}-${pr.size_range?.[1]} bp`, pr.region ? pr.region.join("-") : "whole template", pr.junction_mode ? "yes" : "no"]]) +
+      htmlTable(["Run time (UTC)", "Platform version", "Primer3 version", "Normalized template SHA-256"],
+       [[r.created_at || "—", r.version || "—", pr.primer3 || "—", r.input_sha256 || "—"]]) },
     { h: t.report_results, html: htmlTable(["Pair", "Forward 5′→3′", "Reverse 5′→3′", "Tm F/R", "GC F/R", "Product", "Anneal", "Probe", "Exon check", "Structure risk"],
       r.pairs.map((x: any, i: number) => [i + 1, `${x.left.seq_tail} (${x.left.start1}-${x.left.end1})`, `${x.right.seq_tail} (${x.right.start1}-${x.right.end1})`,
         `${x.left.tm}/${x.right.tm} °C`, `${x.left.gc}/${x.right.gc}%`, `${x.product_size} bp`, `${x.anneal_temp} °C`, x.probe ? `${x.probe.seq} (Tm ${x.probe.tm})` : "—",
@@ -595,12 +684,14 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
   const [geneLoading, setGeneLoading] = useState(false);
   const [rs, setRs] = useState(""); const [re, setRe] = useState("");
   const [prompt, setPrompt] = useState("");
-   const [mode, setMode] = useState("standard"); const [qpcrChemistry, setQpcrChemistry] = useState("taqman"); const [polymerase, setPolymerase] = useState("taq");
+  const [mode, setMode] = useState("standard"); const [qpcrChemistry, setQpcrChemistry] = useState("taqman"); const [polymerase, setPolymerase] = useState("taq");
   const [tailL, setTailL] = useState(""); const [tailR, setTailR] = useState(""); const [mutation, setMutation] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [designSnapshot, setDesignSnapshot] = useState<any>(null);
   const [protocol, setProtocol] = useState<any>(null); const [protoFor, setProtoFor] = useState(0);
   const [blast, setBlast] = useState<Record<number, any>>({});
+  const [allowBlast, setAllowBlast] = useState(false);
   const [saved, setSaved] = useState<Record<number, boolean>>({});
   const [fbPair, setFbPair] = useState(0); const [fbNotes, setFbNotes] = useState(""); const [fbDone, setFbDone] = useState(false);
   const timers = useRef<number[]>([]);
@@ -618,7 +709,13 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
   };
 
   const submit = async () => {
-    setLoading(true); setResult(null); setProtocol(null); setBlast({}); setSaved({}); setFbDone(false);
+    const normalizedSequence = norm(seq);
+    const runInputs = { user_prompt: prompt, mode, qpcr_chemistry: qpcrChemistry, polymerase,
+      region_start: parseInt(rs) || 0, region_end: parseInt(re) || 0, tail_left: tailL, tail_right: tailR, mutation };
+    setDesignSnapshot({ sequence: normalizedSequence, sequence_length: normalizedSequence.length,
+      gene: gene ? { symbol: gene.symbol, accession: gene.accession, organism: gene.organism, annotation: gene.annotation } : null,
+      parameters: runInputs });
+    setLoading(true); setResult(null); setProtocol(null); setBlast({}); setAllowBlast(false); setSaved({}); setFbDone(false);
     try {
       const r = await call("/chat-design", { method: "POST", body: JSON.stringify({
          sequence: seq, user_prompt: prompt, tail_left: tailL, tail_right: tailR, mutation, mode, qpcr_chemistry: qpcrChemistry, polymerase,
@@ -649,10 +746,11 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
 
   const runBlast = async (i: number) => {
     if (!token) return notify(t.blastNeedsLogin);
+    if (!allowBlast) return;
     const pr = result.pairs[i];
     setBlast((b) => ({ ...b, [i]: { status: "running" } }));
     try {
-      const { job_id } = await call("/verify-primer", { method: "POST", body: JSON.stringify({ forward: pr.left.seq, reverse: pr.right.seq, organism: gene?.organism || organism, gene: gene?.symbol || "" }) });
+      const { job_id } = await call("/verify-primer", { method: "POST", body: JSON.stringify({ forward: pr.left.seq, reverse: pr.right.seq, organism: gene?.organism || organism, gene: gene?.symbol || "", consent_external: true }) });
       const started = Date.now();
       const iv = window.setInterval(async () => {
         try {
@@ -745,7 +843,9 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
             <span className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full">{t.detectedTm}: {result.parameters.tm} °C ({t["src_" + result.parameters.source]})</span>
             <span className="bg-slate-100 px-3 py-1 rounded-full">{t.size}: {result.parameters.size_range[0]}–{result.parameters.size_range[1]} bp</span>
             {result.pairs.length > 0 && <Btn kind="dark" onClick={exportCsv}>{t.csvIdt}</Btn>}
-            {result.pairs.length > 0 && <Btn kind="dark" onClick={() => downloadDesignReport(result, gene, seq, p.lang, t)}>{t.report}</Btn>}
+            {result.pairs.length > 0 && <Btn kind="dark" onClick={() => downloadDesignReport(result, designSnapshot?.gene, designSnapshot?.sequence || seq, p.lang, t)}>{t.report}</Btn>}
+             {result.pairs.length > 0 && <Btn kind="ghost" onClick={() => downloadDesignBundle(result, designSnapshot)}>{t.reproBundle}</Btn>}
+             {result.pairs.length > 0 && <label className="md:col-span-2 flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" checked={allowBlast} onChange={(e) => setAllowBlast(e.target.checked)} className="mt-0.5" />{t.blastConsent}</label>}
           </div>
           {result.warnings.map((w: string) => <div key={w} className="bg-yellow-50 border-s-4 border-yellow-500 p-3 text-sm text-yellow-900">{t["warn_" + w] || w}</div>)}
 
@@ -784,7 +884,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
                     <Btn kind="ghost" onClick={() => savePair(i)}>{saved[i] ? t.saved : t.save}</Btn>
                     <Btn kind="ghost" onClick={() => getProtocol(i)}>{t.protocol}</Btn>
                     <Btn kind="ghost" onClick={() => exportGb(i)}>{t.genbank}</Btn>
-                    <Btn onClick={() => runBlast(i)} disabled={blast[i]?.status === "running"}>{blast[i]?.status === "running" ? t.blasting : t.blast}</Btn>
+                    <Btn onClick={() => runBlast(i)} disabled={!allowBlast || blast[i]?.status === "running"}>{blast[i]?.status === "running" ? t.blasting : t.blast}</Btn>
                   </div>
                   {blast[i]?.status === "error" && <p className="text-xs text-red-700">{blast[i].error}</p>}
                   {blast[i]?.status === "done" && (() => { const b = blast[i].result; return (
@@ -981,6 +1081,7 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
   const [hover, setHover] = useState<any>(null); const [sel, setSel] = useState<number | null>(p.focusAa);
   const [selMarker, setSelMarker] = useState<any>(null);
   const [papers, setPapers] = useState<any[] | null>(null); const [explain, setExplain] = useState<any>(null); const [busy, setBusy] = useState(false);
+   const [allowStructureUpload, setAllowStructureUpload] = useState(false); const [allowExplainUpload, setAllowExplainUpload] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null); const viewerRef = useRef<any>(null);
   const cds = gene?.annotation?.cds_start ? gene.annotation : null;
 
@@ -996,8 +1097,9 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
     } catch (e) { fail(e); } finally { setLoading(false); }
   };
   const predict = async () => {
+    if (!allowStructureUpload) return;
     setLoading(true); setSource("ESMFold");
-    try { const r = await call("/predict-structure", { method: "POST", body: JSON.stringify({ sequence: custom }) }); setAf(r.pdb_data); setAnn(null); } catch (e) { fail(e); } finally { setLoading(false); }
+    try { const r = await call("/predict-structure", { method: "POST", body: JSON.stringify({ sequence: custom, consent_external: true }) }); setAf(r.pdb_data); setAnn(null); } catch (e) { fail(e); } finally { setLoading(false); }
   };
 
   // build viewer
@@ -1037,8 +1139,10 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
     catch (e) { fail(e); } finally { setBusy(false); }
   };
   const doExplain = async () => {
-    if (!token) return p.notify(t.loginRequired); setBusy(true);
-    try { setExplain(await call("/explain-residue", { method: "POST", body: JSON.stringify({ uniprot: acc.trim(), residue: active, lang: p.lang }) })); }
+    if (!token) return p.notify(t.loginRequired);
+    if (!allowExplainUpload) return;
+    setBusy(true);
+    try { setExplain(await call("/explain-residue", { method: "POST", body: JSON.stringify({ uniprot: acc.trim(), residue: active, lang: p.lang, consent_ai: true }) })); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
 
@@ -1049,7 +1153,7 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
     <div className="space-y-5">
       <Script src="https://3dmol.org/build/3Dmol-min.js" strategy="afterInteractive" onReady={() => setLibReady(true)} />
       <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end">
-        <Field label={t.uniprot}><input dir="ltr" className={seqCls} value={acc} onChange={(e) => setAcc(e.target.value.toUpperCase())} placeholder="P38398" /></Field>
+        <Field label={t.uniprot}><input dir="ltr" className={seqCls} value={acc} onChange={(e) => { setAcc(e.target.value.toUpperCase()); setAllowExplainUpload(false); }} placeholder="P38398" /></Field>
         <Btn onClick={load} disabled={loading}>{loading ? t.working : t.loadStruct}</Btn>
       </div>
       {!gene && !acc && <p className="text-sm text-slate-500">{t.noGeneYet}</p>}
@@ -1097,7 +1201,8 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
               {dnaStart && <p className="text-xs" dir="ltr"><b>{t.dnaCodon}:</b> {dnaStart}–{dnaStart + 2}{covering.length > 0 && <> · {t.covers}: {covering.map((m) => m.label).join(", ")}</>}</p>}
               {ann && (<div className="flex flex-wrap gap-2">
                 <Btn kind="ghost" onClick={findPapers} disabled={busy}>{t.findPapers}</Btn>
-                {p.llm && <Btn kind="dark" onClick={doExplain} disabled={busy}>{t.explain}</Btn>}</div>)}
+                {p.llm && <Btn kind="dark" onClick={doExplain} disabled={busy || !allowExplainUpload}>{t.explain}</Btn>}</div>)}
+               {p.llm && ann && <label className="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" checked={allowExplainUpload} onChange={(e) => setAllowExplainUpload(e.target.checked)} className="mt-0.5" />{t.explainConsent}</label>}
               {explain && (<div className="bg-slate-50 p-3 rounded text-xs space-y-2"><p className="whitespace-pre-wrap">{explain.text}</p>
                 <ul className="space-y-1">{explain.sources.map((s: any) => <li key={s.n}>[{s.n}] <a className="text-blue-700 underline" href={s.link} target="_blank" rel="noreferrer">{s.title}</a></li>)}</ul>
                 <p className="text-slate-500">{t.explainNote}</p></div>)}
@@ -1109,8 +1214,9 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
         </div>
       )}
       <details className="text-sm"><summary className="cursor-pointer font-semibold">{t.orSeq}</summary>
-        <textarea dir="ltr" className={seqCls + " h-20 mt-2"} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="MKTIIALSYIFCLVFADYKDDDDK…" />
-        <div className="mt-2"><Btn kind="ghost" onClick={predict} disabled={loading || !custom.trim()}>{t.predict}</Btn></div></details>
+        <textarea dir="ltr" className={seqCls + " h-20 mt-2"} value={custom} onChange={(e) => { setCustom(e.target.value); setAllowStructureUpload(false); }} placeholder="MKTIIALSYIFCLVFADYKDDDDK…" />
+         <label className="flex items-start gap-2 text-xs text-slate-600 mt-2"><input type="checkbox" checked={allowStructureUpload} onChange={(e) => setAllowStructureUpload(e.target.checked)} className="mt-0.5" />{t.structureConsent}</label>
+        <div className="mt-2"><Btn kind="ghost" onClick={predict} disabled={loading || !custom.trim() || !allowStructureUpload}>{t.predict}</Btn></div></details>
       <p className="text-xs text-slate-500">{t.licenseTxt}</p>
     </div>
   );
@@ -1152,6 +1258,8 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
+  const [allowAiRequest, setAllowAiRequest] = useState(false);
+  const [shareContext, setShareContext] = useState(false);
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy, open]);
@@ -1161,10 +1269,11 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
     if (!q || busy) return;
     if (!llm) return notify(t.chat_disabled);
     if (!token) return notify(t.loginRequired);
+    if (!allowAiRequest) return;
     const next: ChatMsg[] = [...msgs, { role: "user", content: q.slice(0, 2000) }];
     setMsgs(next); setInput(""); setBusy(true);
     try {
-      const r = await call("/ask-ai", { method: "POST", body: JSON.stringify({ messages: next.slice(-12), lang, context: context.slice(0, 6000) }) });
+      const r = await call("/ask-ai", { method: "POST", body: JSON.stringify({ messages: next.slice(-12), lang, context: shareContext ? context.slice(0, 6000) : "", consent_ai: true, share_context: shareContext }) });
       setMsgs((m) => [...m, { role: "assistant", content: r.reply }]);
     } catch (e) { setMsgs((m) => m.slice(0, -1)); setInput(q); fail(e); } finally { setBusy(false); }
   };
@@ -1174,7 +1283,7 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
       {open && (
         <section role="dialog" aria-label={t.chat_title} className="w-[min(92vw,380px)] h-[min(75vh,560px)] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           <header className="bg-blue-800 text-white px-4 py-3 flex items-center justify-between gap-2">
-            <div><p className="font-bold">{t.chat_title}</p><p className="text-xs text-blue-100">{context ? t.chat_ctx : t.chat_note}</p></div>
+            <div><p className="font-bold">{t.chat_title}</p><p className="text-xs text-blue-100">{t.aiDisclosure}</p></div>
             <div className="flex gap-1">
               {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="text-xs bg-blue-700 hover:bg-blue-600 rounded px-2 py-1">{t.chat_clear}</button>}
               <button type="button" aria-label="close" onClick={() => setOpen(false)} className="text-lg leading-none px-2 hover:text-blue-200">×</button>
@@ -1184,7 +1293,7 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
             {msgs.length === 0 && (<div className="space-y-2">
               <p className="text-sm bg-white border rounded-xl p-3">{t.chat_hello}</p>
               {[t.chat_s1, t.chat_s2, t.chat_s3].map((sug) => (
-                <button key={sug} type="button" onClick={() => send(sug)} className="block w-full text-start text-sm bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg px-3 py-2">{sug}</button>))}
+                <button key={sug} type="button" onClick={() => send(sug)} disabled={!allowAiRequest} className="block w-full text-start text-sm bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg px-3 py-2 disabled:opacity-50">{sug}</button>))}
             </div>)}
             {msgs.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -1194,10 +1303,12 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
             <div ref={endRef} />
           </div>
           <footer className="border-t p-2 space-y-1">
+            <label className="flex items-start gap-2 text-[11px] text-slate-600"><input type="checkbox" checked={allowAiRequest} onChange={(e) => setAllowAiRequest(e.target.checked)} className="mt-0.5" />{t.aiConsent}</label>
+            {context && <label className="flex items-start gap-2 text-[11px] text-slate-600"><input type="checkbox" checked={shareContext} onChange={(e) => setShareContext(e.target.checked)} className="mt-0.5" />{t.aiContextConsent}</label>}
             <div className="flex gap-2">
               <textarea dir="auto" rows={2} className={inputCls + " resize-none text-sm"} value={input} maxLength={2000} placeholder={t.chat_ph}
                 onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
-              <Btn onClick={() => send()} disabled={busy || !input.trim()}>{t.chat_send}</Btn>
+              <Btn onClick={() => send()} disabled={busy || !input.trim() || !allowAiRequest}>{t.chat_send}</Btn>
             </div>
             <p className="text-[11px] text-slate-500 px-1">{t.chat_note}</p>
           </footer>
@@ -1212,6 +1323,79 @@ function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { l
 /* ------------------------------------------------------------------ */
 /* Page shell                                                          */
 /* ------------------------------------------------------------------ */
+function AccountTools({ t, token, onLogin, onLogout, call, notify, fail }: Ctx & { token: string | null; onLogin: (access: string) => void; onLogout: () => void }) {
+  const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [resetPassword,setResetPassword]=useState("");
+  const [oneTimeToken,setOneTimeToken]=useState(""); const [message,setMessage]=useState(""); const [busy,setBusy]=useState(false);
+  useEffect(()=>{ const q=new URLSearchParams(window.location.search); const verify=q.get("verify_token"), reset=q.get("reset_token");
+    if(reset) setOneTimeToken(reset);
+    if(verify){ setBusy(true); void apiFetch("/auth/verify-email",null,{method:"POST",body:JSON.stringify({token:verify})})
+      .then(()=>setMessage(t.auth_ok)).catch(e=>setMessage(String(e.message||e))).finally(()=>setBusy(false)); }
+    if(verify||reset){q.delete("verify_token");q.delete("reset_token");const next=window.location.pathname+(q.toString()?`?${q}`:"");window.history.replaceState({},"",next);}
+  },[]);
+  const register=async()=>{setBusy(true);setMessage("");try{const r=await apiFetch("/register",null,{method:"POST",body:JSON.stringify({email,password})});setMessage(r.message||t.auth_ok);}catch(e:any){setMessage(String(e.message||e));}finally{setBusy(false);}};
+  const login=async()=>{setBusy(true);setMessage("");try{const body=new URLSearchParams({username:email,password});const r=await apiFetch("/login",null,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
+    sessionStorage.setItem("token",r.access_token);if(r.refresh_token)sessionStorage.setItem("refresh_token",r.refresh_token);onLogin(r.access_token);setMessage(t.auth_ok);
+  }catch(e:any){setMessage(String(e.message||e));}finally{setBusy(false);}};
+  const sendLink=async(path:string)=>{setBusy(true);setMessage("");try{const r=await apiFetch(path,null,{method:"POST",body:JSON.stringify({email})});setMessage(r.message||t.auth_ok);}catch(e:any){setMessage(String(e.message||e));}finally{setBusy(false);}};
+  const verify=async()=>{setBusy(true);try{const r=await apiFetch("/auth/verify-email",null,{method:"POST",body:JSON.stringify({token:oneTimeToken})});setMessage(r.message||t.auth_ok);}catch(e:any){setMessage(String(e.message||e));}finally{setBusy(false);}};
+  const reset=async()=>{setBusy(true);try{const r=await apiFetch("/auth/reset-password",null,{method:"POST",body:JSON.stringify({token:oneTimeToken,new_password:resetPassword})});setMessage(r.message||t.auth_ok);setResetPassword("");setOneTimeToken("");}catch(e:any){setMessage(String(e.message||e));}finally{setBusy(false);}};
+  const exportData=async()=>{try{const d=await call("/privacy/export");download("primer-ai-my-data.json",JSON.stringify(d,null,2),"application/json");}catch(e){fail(e);}};
+  return <div className="space-y-3 p-3 border rounded-xl bg-slate-50"><p className="text-xs text-slate-600">{t.auth_notice}</p>
+    <div className="grid md:grid-cols-2 gap-2"><input className={inputCls} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder={t.auth_email}/><input className={inputCls} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={t.auth_password} minLength={8}/></div>
+    <div className="flex flex-wrap gap-2"><Btn onClick={register} disabled={busy||!email||password.length<8}>{t.auth_register}</Btn><Btn kind="ghost" onClick={login} disabled={busy||!email||!password}>{t.auth_login}</Btn>
+      <Btn kind="ghost" onClick={()=>void sendLink("/auth/request-email-verification")} disabled={busy||!email}>{t.auth_verify_request}</Btn><Btn kind="ghost" onClick={()=>void sendLink("/auth/request-password-reset")} disabled={busy||!email}>{t.auth_reset_request}</Btn></div>
+    {(oneTimeToken||resetPassword)&&<div className="grid md:grid-cols-2 gap-2"><input className={seqCls} value={oneTimeToken} onChange={e=>setOneTimeToken(e.target.value)} placeholder={t.auth_code}/><input type="password" className={inputCls} value={resetPassword} onChange={e=>setResetPassword(e.target.value)} placeholder={t.auth_new_password}/>
+      <Btn kind="ghost" onClick={verify} disabled={busy||!oneTimeToken}>{t.auth_verify_token}</Btn><Btn onClick={reset} disabled={busy||!oneTimeToken||resetPassword.length<8}>{t.auth_reset_token}</Btn></div>}
+    <div className="flex flex-wrap gap-2">{token&&<><Btn kind="ghost" onClick={exportData}>{t.auth_export}</Btn><Btn kind="danger" onClick={onLogout}>{t.logout}</Btn></>}</div>
+    {message&&<p role="status" className="text-sm text-blue-800">{message}</p>}
+  </div>;
+}
+
+function ClassroomTab({ t, call, token, notify, fail, design, qpcrRes }: Ctx & { design: any; qpcrRes: any }) {
+  const [classes, setClasses] = useState<any[]>([]); const [selected, setSelected] = useState("");
+  const [detail, setDetail] = useState<any>(null); const [className, setClassName] = useState(""); const [joinCode, setJoinCode] = useState("");
+  const [newCode, setNewCode] = useState(""); const [title, setTitle] = useState(""); const [instructions, setInstructions] = useState(""); const [due, setDue] = useState("");
+  const [review, setReview] = useState<Record<number, { feedback: string; grade: string }>>({});
+  const loadClasses = useCallback(async () => { if (!token) return; try { const r=await call("/classrooms"); setClasses(r.classrooms||[]); }
+    catch(e){ fail(e); } }, [token, call, fail]);
+  const loadDetail = useCallback(async (id: string) => { if (!id) { setDetail(null); return; } try { setDetail(await call(`/classrooms/${id}`)); }
+    catch(e){ fail(e); } }, [call, fail]);
+  useEffect(() => { void loadClasses(); }, [loadClasses]);
+  useEffect(() => { if (selected) void loadDetail(selected); else setDetail(null); }, [selected, loadDetail]);
+  if (!token) return <p className="text-sm">{t.loginRequired}</p>;
+  const createClass = async () => { try { const r=await call("/classrooms",{method:"POST",body:JSON.stringify({name:className})});
+    setNewCode(r.join_code); setClassName(""); await loadClasses(); setSelected(String(r.id)); } catch(e){ fail(e); } };
+  const joinClass = async () => { try { const r=await call("/classrooms/join",{method:"POST",body:JSON.stringify({join_code:joinCode})});
+    setJoinCode(""); await loadClasses(); setSelected(String(r.id)); } catch(e){ fail(e); } };
+  const createAssignment = async () => { if (!selected) return; try { await call(`/classrooms/${selected}/assignments`,{method:"POST",body:JSON.stringify({title,instructions,due_at:due})});
+    setTitle("");setInstructions("");setDue(""); await loadDetail(selected); } catch(e){ fail(e); } };
+  const submitWork = async (assignmentId:number) => { if (!selected) return; try { await call(`/classrooms/${selected}/submissions`,{method:"POST",body:JSON.stringify({assignment_id:assignmentId,payload:{design:design||null,qpcr:qpcrRes||null}})}); notify(t.classroom_submit,"ok"); await loadDetail(selected); }
+    catch(e){fail(e);} };
+  const saveReview = async (submissionId:number) => { if(!selected)return; const r=review[submissionId]||{feedback:"",grade:""}; try { await call(`/classrooms/${selected}/submissions/${submissionId}/feedback`,{method:"POST",body:JSON.stringify(r)}); await loadDetail(selected); }
+    catch(e){fail(e);} };
+  return <div className="space-y-5"><section className="border rounded-xl p-4 bg-blue-50 space-y-3"><h2 className="text-xl font-bold text-blue-800">{t.classroom_title}</h2><p className="text-sm">{t.classroom_desc}</p>
+    <div className="grid md:grid-cols-2 gap-3"><div className="flex gap-2"><input className={inputCls} value={className} onChange={e=>setClassName(e.target.value)} placeholder={t.classroom_name}/><Btn onClick={createClass} disabled={className.trim().length<2}>{t.classroom_create}</Btn></div>
+      <div className="flex gap-2"><input dir="ltr" className={seqCls} value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())} placeholder={t.classroom_code}/><Btn kind="ghost" onClick={joinClass} disabled={!joinCode.trim()}>{t.classroom_join}</Btn></div></div>
+    {newCode && <p className="p-3 bg-white border rounded text-sm"><b>{t.classroom_created_code}</b> <code className="font-mono text-lg select-all">{newCode}</code></p>}
+    <div className="grid md:grid-cols-2 gap-3"><Field label={t.classroom_select}><select className={inputCls} value={selected} onChange={e=>setSelected(e.target.value)}><option value="">{t.classroom_select}</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name} · {c.role==="teacher"?t.classroom_role_teacher:t.classroom_role_student}</option>)}</select></Field></div>
+  </section>
+  {detail && <section className="space-y-4"><h3 className="font-bold text-lg">{detail.name} · {detail.role==="teacher"?t.classroom_role_teacher:t.classroom_role_student}</h3>
+    {detail.role==="teacher" && <div className="border rounded-xl p-4 space-y-3"><h4 className="font-semibold">{t.classroom_assignment}</h4><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={t.classroom_assignment_title}/>
+      <textarea className={inputCls} value={instructions} onChange={e=>setInstructions(e.target.value)} placeholder={t.classroom_instructions} maxLength={4000}/><input type="date" className={inputCls} value={due} onChange={e=>setDue(e.target.value)}/>
+      <Btn onClick={createAssignment} disabled={title.trim().length<2}>{t.classroom_publish}</Btn></div>}
+    {detail.assignments?.length===0 && <p className="text-sm text-slate-500">{t.classroom_empty}</p>}
+    {(detail.assignments||[]).map((a:any)=><article key={a.id} className="border rounded-xl p-4 space-y-3"><div><h4 className="font-semibold">{a.title}</h4>{a.instructions&&<p className="text-sm whitespace-pre-wrap">{a.instructions}</p>}{a.due_at&&<p className="text-xs text-slate-500">{t.classroom_due}: {a.due_at}</p>}</div>
+      {detail.role==="student" && <div><Btn onClick={()=>submitWork(a.id)} disabled={!design&&!qpcrRes}>{t.classroom_submit}</Btn>{!design&&!qpcrRes&&<p className="text-xs text-slate-500 mt-1">{t.classroom_no_results}</p>}
+        {a.submissions?.map((sub:any)=><p key={sub.id} className="mt-2 text-sm bg-slate-50 p-2 rounded">{sub.feedback&&<><b>{t.classroom_review}:</b> {sub.feedback}</>}{sub.grade&&<> · <b>{t.classroom_grade}:</b> {sub.grade}</>}</p>)}</div>}
+      {detail.role==="teacher" && <div className="space-y-3"><p className="font-semibold text-sm">{t.classroom_submissions} ({a.submissions?.length||0})</p>{a.submissions?.map((sub:any)=><div key={sub.id} className="border rounded p-3 space-y-2"><p className="text-xs">{sub.student_email || `Student #${sub.user_id}`} · {sub.created_at}</p><details><summary className="cursor-pointer text-xs">View submitted results</summary><pre className="text-xs whitespace-pre-wrap overflow-auto max-h-64">{JSON.stringify(sub.payload,null,2)}</pre></details>
+        <input className={inputCls} value={review[sub.id]?.grade??sub.grade??""} onChange={e=>setReview(x=>({...x,[sub.id]:{feedback:x[sub.id]?.feedback??sub.feedback??"",grade:e.target.value}}))} placeholder={t.classroom_grade}/>
+        <textarea className={inputCls} value={review[sub.id]?.feedback??sub.feedback??""} onChange={e=>setReview(x=>({...x,[sub.id]:{grade:x[sub.id]?.grade??sub.grade??"",feedback:e.target.value}}))} placeholder={t.classroom_review}/>
+        <Btn kind="ghost" onClick={()=>saveReview(sub.id)}>{t.classroom_save_review}</Btn></div>)}</div>}
+    </article>)}
+  </section>}
+  </div>;
+}
+
 export default function Home() {
   const [lang, setLang] = useState<Lang>("en");
   const [tab, setTab] = useState<TabId>("design");
@@ -1227,7 +1411,10 @@ export default function Home() {
   const t = T[lang];
 
   useEffect(() => {
-    setToken(localStorage.getItem("token"));
+    const oldToken = localStorage.getItem("token");
+    if (oldToken && !sessionStorage.getItem("token")) sessionStorage.setItem("token", oldToken);
+    localStorage.removeItem("token");
+    setToken(sessionStorage.getItem("token"));
     const l = localStorage.getItem("lang"); if (l === "fa" || l === "en") setLang(l);
     apiFetch("/config", null).then(setConfig).catch(() => {});
   }, []);
@@ -1276,9 +1463,13 @@ export default function Home() {
     }
     return lines.length > 1 ? lines.join("\n") : "";
   }, [tab, gene, design, qpcrRes]);
-  const tabs: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library"];
+  const tabs: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library", "classroom"];
 
-  const logout = () => { localStorage.removeItem("token"); setToken(null); };
+  const logout = () => {
+    const refresh=sessionStorage.getItem("refresh_token");
+    if(refresh) void apiFetch("/auth/logout",null,{method:"POST",body:JSON.stringify({refresh_token:refresh})}).catch(()=>{});
+    sessionStorage.removeItem("token");sessionStorage.removeItem("refresh_token");localStorage.removeItem("token");setToken(null);
+  };
   const del = async () => {
     if (!confirm(t.deleteConfirm)) return;
     try { await call("/delete-account", { method: "DELETE" }); logout(); } catch (e) { fail(e); }
@@ -1297,11 +1488,13 @@ export default function Home() {
               <Btn kind="ghost" onClick={logout}>{t.logout}</Btn>
               <details className="relative"><summary className={`${btnBase} bg-slate-100 cursor-pointer list-none`}>{t.settings}</summary>
                 <div className="absolute end-0 mt-1 bg-white border rounded-lg shadow p-2 z-10"><Btn kind="danger" onClick={del}>{t.deleteAccount}</Btn></div></details>
-            </>) : <a href="/login" className={`${btnBase} bg-blue-700 text-white`}>{t.login}</a>}
+            </>) : <a href="#account-tools" className={`${btnBase} bg-blue-700 text-white`}>{t.login}</a>}
           </div>
         </header>
 
         {notice && <div role="alert" className={`mb-4 p-3 rounded-lg text-sm ${notice.kind === "error" ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"}`}>{notice.msg}</div>}
+        <details id="account-tools" className="mb-5" open={!token}><summary className="cursor-pointer text-sm font-semibold text-blue-800">{t.account_tools}</summary>
+          <div className="mt-2"><AccountTools {...ctx} token={token} onLogin={setToken} onLogout={logout} /></div></details>
 
         <nav className="flex border-b mb-6 overflow-x-auto" aria-label="tabs">
           {tabs.map((id) => (<button key={id} onClick={() => setTab(id)} aria-current={tab === id} className={`px-4 py-2 font-semibold whitespace-nowrap ${tab === id ? "border-b-2 border-blue-700 text-blue-700" : "text-slate-500 hover:text-slate-800"}`}>{t["tab_" + id]}</button>))}
@@ -1317,8 +1510,9 @@ export default function Home() {
         {tab === "troubleshoot" && <TroubleshootTab {...ctx} />}
         {tab === "tutorial" && (<div className="space-y-5 max-w-3xl">{TUT[lang].map((s) => (<section key={s.h}><h3 className="text-lg font-bold text-blue-800">{s.h}</h3><p className="mt-1 text-slate-700 leading-relaxed">{s.p}</p></section>))}</div>)}
         {tab === "library" && <LibraryTab {...ctx} />}
+        {tab === "classroom" && <ClassroomTab {...ctx} design={design} qpcrRes={qpcrRes} />}
 
-        <footer className="mt-10 pt-4 border-t text-xs text-slate-500">{t.footer}</footer>
+        <footer className="mt-10 pt-4 border-t text-xs text-slate-500 space-y-2"><p>{t.privacyNotice}</p><p>{t.footer}</p></footer>
         <ChatBox {...ctx} llm={!!config.llm} context={aiContext} />
       </div>
     </main>
