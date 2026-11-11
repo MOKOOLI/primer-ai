@@ -1707,10 +1707,12 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-[2rem] bg-[#101a30] text-white shadow-2xl shadow-[#101a30]/30">
+        {/* eslint-disable-next-line @next/next/no-img-element */}<img src="/hero.jpg" alt="" aria-hidden="true" className={`pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45 ${isRtl(lang) ? "-scale-x-100" : ""}`} />
+        <div className={`absolute inset-0 ${isRtl(lang) ? "bg-gradient-to-l" : "bg-gradient-to-r"} from-[#101a30] via-[#101a30]/85 to-[#101a30]/30`} />
         <div className="absolute inset-0 bg-[radial-gradient(700px_380px_at_80%_30%,rgba(94,240,168,.18),transparent_70%)]" />
         <div className="pa-lanes absolute inset-0 opacity-[0.035] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
         <div className="relative flex flex-wrap items-center justify-between gap-3 px-6 pt-6 md:px-10">
-          <span className="text-lg font-extrabold tracking-tight">Primer<span className="text-[#5ef0a8]"> AI</span></span>
+          <span className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-tight">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={36} height={36} className="h-9 w-9 rounded-xl" /><span>Primer<span className="text-[#5ef0a8]"> AI</span></span></span>
           <nav className="flex flex-wrap items-center gap-1 text-sm">
             <a href="#tools" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_tools}</a>
             <a href="#classroom" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_classroom}</a>
@@ -1789,7 +1791,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 px-2 pb-10 text-sm text-slate-500">
-        <span className="font-extrabold text-[#16233f]">Primer<span className="text-emerald-600"> AI</span></span>
+        <span className="inline-flex items-center gap-2 font-extrabold text-[#16233f]">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 rounded-lg" /><span>Primer<span className="text-emerald-600"> AI</span></span></span>
         <nav className="flex flex-wrap gap-4"><a href="#services" className="hover:text-[#16233f]">{t.nav_services}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
         <p className="w-full font-mono text-[11px] text-slate-400">{t.footer}</p>
       </footer>
@@ -1906,7 +1908,7 @@ export default function Home() {
             </div>
           </div>
           <div className="relative px-5 pb-8 pt-8 md:px-8 md:pb-12 md:pt-10 md:max-w-[58%]">
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">{t.title}</h1>
+            <h1 className="flex items-center gap-3 text-4xl md:text-6xl font-extrabold tracking-tight">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={64} height={64} className="h-12 w-12 md:h-16 md:w-16 shrink-0 rounded-2xl" /><span>{t.title}</span></h1>
             <p className="mt-3 max-w-xl text-base md:text-lg leading-relaxed text-slate-300">{t.subtitle}</p>
             <p className="mt-5 font-mono text-xs uppercase tracking-[0.2em] text-emerald-300/80">{t.hero_lane}</p>
           </div>
