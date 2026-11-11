@@ -7,7 +7,7 @@ import Script from "next/script";
 const API = process.env.NEXT_PUBLIC_API_URL || "https://primer-ai.onrender.com";
 
 type Lang = "en" | "fa";
-type TabId = "design" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "library";
+type TabId = "design" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library";
 
 /* ------------------------------------------------------------------ */
 /* Translations                                                        */
@@ -16,7 +16,7 @@ const T: Record<Lang, Record<string, string>> = {
   en: {
     title: "Primer AI", subtitle: "From gene to structure to literature — designed in your language.",
     tab_design: "Primer design", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
-    tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_library: "My library",
+    tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_troubleshoot: "Troubleshooting", tab_library: "My library",
     login: "Log in / Sign up", logout: "Log out", deleteAccount: "Delete my account", settings: "Account",
     deleteConfirm: "Delete your account and all saved data? This cannot be undone.",
     loginRequired: "Please log in to use this feature.", networkErr: "Cannot reach the server. It may be waking up (free tier) — try again in ~1 minute.",
@@ -74,11 +74,14 @@ const T: Record<Lang, Record<string, string>> = {
     noGeneYet: "Fetch a gene in the Primer design tab first, or type a UniProt accession.",
     libEmpty: "No saved primers yet.", libDelete: "Delete", libExport: "Export all (CSV)", legacy: "imported",
     footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC", pricing: "Pricing", privacy: "Privacy",
+    // Troubleshooting translations
+    ts_title: "Troubleshooting", ts_desc: "Describe the problem you see in your PCR or cloning experiment.",
+    ts_symptom: "Symptom", ts_select: "Select a symptom...", ts_analyze: "Analyze", ts_cause: "Likely Cause", ts_solutions: "Suggested Solutions",
   },
   fa: {
     title: "Primer AI", subtitle: "از ژن تا ساختار تا مقاله — به زبان خودتان.",
     tab_design: "طراحی پرایمر", tab_multiplex: "مولتی‌پلکس", tab_gibson: "مونتاژ Gibson", tab_crispr: "CRISPR gRNA",
-    tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_library: "کتابخانه من",
+    tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_troubleshoot: "عیب‌یابی", tab_library: "کتابخانه من",
     login: "ورود / ثبت‌نام", logout: "خروج", deleteAccount: "حذف حساب من", settings: "حساب کاربری",
     deleteConfirm: "حساب و همه‌ی داده‌های ذخیره‌شده حذف شود؟ این کار برگشت‌پذیر نیست.",
     loginRequired: "برای استفاده از این قابلیت وارد شوید.", networkErr: "اتصال به سرور برقرار نشد. ممکن است سرور در حال بیدار شدن باشد (پلن رایگان) — حدود ۱ دقیقه بعد دوباره تلاش کنید.",
@@ -136,6 +139,9 @@ const T: Record<Lang, Record<string, string>> = {
     noGeneYet: "ابتدا در تب طراحی پرایمر یک ژن دریافت کنید یا شناسه‌ی UniProt را بنویسید.",
     libEmpty: "هنوز پرایمری ذخیره نشده.", libDelete: "حذف", libExport: "خروجی همه (CSV)", legacy: "قدیمی",
     footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC", pricing: "تعرفه‌ها", privacy: "حریم خصوصی",
+    // Troubleshooting translations
+    ts_title: "عیب‌یابی", ts_desc: "مشکلی که در آزمایش PCR یا کلونینگ خود می‌بینید را توصیف کنید.",
+    ts_symptom: "علامت", ts_select: "یک علامت انتخاب کنید...", ts_analyze: "تحلیل", ts_cause: "علت احتمالی", ts_solutions: "راه‌حل‌های پیشنهادی",
   },
 };
 
@@ -230,6 +236,76 @@ function Gel({ sizes, t }: { sizes: number[]; t: Record<string, string> }) {
       {ladder.map((s) => (<g key={s}><rect x="12" y={y(s) - 1.5} width="36" height="3" fill="#cbd5e1" /><text x="52" y={y(s) + 3} fontSize="8" fill="#94a3b8">{s}</text></g>))}
       {lanes.map((s, i) => (<g key={i}><rect x={92 + i * 60} y={y(s) - 2} width="36" height="4" fill="#60a5fa" /><text x={110 + i * 60} y={H + 14} fontSize="9" textAnchor="middle" fill="#64748b">{s} bp</text></g>))}
     </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Troubleshooting Tab                                                 */
+/* ------------------------------------------------------------------ */
+function TroubleshootTab({ t, call, fail }: Ctx) {
+  const [symptom, setSymptom] = useState("");
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleAnalyze = async () => {
+    if (!symptom) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      // شبیه‌سازی: در آینده می‌توانید یک مسیر /troubleshoot به بک‌اند اضافه کنید
+      // فعلاً از داده‌های kb.ts استفاده می‌کنیم (به صورت هاردکد شده)
+      const causes: Record<string, any> = {
+        no_band: { cause: "Annealing temperature too high or primers do not match", solution: ["Lower the annealing temperature in 2 °C steps.", "Check primer sequences with BLAST.", "Increase template amount or cycles."] },
+        faint_band: { cause: "Too little template or too few cycles", solution: ["Increase template or add 3–5 cycles.", "Check template concentration and integrity."] },
+        smear: { cause: "Too much template, low annealing temperature, or Mg²⁺ too high", solution: ["Dilute template 10–100×.", "Raise annealing temperature.", "Reduce Mg²⁺ in 0.5 mM steps."] },
+        multi_bands: { cause: "Non-specific amplification", solution: ["Raise annealing temperature.", "Use hot-start polymerase.", "Redesign primers."] },
+        wrong_size: { cause: "Primers may amplify a paralog or isoform", solution: ["Check isoforms and paralogs with BLAST.", "Sequence the unexpected band.", "Redesign primers in a unique region."] },
+        dimer_band: { cause: "Primer-dimer formation", solution: ["Redesign primers without 3′ complementarity.", "Lower primer concentration to 0.1–0.3 µM.", "Use hot-start and higher annealing temperature."] },
+      };
+      
+      // شبیه‌سازی تاخیر شبکه
+      await new Promise(r => setTimeout(r, 800));
+      
+      setResult(causes[symptom] || { cause: "Unknown", solution: ["Please consult a molecular biology expert."] });
+    } catch (e) {
+      fail(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold text-blue-800">{t.ts_title}</h2>
+      <p className="text-sm text-slate-600">{t.ts_desc}</p>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field label={t.ts_symptom}>
+          <select className={inputCls} value={symptom} onChange={(e) => setSymptom(e.target.value)}>
+            <option value="">{t.ts_select}</option>
+            <option value="no_band">No product band</option>
+            <option value="faint_band">Faint band</option>
+            <option value="smear">Smear</option>
+            <option value="multi_bands">Several unexpected bands</option>
+            <option value="wrong_size">Band of the wrong size</option>
+            <option value="dimer_band">Primer-dimer</option>
+          </select>
+        </Field>
+      </div>
+
+      <button onClick={handleAnalyze} disabled={loading || !symptom} className="w-full bg-orange-700 hover:bg-orange-800 disabled:opacity-50 text-white font-bold py-3 rounded-lg">
+        {loading ? t.working : t.ts_analyze}
+      </button>
+
+      {result && (
+        <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+          <h3 className="font-bold text-orange-800 mb-2">{t.ts_cause}: {result.cause}</h3>
+          <ul className="list-disc ps-5 text-sm text-slate-700">
+            {result.solution.map((s: string, i: number) => <li key={i}>{s}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -826,7 +902,7 @@ export default function Home() {
   }, [design, guides]);
 
   const ctx: Ctx = { t, lang, call, token, notify, fail };
-  const tabs: TabId[] = ["design", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "library"];
+  const tabs: TabId[] = ["design", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library"];
 
   const logout = () => { localStorage.removeItem("token"); setToken(null); };
   const del = async () => {
@@ -863,6 +939,7 @@ export default function Home() {
         {tab === "crispr" && <CrisprTab {...ctx} seq={seq} setSeq={setSeq} annotation={annotation} onGuides={setGuides} openExplorer={(aa) => { setFocusAa(aa); setTab("explorer"); }} />}
         {tab === "toolbox" && <ToolboxTab {...ctx} />}
         {tab === "explorer" && <ExplorerTab {...ctx} gene={annotation ? gene : gene} markers={annotation ? markers : []} focusAa={focusAa} llm={!!config.llm} />}
+        {tab === "troubleshoot" && <TroubleshootTab {...ctx} />}
         {tab === "tutorial" && (<div className="space-y-5 max-w-3xl">{TUT[lang].map((s) => (<section key={s.h}><h3 className="text-lg font-bold text-blue-800">{s.h}</h3><p className="mt-1 text-slate-700 leading-relaxed">{s.p}</p></section>))}</div>)}
         {tab === "library" && <LibraryTab {...ctx} />}
 
