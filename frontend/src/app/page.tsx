@@ -7,7 +7,7 @@ import Script from "next/script";
 const API = process.env.NEXT_PUBLIC_API_URL || "https://primer-ai.onrender.com";
 
 type Lang = "en" | "fa";
-type TabId = "design" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library";
+type TabId = "design" | "qpcr" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library";
 
 /* ------------------------------------------------------------------ */
 /* Translations                                                        */
@@ -15,7 +15,7 @@ type TabId = "design" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explore
 const T: Record<Lang, Record<string, string>> = {
   en: {
     title: "Primer AI", subtitle: "From gene to structure to literature — designed in your language.",
-    tab_design: "Primer design", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
+    tab_design: "Primer design", tab_qpcr: "RT-qPCR analysis", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
     tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_troubleshoot: "Troubleshooting", tab_library: "My library",
     login: "Log in / Sign up", logout: "Log out", deleteAccount: "Delete my account", settings: "Account",
     deleteConfirm: "Delete your account and all saved data? This cannot be undone.",
@@ -26,7 +26,9 @@ const T: Record<Lang, Record<string, string>> = {
     sequence: "DNA sequence (FASTA or raw)", seqHint: "Allowed: A C G T N (U is converted to T). Max {max} nt.",
     region: "Design only inside region (optional)", from: "From", to: "To",
     prompt: "Describe what you want", promptPh: "e.g. Tm 62, product 100-200 bp  /  دما را روی ۶۲ تنظیم کن",
-    mode: "Application", mode_standard: "Standard PCR (100–1000 bp)", mode_qpcr: "qPCR + probe (70–150 bp)", mode_sanger: "PCR for Sanger (400–900 bp)",
+    mode: "Application", mode_standard: "Standard PCR (100–1000 bp)", mode_qpcr: "qPCR (70–150 bp)", mode_sanger: "PCR for Sanger (400–900 bp)",
+    qpcr_chemistry: "qPCR chemistry", qpcr_taqman: "TaqMan probe", qpcr_sybr: "SYBR Green (primer pair only)",
+    qpcr_chemistry_hint: "TaqMan designs an internal probe; SYBR Green returns primers without a probe.",
     polymerase: "Polymerase profile", pol_taq: "Taq-type", pol_hifi: "High-fidelity (Q5/Phusion)",
     tailLeft: "5′ tail, forward (optional)", tailRight: "5′ tail, reverse (optional)",
     mutation: "Site-directed mutation (optional)", mutationHint: "DNA substitution, 1-based: e.g. A120G → designs mutagenic primers",
@@ -67,6 +69,7 @@ const T: Record<Lang, Record<string, string>> = {
     tmCalc: "Tm calculator", tmBtn: "Calculate", orderFormat: "Order format", companyLabel: "Vendor", nameLabel: "Name", convert: "Convert", recPur: "Recommended purification",
     uniprot: "UniProt accession", loadStruct: "Load AlphaFold structure", orSeq: "…or predict from a protein sequence (ESMFold, ≤400 aa)", predict: "Predict",
     mapTitle: "Transcript map", mapHint: "Click a primer or guide to find its codons in the 3D structure.", hoverHint: "Hover a residue in the structure.",
+    mapJunction: "Splice junction", mapTranscriptNote: "Coordinates are on the mature mRNA; intron lengths are not present in this transcript record.",
     residue: "Residue", plddt: "Confidence (pLDDT)", conf_vh: "very high", conf_h: "confident", conf_l: "low", conf_vl: "very low",
     features: "UniProt features here", noFeat: "No annotated feature at this residue.", dnaCodon: "Codon at transcript positions", covers: "Covered by",
     papers: "Literature (Europe PMC)", findPapers: "Find papers", explain: "Explain with sources (AI)", explainNote: "AI summary built only from the sources listed — verify before citing.",
@@ -77,10 +80,20 @@ const T: Record<Lang, Record<string, string>> = {
     // Troubleshooting translations
     ts_title: "Troubleshooting", ts_desc: "Describe the problem you see in your PCR or cloning experiment.",
     ts_symptom: "Symptom", ts_select: "Select a symptom...", ts_analyze: "Analyze", ts_cause: "Likely Cause", ts_solutions: "Suggested Solutions",
+    qpcr_title: "RT-qPCR Ct analysis", qpcr_desc: "Upload or paste one well per row. The comparative ΔΔCt method assumes near-100% and similar amplification efficiencies; use cDNA Ct values and a validated reference target.",
+    qpcr_csv_label: "Ct data (CSV)", qpcr_csv_hint: "Required columns: sample, target, ct. Optional: group, replicate. Use a blank Ct or Undetermined for no amplification.",
+    qpcr_csv_example: "sample,target,ct,group,replicate\ncontrol_1,ACTB,20.1,control,1\ncontrol_1,GENE_X,25.0,control,1\ntreated_1,ACTB,20.3,treated,1\ntreated_1,GENE_X,22.4,treated,1",
+    qpcr_upload: "Choose CSV file", qpcr_control_group: "Control group", qpcr_reference_target: "Reference target",
+    qpcr_analyze: "Analyze Ct data", qpcr_results: "Expression results", qpcr_sample_results: "Per-sample results",
+    qpcr_qc: "Replicate QC", qpcr_group: "Group", qpcr_sample: "Sample", qpcr_target: "Target", qpcr_samples: "Samples",
+    qpcr_mean_delta: "Mean ΔCt", qpcr_ddct: "ΔΔCt", qpcr_fold: "Fold change vs control",
+    qpcr_mean_ct: "Mean Ct", qpcr_sd_ct: "SD Ct", qpcr_n: "Replicates", qpcr_warnings: "QC notes",
+    qpcr_bad_csv: "CSV needs sample, target, and ct columns. Check the header names and numeric Ct values.",
+    qpcr_empty: "No complete target/reference sample pairs were available.",
   },
   fa: {
     title: "Primer AI", subtitle: "از ژن تا ساختار تا مقاله — به زبان خودتان.",
-    tab_design: "طراحی پرایمر", tab_multiplex: "مولتی‌پلکس", tab_gibson: "مونتاژ Gibson", tab_crispr: "CRISPR gRNA",
+    tab_design: "طراحی پرایمر", tab_qpcr: "تحلیل RT-qPCR", tab_multiplex: "مولتی‌پلکس", tab_gibson: "مونتاژ Gibson", tab_crispr: "CRISPR gRNA",
     tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_troubleshoot: "عیب‌یابی", tab_library: "کتابخانه من",
     login: "ورود / ثبت‌نام", logout: "خروج", deleteAccount: "حذف حساب من", settings: "حساب کاربری",
     deleteConfirm: "حساب و همه‌ی داده‌های ذخیره‌شده حذف شود؟ این کار برگشت‌پذیر نیست.",
@@ -91,7 +104,9 @@ const T: Record<Lang, Record<string, string>> = {
     sequence: "توالی DNA (FASTA یا خام)", seqHint: "مجاز: A C G T N (U به T تبدیل می‌شود). حداکثر {max} نوکلئوتید.",
     region: "طراحی فقط داخل بازه (اختیاری)", from: "از", to: "تا",
     prompt: "چه می‌خواهید؟", promptPh: "مثلاً: دما را روی ۶۲ تنظیم کن، محصول ۱۰۰ تا ۲۰۰ bp  /  Tm 62",
-    mode: "کاربرد", mode_standard: "PCR معمولی (۱۰۰ تا ۱۰۰۰ bp)", mode_qpcr: "qPCR با پروب (۷۰ تا ۱۵۰ bp)", mode_sanger: "PCR برای سنگر (۴۰۰ تا ۹۰۰ bp)",
+    mode: "کاربرد", mode_standard: "PCR معمولی (۱۰۰ تا ۱۰۰۰ bp)", mode_qpcr: "qPCR (۷۰ تا ۱۵۰ bp)", mode_sanger: "PCR برای سنگر (۴۰۰ تا ۹۰۰ bp)",
+    qpcr_chemistry: "روش qPCR", qpcr_taqman: "پروب TaqMan", qpcr_sybr: "SYBR Green (فقط جفت پرایمر)",
+    qpcr_chemistry_hint: "در TaqMan پروب داخلی هم طراحی می‌شود؛ در SYBR Green فقط پرایمرها برگردانده می‌شوند.",
     polymerase: "نوع پلیمراز", pol_taq: "از نوع Taq", pol_hifi: "دقت بالا (Q5/Phusion)",
     tailLeft: "دنباله ′5 پرایمر رفت (اختیاری)", tailRight: "دنباله ′5 پرایمر برگشت (اختیاری)",
     mutation: "موتاسیون هدفمند (اختیاری)", mutationHint: "جایگزینی DNA با شماره‌ی ۱-مبنا، مثلاً A120G ← طراحی پرایمر موتاژنیک",
@@ -132,6 +147,7 @@ const T: Record<Lang, Record<string, string>> = {
     tmCalc: "محاسبه‌گر Tm", tmBtn: "محاسبه", orderFormat: "فرمت سفارش", companyLabel: "شرکت", nameLabel: "نام", convert: "تبدیل", recPur: "خالص‌سازی پیشنهادی",
     uniprot: "شناسه‌ی UniProt", loadStruct: "بارگذاری ساختار AlphaFold", orSeq: "…یا پیش‌بینی از توالی پروتئین (ESMFold، حداکثر ۴۰۰ aa)", predict: "پیش‌بینی",
     mapTitle: "نقشه‌ی ترنسکریپت", mapHint: "روی پرایمر یا گاید کلیک کنید تا کدون‌های آن را در ساختار سه‌بعدی ببینید.", hoverHint: "موس را روی یک residue ببرید.",
+    mapJunction: "اتصال اگزون‌ها", mapTranscriptNote: "مختصات بر اساس mRNA بالغ است؛ طول اینترون‌ها در رکورد این ترنسکریپت وجود ندارد.",
     residue: "residue", plddt: "اطمینان (pLDDT)", conf_vh: "بسیار بالا", conf_h: "بالا", conf_l: "کم", conf_vl: "بسیار کم",
     features: "ویژگی‌های UniProt در این نقطه", noFeat: "ویژگی ثبت‌شده‌ای در این residue نیست.", dnaCodon: "کدون در موقعیت‌های ترنسکریپت", covers: "پوشش داده‌شده توسط",
     papers: "مقالات (Europe PMC)", findPapers: "یافتن مقالات", explain: "توضیح با منبع (هوش مصنوعی)", explainNote: "خلاصه فقط از منابع فهرست‌شده ساخته شده — پیش از ارجاع بررسی کنید.",
@@ -142,6 +158,16 @@ const T: Record<Lang, Record<string, string>> = {
     // Troubleshooting translations
     ts_title: "عیب‌یابی", ts_desc: "مشکلی که در آزمایش PCR یا کلونینگ خود می‌بینید را توصیف کنید.",
     ts_symptom: "علامت", ts_select: "یک علامت انتخاب کنید...", ts_analyze: "تحلیل", ts_cause: "علت احتمالی", ts_solutions: "راه‌حل‌های پیشنهادی",
+    qpcr_title: "تحلیل Ct در RT-qPCR", qpcr_desc: "برای هر چاهک یک ردیف بارگذاری یا جای‌گذاری کنید. روش مقایسه‌ای ΔΔCt فرض می‌کند بازده تکثیر نزدیک ۱۰۰٪ و بین assayها مشابه است؛ از Ct مربوط به cDNA و ژن مرجع اعتبارسنجی‌شده استفاده کنید.",
+    qpcr_csv_label: "داده‌های Ct (CSV)", qpcr_csv_hint: "ستون‌های لازم: sample، target، ct. ستون‌های اختیاری: group، replicate. برای عدم تکثیر Ct را خالی یا Undetermined بگذارید.",
+    qpcr_csv_example: "sample,target,ct,group,replicate\ncontrol_1,ACTB,20.1,control,1\ncontrol_1,GENE_X,25.0,control,1\ntreated_1,ACTB,20.3,treated,1\ntreated_1,GENE_X,22.4,treated,1",
+    qpcr_upload: "انتخاب فایل CSV", qpcr_control_group: "گروه کنترل", qpcr_reference_target: "ژن مرجع",
+    qpcr_analyze: "تحلیل داده Ct", qpcr_results: "نتایج بیان", qpcr_sample_results: "نتایج هر نمونه",
+    qpcr_qc: "کنترل تکرارها", qpcr_group: "گروه", qpcr_sample: "نمونه", qpcr_target: "هدف", qpcr_samples: "نمونه‌ها",
+    qpcr_mean_delta: "میانگین ΔCt", qpcr_ddct: "ΔΔCt", qpcr_fold: "تغییر بیان نسبت به کنترل",
+    qpcr_mean_ct: "میانگین Ct", qpcr_sd_ct: "انحراف معیار Ct", qpcr_n: "تکرارها", qpcr_warnings: "نکات کنترل کیفیت",
+    qpcr_bad_csv: "CSV باید ستون‌های sample، target و ct داشته باشد. نام سرستون‌ها و عددی بودن Ct را بررسی کنید.",
+    qpcr_empty: "جفت کامل هدف و ژن مرجع برای محاسبه پیدا نشد.",
   },
 };
 
@@ -172,6 +198,43 @@ const ORGS = ["Homo sapiens", "Mus musculus", "Rattus norvegicus", "Danio rerio"
 /* ------------------------------------------------------------------ */
 const fmt = (s: string = "", p: Record<string, any> = {}) => s.replace(/\{(\w+)\}/g, (_, k) => String(p[k] ?? ""));
 const norm = (s: string) => s.split("\n").filter((l) => !l.trim().startsWith(">")).join("").replace(/[\s\d]/g, "").toUpperCase().replace(/U/g, "T");
+function parseQpcrCsv(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [], cell = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
+    else if (c === '"') quoted = !quoted;
+    else if (c === "," && !quoted) { row.push(cell); cell = ""; }
+    else if ((c === "\n" || c === "\r") && !quoted) {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); cell = "";
+      if (row.some((v) => v.trim())) rows.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell);
+  if (row.some((v) => v.trim())) rows.push(row);
+  if (rows.length < 2) throw new Error("empty");
+  const headers = rows[0].map((h) => h.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[\s_-]+/g, ""));
+  const find = (...names: string[]) => headers.findIndex((h) => names.includes(h));
+  const sampleI = find("sample", "samplename", "sampleid");
+  const targetI = find("target", "targetname", "assay", "gene");
+  const ctI = find("ct", "cq", "thresholdcycle");
+  const groupI = find("group", "condition", "treatment");
+  const repI = find("replicate", "rep", "technicalreplicate");
+  if (sampleI < 0 || targetI < 0 || ctI < 0) throw new Error("headers");
+  const data = rows.slice(1).filter((r) => r.some((v) => v.trim()));
+  if (data.length > 2000) throw new Error("limit");
+  return data.map((r) => {
+    const sample = (r[sampleI] || "").trim(), target = (r[targetI] || "").trim();
+    const group = groupI >= 0 ? (r[groupI] || "").trim() : "control";
+    const rawCt = (r[ctI] || "").trim();
+    const ct = !rawCt || /^(undetermined|undet|na|n\/a|no ct)$/i.test(rawCt) ? null : Number(rawCt);
+    if (!sample || !target || !group || (ct !== null && !Number.isFinite(ct))) throw new Error("row");
+    return { sample, target, ct, group, replicate: repI >= 0 ? (r[repI] || "").trim() : "" };
+  });
+}
 const AA3: Record<string, string> = { ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C", GLN: "Q", GLU: "E", GLY: "G", HIS: "H", ILE: "I", LEU: "L", LYS: "K", MET: "M", PHE: "F", PRO: "P", SER: "S", THR: "T", TRP: "W", TYR: "Y", VAL: "V" };
 
 async function apiFetch(path: string, token: string | null, init: RequestInit = {}) {
@@ -310,6 +373,100 @@ function TroubleshootTab({ t, call, fail }: Ctx) {
 }
 
 /* ------------------------------------------------------------------ */
+/* RT-qPCR Ct analysis                                                  */
+/* ------------------------------------------------------------------ */
+function QPCRTab({ t, call, fail, notify }: Ctx) {
+  const [csv, setCsv] = useState("");
+  const [controlGroup, setControlGroup] = useState("control");
+  const [referenceTarget, setReferenceTarget] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  const analyze = async () => {
+    let wells: any[];
+    try { wells = parseQpcrCsv(csv); }
+    catch { notify(t.qpcr_bad_csv); return; }
+    if (!referenceTarget.trim() || !controlGroup.trim()) { notify(t.qpcr_bad_csv); return; }
+    setLoading(true); setResult(null);
+    try {
+      setResult(await call("/analyze-qpcr", { method: "POST", body: JSON.stringify({
+        wells, reference_target: referenceTarget.trim(), control_group: controlGroup.trim(),
+      }) }));
+    } catch (e) { fail(e); } finally { setLoading(false); }
+  };
+
+  const loadFile = async (file?: File) => {
+    if (!file) return;
+    try { setCsv(await file.text()); setResult(null); }
+    catch { notify(t.qpcr_bad_csv); }
+  };
+
+  return (
+    <div className="space-y-5">
+      <section className="border rounded-xl p-4 bg-blue-50 space-y-3">
+        <h2 className="text-xl font-bold text-blue-800">{t.qpcr_title}</h2>
+        <p className="text-sm text-slate-700">{t.qpcr_desc}</p>
+        <div className="grid md:grid-cols-2 gap-3">
+          <Field label={t.qpcr_control_group}><input className={inputCls} value={controlGroup} onChange={(e) => setControlGroup(e.target.value)} placeholder="control" /></Field>
+          <Field label={t.qpcr_reference_target}><input className={inputCls} value={referenceTarget} onChange={(e) => setReferenceTarget(e.target.value)} placeholder="ACTB" /></Field>
+        </div>
+        <Field label={t.qpcr_csv_label} hint={t.qpcr_csv_hint}>
+          <textarea dir="ltr" className={seqCls + " h-48"} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={t.qpcr_csv_example} />
+        </Field>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className={`${btnBase} bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer`}>
+            {t.qpcr_upload}<input className="hidden" type="file" accept=".csv,text/csv" onChange={(e) => { void loadFile(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+          </label>
+          <Btn onClick={analyze} disabled={loading || !csv.trim()}>{loading ? t.working : t.qpcr_analyze}</Btn>
+        </div>
+        <details className="text-xs">
+          <summary className="cursor-pointer text-slate-600">CSV example</summary>
+          <pre dir="ltr" className="mt-2 bg-white border rounded p-2 overflow-x-auto">{t.qpcr_csv_example}</pre>
+        </details>
+      </section>
+
+      {result && (
+        <section className="space-y-4">
+          <h3 className="text-lg font-bold text-blue-800">{t.qpcr_results}</h3>
+          <p className="text-xs text-slate-500">{result.method}</p>
+          {result.warnings?.length > 0 && <div className="bg-yellow-50 border-s-4 border-yellow-500 p-3 text-sm">
+            <b>{t.qpcr_warnings}</b><ul className="list-disc ps-5 mt-1">{result.warnings.map((w: string, i: number) => <li key={i}>{w}</li>)}</ul>
+          </div>}
+          {result.groups?.length ? <div className="overflow-x-auto border rounded-lg">
+            <table className="w-full text-sm" dir="ltr"><thead className="bg-slate-100"><tr>
+              {[t.qpcr_group, t.qpcr_target, t.qpcr_samples, t.qpcr_mean_delta, t.qpcr_ddct, t.qpcr_fold].map((h) => <th key={h} className="text-start p-2 whitespace-nowrap">{h}</th>)}
+            </tr></thead><tbody>{result.groups.map((r: any, i: number) => <tr key={i} className="border-t">
+              <td className="p-2">{r.group}</td><td className="p-2">{r.target}</td><td className="p-2">{r.n}</td>
+              <td className="p-2">{r.mean_delta_ct}</td><td className="p-2">{r.ddct}</td><td className="p-2 font-semibold">{r.fold_change}</td>
+            </tr>)}</tbody></table>
+          </div> : <p className="text-sm text-slate-600">{t.qpcr_empty}</p>}
+          {result.samples?.length > 0 && <details>
+            <summary className="cursor-pointer font-semibold text-sm">{t.qpcr_sample_results}</summary>
+            <div className="overflow-x-auto border rounded-lg mt-2"><table className="w-full text-xs" dir="ltr">
+              <thead className="bg-slate-100"><tr>{[t.qpcr_group, t.qpcr_sample, t.qpcr_target, "ΔCt", "ΔΔCt", t.qpcr_fold].map((h, i) => <th key={i} className="text-start p-2 whitespace-nowrap">{h}</th>)}</tr></thead>
+              <tbody>{result.samples.map((r: any, i: number) => <tr key={i} className="border-t">
+                <td className="p-2">{r.group}</td><td className="p-2">{r.sample}</td><td className="p-2">{r.target}</td>
+                <td className="p-2">{r.delta_ct}</td><td className="p-2">{r.ddct}</td><td className="p-2">{r.fold_change}</td>
+              </tr>)}</tbody>
+            </table></div>
+          </details>}
+          {result.qc?.length > 0 && <details>
+            <summary className="cursor-pointer font-semibold text-sm">{t.qpcr_qc}</summary>
+            <div className="overflow-x-auto border rounded-lg mt-2"><table className="w-full text-xs" dir="ltr">
+              <thead className="bg-slate-100"><tr>{[t.qpcr_group, t.qpcr_sample, t.qpcr_target, t.qpcr_n, t.qpcr_mean_ct, t.qpcr_sd_ct].map((h, i) => <th key={i} className="text-start p-2 whitespace-nowrap">{h}</th>)}</tr></thead>
+              <tbody>{result.qc.map((r: any, i: number) => <tr key={i} className="border-t">
+                <td className="p-2">{r.group}</td><td className="p-2">{r.sample}</td><td className="p-2">{r.target}</td>
+                <td className="p-2">{r.n}</td><td className="p-2">{r.mean_ct}</td><td className="p-2">{r.sd_ct}</td>
+              </tr>)}</tbody>
+            </table></div>
+          </details>}
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Design tab                                                          */
 /* ------------------------------------------------------------------ */
 type GeneState = { symbol: string; accession: string; title: string; sequence: string; annotation: any; uniprot: any; organism: string; alternatives: any[]; protein_id?: string };
@@ -321,7 +478,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
   const [geneLoading, setGeneLoading] = useState(false);
   const [rs, setRs] = useState(""); const [re, setRe] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [mode, setMode] = useState("standard"); const [polymerase, setPolymerase] = useState("taq");
+   const [mode, setMode] = useState("standard"); const [qpcrChemistry, setQpcrChemistry] = useState("taqman"); const [polymerase, setPolymerase] = useState("taq");
   const [tailL, setTailL] = useState(""); const [tailR, setTailR] = useState(""); const [mutation, setMutation] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -347,7 +504,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
     setLoading(true); setResult(null); setProtocol(null); setBlast({}); setSaved({}); setFbDone(false);
     try {
       const r = await call("/chat-design", { method: "POST", body: JSON.stringify({
-        sequence: seq, user_prompt: prompt, tail_left: tailL, tail_right: tailR, mutation, mode, polymerase,
+         sequence: seq, user_prompt: prompt, tail_left: tailL, tail_right: tailR, mutation, mode, qpcr_chemistry: qpcrChemistry, polymerase,
         region_start: parseInt(rs) || 0, region_end: parseInt(re) || 0, annotation, gene: gene?.symbol || "" }) });
       setResult(r); p.onDesign(r);
     } catch (e) { fail(e); } finally { setLoading(false); }
@@ -455,6 +612,8 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
             <span className="text-xs">{t.to}</span><input className={inputCls} inputMode="numeric" value={re} onChange={(e) => setRe(e.target.value)} /></div></Field>
         <Field label={t.mode}><select className={inputCls} value={mode} onChange={(e) => setMode(e.target.value)}>
           {["standard", "qpcr", "sanger"].map((m) => <option key={m} value={m}>{t["mode_" + m]}</option>)}</select></Field>
+        {mode === "qpcr" && <Field label={t.qpcr_chemistry} hint={t.qpcr_chemistry_hint}><select className={inputCls} value={qpcrChemistry} onChange={(e) => setQpcrChemistry(e.target.value)}>
+          <option value="taqman">{t.qpcr_taqman}</option><option value="sybr">{t.qpcr_sybr}</option></select></Field>}
         <Field label={t.polymerase}><select className={inputCls} value={polymerase} onChange={(e) => setPolymerase(e.target.value)}>
           <option value="taq">{t.pol_taq}</option><option value="hifi">{t.pol_hifi}</option></select></Field>
         <Field label={t.tailLeft}><input dir="ltr" className={seqCls} value={tailL} onChange={(e) => setTailL(e.target.value)} placeholder="GAATTC" /></Field>
@@ -783,11 +942,21 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
           <p className="text-xs text-slate-500 mb-2">{t.mapHint}</p>
           <svg viewBox="0 0 1000 110" className="w-full" direction="ltr">
             {gene!.annotation.exons.map((e: number[], i: number) => (<rect key={i} x={(e[0] / L) * 1000} y="40" width={Math.max(1, ((e[1] - e[0] + 1) / L) * 1000)} height="26" fill={i % 2 ? "#93c5fd" : "#3b82f6"}><title>{t.exon} {i + 1}: {e[0]}–{e[1]}</title></rect>))}
+            {gene!.annotation.exons.slice(0, -1).map((e: number[], i: number) => {
+              const x = (e[1] / L) * 1000;
+              return <line key={`j${i}`} x1={x} x2={x} y1="34" y2="70" stroke="#475569" strokeWidth="2" strokeDasharray="3 3"><title>{t.mapJunction} {i + 1}–{i + 2}</title></line>;
+            })}
             <rect x={(cds.cds_start / L) * 1000} y="70" width={((cds.cds_end - cds.cds_start + 1) / L) * 1000} height="6" fill="#0f172a"><title>CDS {cds.cds_start}–{cds.cds_end}</title></rect>
             {mk.map((m, i) => { const x = (m.start1 / L) * 1000; const w = Math.max(3, ((m.end1 - m.start1 + 1) / L) * 1000); const y = m.kind === "primer" ? 18 : 84;
               return (<g key={i} className="cursor-pointer" onClick={() => { setSelMarker(m); if (m.aaFrom) setSel(m.aaFrom); }}>
                 <rect x={x} y={y} width={w} height="14" rx="2" fill={m.kind === "primer" ? "#ea580c" : "#16a34a"} stroke={selMarker === m ? "#000" : "none"} /><title>{m.label} {m.start1}–{m.end1}{m.aaFrom ? ` · aa ${m.aaFrom}-${m.aaTo}` : ""}</title></g>); })}
           </svg>
+          <div className="flex flex-wrap gap-4 text-xs text-slate-600 mt-1" dir="ltr">
+            <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-3 rounded-sm bg-blue-600" />{t.exon}</span>
+            <span className="inline-flex items-center gap-1"><i className="inline-block h-3 border-s-2 border-dashed border-slate-600" />{t.mapJunction}</span>
+            <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-1 bg-slate-900" />CDS</span>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">{t.mapTranscriptNote}</p>
         </section>
       )}
 
@@ -902,7 +1071,7 @@ export default function Home() {
   }, [design, guides]);
 
   const ctx: Ctx = { t, lang, call, token, notify, fail };
-  const tabs: TabId[] = ["design", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library"];
+  const tabs: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library"];
 
   const logout = () => { localStorage.removeItem("token"); setToken(null); };
   const del = async () => {
@@ -934,6 +1103,7 @@ export default function Home() {
         </nav>
 
         {tab === "design" && <DesignTab {...ctx} seq={seq} setSeq={setSeq} gene={gene} setGene={setGene} annotation={annotation} maxLen={config.max_seq_len} onDesign={setDesign} />}
+        {tab === "qpcr" && <QPCRTab {...ctx} />}
         {tab === "multiplex" && <MultiplexTab {...ctx} />}
         {tab === "gibson" && <GibsonTab {...ctx} />}
         {tab === "crispr" && <CrisprTab {...ctx} seq={seq} setSeq={setSeq} annotation={annotation} onGuides={setGuides} openExplorer={(aa) => { setFocusAa(aa); setTab("explorer"); }} />}

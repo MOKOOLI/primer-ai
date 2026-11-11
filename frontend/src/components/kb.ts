@@ -1,0 +1,146 @@
+import type { Lang } from "./shared";
+
+/** Symptom groups (must match SYMPTOM_GROUPS in backend main.py). */
+export const SYM_GROUPS: Record<string, string[]> = {
+  pcr: ["no_band", "faint_band", "smear", "multi_bands", "wrong_size", "dimer_band", "ntc_band", "pos_ctrl_fail"],
+  qpcr: ["q_no_amp", "q_late_ct", "q_ntc_amp", "q_multi_melt", "q_bad_eff", "q_noisy"],
+  cloning: ["g_no_colonies", "g_bg_colonies", "sdm_no_colonies", "sdm_wt_only"],
+  crispr: ["c_low_edit", "c_protein_remains", "c_mixed"],
+};
+
+export const SYM: Record<Lang, Record<string, string>> = {
+  en: {
+    no_band: "No product band", faint_band: "Faint band", smear: "Smear", multi_bands: "Several unexpected bands", wrong_size: "Band of the wrong size",
+    dimer_band: "Small bright band at the bottom (primer-dimer)", ntc_band: "Band in the no-template control", pos_ctrl_fail: "Positive control also failed",
+    q_no_amp: "No amplification", q_late_ct: "Very late Ct (> 35)", q_ntc_amp: "Amplification in the NTC", q_multi_melt: "Several melt-curve peaks",
+    q_bad_eff: "Efficiency outside 90–110%", q_noisy: "Noisy technical replicates",
+    g_no_colonies: "Gibson: no colonies", g_bg_colonies: "Gibson: many colonies, mostly background/empty", sdm_no_colonies: "Mutagenesis: no colonies", sdm_wt_only: "Mutagenesis: only wild-type clones",
+    c_low_edit: "Low editing efficiency", c_protein_remains: "Protein still detected after knockout", c_mixed: "Mixed / heterogeneous cell population",
+  },
+  fa: {
+    no_band: "هیچ باند محصولی دیده نمی‌شود", faint_band: "باند کم‌رنگ", smear: "اسمیر (لکه‌ی کشیده)", multi_bands: "چند باند ناخواسته", wrong_size: "باند با اندازه‌ی نادرست",
+    dimer_band: "باند کوچک و پررنگ پایین ژل (پرایمر-دایمر)", ntc_band: "باند در کنترل بدون الگو", pos_ctrl_fail: "کنترل مثبت هم شکست خورد",
+    q_no_amp: "هیچ تکثیری دیده نمی‌شود", q_late_ct: "Ct بسیار دیر (بالای ۳۵)", q_ntc_amp: "تکثیر در NTC", q_multi_melt: "چند قله در منحنی ذوب",
+    q_bad_eff: "کارایی خارج از ۹۰ تا ۱۱۰٪", q_noisy: "تکرارهای فنی پراکنده",
+    g_no_colonies: "Gibson: کلنی نداریم", g_bg_colonies: "Gibson: کلنی زیاد ولی بیشترشان پس‌زمینه/خالی", sdm_no_colonies: "موتاژنز: کلنی نداریم", sdm_wt_only: "موتاژنز: فقط کلون‌های وحشی (WT)",
+    c_low_edit: "کارایی ویرایش پایین", c_protein_remains: "پس از knockout هنوز پروتئین دیده می‌شود", c_mixed: "جمعیت سلولی مخلوط/ناهمگن",
+  },
+};
+
+type Cause = { t: string; w: string; s: string[] };
+
+export const CAUSE: Record<Lang, Record<string, Cause>> = {
+  en: {
+    ta_low: { t: "Annealing temperature too low", w: "Primers bind partially matching sites, giving extra bands or a smear.", s: ["Raise the annealing temperature in 2 °C steps (run a gradient 4–8 °C above the current value).", "Try touchdown PCR.", "Use a hot-start polymerase."] },
+    ta_high: { t: "Annealing temperature too high", w: "Primers cannot bind stably, so little or no product forms.", s: ["Lower the annealing temperature in 2 °C steps (gradient 2–8 °C below).", "Confirm Tm with your polymerase vendor's calculator (buffers shift Tm).", "Check primer quality and concentration."] },
+    template_high: { t: "Too much template", w: "Excess DNA promotes mispriming and carries inhibitors, giving smears and extra bands.", s: ["Dilute the template 10–100×.", "Typical amounts per 50 µL: genomic ≤ 100–200 ng, plasmid 1–10 ng.", "Re-run with a dilution series."] },
+    template_low: { t: "Too little template", w: "Too few starting copies leave a faint band or none.", s: ["Increase template or add 3–5 cycles (max ~35).", "Check template concentration and integrity on a gel/spectrophotometer.", "Consider nested PCR for rare targets."] },
+    template_quality: { t: "Inhibitors or poor-quality/degraded template", w: "Carry-over salts, phenol, heparin or degraded DNA reduce amplification.", s: ["Clean up the template (column or ethanol precipitation).", "Dilute 1:5–1:10 to dilute inhibitors.", "BSA is commonly used against inhibitors; use a polymerase that tolerates crude samples."] },
+    cycles_high: { t: "Too many cycles", w: "Late cycles amplify non-specific products and primer-dimers.", s: ["Reduce to 25–30 cycles.", "If the band is faint, add template rather than cycles."] },
+    cycles_low: { t: "Too few cycles", w: "Not enough rounds to reach a visible amount.", s: ["Add 3–5 cycles up to ~35.", "Check that the template is not scarce."] },
+    dimer_design: { t: "Primer-dimer (design)", w: "The 3′ ends of the two primers (or one primer with itself) are complementary and extend on each other.", s: ["Redesign: choose a pair without 3′ complementarity.", "Lower primer concentration to 0.1–0.3 µM.", "Use hot-start and a higher annealing temperature."] },
+    hairpin_design: { t: "Stable hairpin in a primer", w: "A primer folds on itself near the annealing temperature and cannot prime.", s: ["Redesign the primer away from the structured region.", "Add DMSO 3–5% or raise the annealing temperature slightly.", "Check hairpin ΔG/Tm in the design card."] },
+    mg_high: { t: "Mg²⁺ too high", w: "Excess Mg²⁺ lowers stringency and gives extra bands.", s: ["Reduce Mg²⁺ in 0.5 mM steps (start around 1.5–2 mM for Taq).", "Keep total dNTP concentration in mind (it chelates Mg²⁺)."] },
+    mg_low: { t: "Mg²⁺ too low", w: "Too little Mg²⁺ reduces polymerase activity and primer binding.", s: ["Increase Mg²⁺ in 0.5 mM steps up to 3–4 mM.", "Check the buffer already contains Mg²⁺."] },
+    ext_short: { t: "Extension time too short for the product", w: "The polymerase does not finish long products.", s: ["Taq: about 1 min per kb; high-fidelity: about 30 s per kb.", "Lengthen extension and final extension.", "Use a polymerase suited to long amplicons."] },
+    gc_rich: { t: "GC-rich / structured template", w: "High-GC regions form strong structures and resist denaturation.", s: ["Add DMSO 3–5%, betaine 1 M or a GC enhancer.", "Use 98 °C denaturation and a GC-rich-tolerant polymerase.", "Shorten the amplicon or move primers."] },
+    no_hotstart: { t: "No hot-start", w: "Primers extend at low temperature during setup, forming dimers and non-specific products.", s: ["Use a hot-start polymerase.", "Otherwise assemble reactions on ice and put them into a pre-heated block."] },
+    primer_conc_high: { t: "Primer concentration too high", w: "More primer favours dimers and mispriming.", s: ["Use 0.1–0.5 µM each (0.2 µM is a good start)."] },
+    contamination: { t: "Contamination (carry-over amplicons or reagents)", w: "A band in the NTC means template DNA entered the reaction.", s: ["Replace primer/water/master-mix aliquots.", "Separate pre- and post-PCR areas, use filter tips, clean with bleach/UV.", "Use dUTP/UDG carry-over protection.", "Repeat with several NTCs."] },
+    reagent_failure: { t: "Reaction failure (reagents or cycler program)", w: "If even the positive control fails, the problem is not your primers or sample.", s: ["Test fresh polymerase, buffer, dNTPs and water.", "Verify the cycler program (steps, lid temperature, block).", "Avoid repeated freeze–thaw of dNTPs/primers."] },
+    primer_identity: { t: "Primers do not match the intended target", w: "A sequence typo, wrong species/isoform or a SNP at the 3′ end can prevent binding.", s: ["Re-check the primer sequences with the Primer Auditor against the reference.", "Run BLAST / Primer-BLAST.", "Sequence the template region for SNPs or deletions."] },
+    gdna_contam: { t: "Genomic DNA contamination in cDNA", w: "A larger-than-expected band from cDNA often comes from genomic DNA (introns included).", s: ["DNase-treat RNA before reverse transcription.", "Use intron-spanning or exon-junction primers.", "Run a no-RT control."] },
+    paralog_isoform: { t: "Paralog or alternative isoform amplified", w: "Related genes or splice variants can give extra or differently sized products.", s: ["Check isoforms and paralogs for the primer sites.", "Run BLAST and sequence the unexpected band.", "Redesign primers in a unique region."] },
+    q_efficiency_dilution: { t: "Standard-curve / dilution problem", w: "Efficiency estimates are only as good as the dilution series.", s: ["Prepare a 5-point 10× series in triplicate with fresh tips.", "Drop points that are saturated or too late.", "Optimise primer concentration."] },
+    q_pipetting: { t: "Pipetting / mixing variability", w: "Small volumes and poor mixing scatter Ct values between replicates.", s: ["Make a master mix and mix thoroughly.", "Use calibrated pipettes and ≥ 3 technical replicates.", "Avoid interpreting Ct > 35."] },
+    q_long_amplicon: { t: "Amplicon too long for qPCR", w: "Long amplicons lower efficiency.", s: ["Redesign to 70–150 bp.", "Keep primer Tm around 60 °C."] },
+    q_low_expression: { t: "Low target abundance", w: "A late Ct can simply reflect low expression.", s: ["Increase cDNA input.", "Use more template or pre-amplification.", "Confirm with a positive sample."] },
+    g_vector_carryover: { t: "Vector template carry-over", w: "Undigested PCR template plasmid transforms and gives background colonies.", s: ["Digest the PCR with DpnI (1 h, 37 °C).", "Gel-purify the linear fragments.", "Use ≤ 1 ng template in the PCR or linearise by restriction digest."] },
+    g_overlap: { t: "Overlap design problem", w: "Overlaps that are too short, too structured or wrong break assembly.", s: ["Use 20–40 bp overlaps with Tm about 48–60 °C.", "Check the junction preview in the Gibson tab.", "Avoid hairpins in the overlap."] },
+    g_ratio: { t: "Wrong molar ratio", w: "Fragments must be in the right insert:vector ratio.", s: ["Use 2–3× insert excess for fragments > 200 bp (about 5× for short ones).", "Quantify DNA accurately and keep total 0.02–0.5 pmol."] },
+    g_cells: { t: "Low-efficiency competent cells or transformation", w: "No colonies may reflect the cells rather than the assembly.", s: ["Test cells with a control plasmid (≥ 10⁸ cfu/µg).", "Use ≤ 10% reaction volume.", "Follow the recovery step and plate more cells."] },
+    sdm_wt_background: { t: "Wild-type template not removed", w: "Parental plasmid survives and gives wild-type colonies.", s: ["DpnI digest for at least 1 h.", "Use ≤ 10 ng plasmid template and 12–18 cycles.", "Use plasmid prepared from dam⁺ E. coli (methylated)."] },
+    sdm_primer: { t: "Mutagenic primer design/quality", w: "Primers with a weak Tm, off-centre mutation or poor purity fail to extend.", s: ["Mutation in the middle with 10–15 matching bases each side, Tm ≥ 78 °C.", "Use PAGE-purified primers.", "Extend about 1 min per kb of plasmid."] },
+    c_nmd_escape: { t: "Cut too late (NMD escape / truncated protein)", w: "Frameshifts in the last exon or close to the last junction often escape NMD and give a truncated protein.", s: ["Target an early coding exon (not the last).", "Use two guides to delete a critical region.", "Verify by antibody against an N-terminal epitope."] },
+    c_inframe: { t: "In-frame indels or exon skipping", w: "Indels of multiples of 3 keep the reading frame.", s: ["Genotype clones by sequencing (TIDE/ICE).", "Target an essential domain.", "Use paired guides."] },
+    c_guide_activity: { t: "Guide with low activity", w: "GC, secondary structure or sequence features reduce cutting.", s: ["Test 3 guides per gene.", "Prefer guides with balanced GC and no TTTT.", "Check on/off-target with CRISPOR."] },
+    c_delivery: { t: "Poor delivery / Cas9 expression", w: "Cells may not receive enough nuclease.", s: ["Use RNP electroporation.", "Optimise cell number and voltage.", "Add selection or enrichment (e.g. fluorescent marker)."] },
+    c_polyclonal: { t: "Polyclonal population", w: "Bulk populations contain many alleles.", s: ["Isolate single-cell clones.", "Genotype each clone by NGS or Sanger deconvolution."] },
+  },
+  fa: {
+    ta_low: { t: "دمای اتصال (annealing) خیلی پایین است", w: "پرایمرها به جاهای نیمه‌مطابق هم می‌چسبند و باند اضافه یا اسمیر می‌دهند.", s: ["دمای اتصال را ۲ درجه‌ای بالا ببرید (گرادیان ۴ تا ۸ درجه بالاتر).", "PCR از نوع touchdown را امتحان کنید.", "از پلیمراز hot-start استفاده کنید."] },
+    ta_high: { t: "دمای اتصال خیلی بالا است", w: "پرایمرها پایدار نمی‌چسبند و محصول کم یا هیچ می‌شود.", s: ["دمای اتصال را ۲ درجه‌ای پایین بیاورید (گرادیان ۲ تا ۸ درجه پایین‌تر).", "Tm را با ماشین‌حساب سازنده‌ی پلیمراز تأیید کنید (بافر Tm را عوض می‌کند).", "کیفیت و غلظت پرایمر را بررسی کنید."] },
+    template_high: { t: "الگوی بیش از حد", w: "DNA زیاد باعث اتصال نادرست و ورود مهارکننده می‌شود و اسمیر و باند اضافه می‌دهد.", s: ["الگو را ۱۰ تا ۱۰۰ برابر رقیق کنید.", "مقدار معمول در ۵۰ میکرولیتر: ژنومی حداکثر ۱۰۰ تا ۲۰۰ نانوگرم، پلاسمید ۱ تا ۱۰ نانوگرم.", "با سری رقت دوباره امتحان کنید."] },
+    template_low: { t: "الگوی خیلی کم", w: "تعداد کپی اولیه کم است و باند کم‌رنگ یا هیچ می‌شود.", s: ["الگو را بیشتر کنید یا ۳ تا ۵ چرخه اضافه کنید (حداکثر حدود ۳۵).", "غلظت و سالم بودن الگو را روی ژل/اسپکتروفتومتر ببینید.", "برای هدف‌های نادر nested PCR را در نظر بگیرید."] },
+    template_quality: { t: "مهارکننده یا الگوی بی‌کیفیت/تخریب‌شده", w: "نمک، فنول، هپارین یا DNA تخریب‌شده تکثیر را کم می‌کند.", s: ["الگو را پاک‌سازی کنید (ستون یا رسوب با اتانول).", "رقت ۱:۵ تا ۱:۱۰ مهارکننده را رقیق می‌کند.", "BSA معمولاً علیه مهارکننده‌ها استفاده می‌شود؛ پلیمرازی که نمونه‌ی خام را تحمل کند انتخاب کنید."] },
+    cycles_high: { t: "تعداد چرخه‌ها زیاد است", w: "چرخه‌های آخر محصولات غیراختصاصی و دایمر تولید می‌کنند.", s: ["به ۲۵ تا ۳۰ چرخه کاهش دهید.", "اگر باند کم‌رنگ است، به‌جای چرخه، الگو را بیشتر کنید."] },
+    cycles_low: { t: "تعداد چرخه‌ها کم است", w: "دورهای کافی برای رسیدن به مقدار قابل‌دیدن نبوده است.", s: ["۳ تا ۵ چرخه اضافه کنید (تا حدود ۳۵).", "مطمئن شوید الگو کم نیست."] },
+    dimer_design: { t: "پرایمر-دایمر (مشکل طراحی)", w: "انتهای ′3 دو پرایمر (یا یک پرایمر با خودش) مکمل هم است و روی هم گسترش می‌یابد.", s: ["دوباره طراحی کنید: جفتی بدون مکملی ′3 بردارید.", "غلظت پرایمر را به ۰٫۱ تا ۰٫۳ میکرومولار برسانید.", "از hot-start و دمای اتصال بالاتر استفاده کنید."] },
+    hairpin_design: { t: "سنجاقی پایدار در پرایمر", w: "پرایمر نزدیک دمای اتصال روی خودش تا می‌خورد و نمی‌تواند شروع کند.", s: ["پرایمر را دور از ناحیه‌ی ساختاردار دوباره طراحی کنید.", "DMSO ۳ تا ۵٪ اضافه کنید یا دمای اتصال را کمی بالا ببرید.", "ΔG/Tm سنجاقی را در کارت طراحی ببینید."] },
+    mg_high: { t: "Mg²⁺ زیاد است", w: "Mg²⁺ زیاد سخت‌گیری را کم می‌کند و باند اضافه می‌دهد.", s: ["Mg²⁺ را ۰٫۵ mM‌ـ‌۰٫۵ کم کنید (برای Taq از حدود ۱٫۵ تا ۲ mM شروع کنید).", "غلظت کل dNTP را هم در نظر بگیرید (Mg²⁺ را می‌گیرد)."] },
+    mg_low: { t: "Mg²⁺ کم است", w: "Mg²⁺ کم فعالیت پلیمراز و اتصال پرایمر را پایین می‌آورد.", s: ["Mg²⁺ را ۰٫۵ mM‌ـ‌۰٫۵ تا ۳ یا ۴ mM بالا ببرید.", "بررسی کنید بافر از قبل Mg²⁺ دارد یا نه."] },
+    ext_short: { t: "زمان extension برای اندازه‌ی محصول کم است", w: "پلیمراز محصولات بلند را تمام نمی‌کند.", s: ["Taq: حدود ۱ دقیقه به ازای هر kb؛ دقت‌بالا: حدود ۳۰ ثانیه به ازای هر kb.", "extension و extension نهایی را طولانی‌تر کنید.", "پلیمرازی مناسب آمپلیکون بلند انتخاب کنید."] },
+    gc_rich: { t: "الگوی پر-GC / ساختاردار", w: "ناحیه‌های پر-GC ساختارهای قوی می‌سازند و دناتوره نمی‌شوند.", s: ["DMSO ۳ تا ۵٪، بتائین ۱ مولار یا GC enhancer اضافه کنید.", "دناتوراسیون ۹۸ درجه و پلیمراز مناسب GC بالا.", "آمپلیکون را کوتاه کنید یا پرایمرها را جابه‌جا کنید."] },
+    no_hotstart: { t: "بدون hot-start", w: "هنگام آماده‌سازی در دمای پایین پرایمرها گسترش می‌یابند و دایمر و محصول غیراختصاصی می‌سازند.", s: ["از پلیمراز hot-start استفاده کنید.", "وگرنه واکنش را روی یخ بچینید و در بلوک گرم‌شده بگذارید."] },
+    primer_conc_high: { t: "غلظت پرایمر زیاد است", w: "پرایمر بیشتر دایمر و اتصال نادرست را تشویق می‌کند.", s: ["هر پرایمر ۰٫۱ تا ۰٫۵ میکرومولار (شروع از ۰٫۲)."] },
+    contamination: { t: "آلودگی (محصول قبلی یا مواد)", w: "باند در NTC یعنی DNA الگو وارد واکنش شده است.", s: ["آلیکوت پرایمر/آب/مسترمیکس را عوض کنید.", "فضای قبل و بعد PCR را جدا کنید، نوک فیلتردار بزنید، با وایتکس/UV تمیز کنید.", "از محافظت dUTP/UDG استفاده کنید.", "با چند NTC تکرار کنید."] },
+    reagent_failure: { t: "شکست واکنش (مواد یا برنامه‌ی دستگاه)", w: "اگر کنترل مثبت هم کار نکرد مشکل از پرایمر یا نمونه‌ی شما نیست.", s: ["پلیمراز، بافر، dNTP و آب تازه را امتحان کنید.", "برنامه‌ی دستگاه (مراحل، دمای درپوش، بلوک) را بررسی کنید.", "از انجماد و ذوب مکرر dNTP/پرایمر پرهیز کنید."] },
+    primer_identity: { t: "پرایمرها با هدف مطابقت ندارند", w: "اشتباه تایپی در توالی، گونه/ایزوفرم نادرست یا SNP در انتهای ′3 می‌تواند اتصال را مختل کند.", s: ["توالی پرایمرها را با «مدقق پرایمر» در برابر مرجع دوباره بررسی کنید.", "BLAST / Primer-BLAST اجرا کنید.", "ناحیه‌ی الگو را برای SNP یا حذف توالی‌یابی کنید."] },
+    gdna_contam: { t: "آلودگی DNA ژنومی در cDNA", w: "باند بزرگ‌تر از انتظار از cDNA اغلب از DNA ژنومی (با اینترون) می‌آید.", s: ["RNA را پیش از ساخت cDNA با DNase تیمار کنید.", "پرایمر عبوری از اینترون یا اتصال اگزونی بگیرید.", "کنترل بدون RT (no-RT) بزنید."] },
+    paralog_isoform: { t: "پارالوگ یا ایزوفرم دیگر تکثیر شده", w: "ژن‌های مشابه یا واریانت‌های اسپلایس محصول اضافه یا با اندازه‌ی دیگر می‌دهند.", s: ["جایگاه پرایمر را در ایزوفرم‌ها و پارالوگ‌ها بررسی کنید.", "BLAST بزنید و باند ناخواسته را توالی‌یابی کنید.", "پرایمر را در ناحیه‌ی یکتا دوباره طراحی کنید."] },
+    q_efficiency_dilution: { t: "مشکل منحنی استاندارد / رقت‌سازی", w: "برآورد کارایی به اندازه‌ی سری رقت شما قابل‌اعتماد است.", s: ["سری رقت ۵ نقطه‌ای ۱۰ برابر را سه‌تایی و با نوک تازه بسازید.", "نقطه‌های اشباع یا خیلی دیر را حذف کنید.", "غلظت پرایمر را بهینه کنید."] },
+    q_pipetting: { t: "پراکندگی در پیپتینگ / مخلوط کردن", w: "حجم‌های کم و مخلوط ناکافی Ct تکرارها را پراکنده می‌کند.", s: ["مسترمیکس بسازید و خوب مخلوط کنید.", "پیپت کالیبره و حداقل ۳ تکرار فنی.", "Ct بالای ۳۵ را تفسیر نکنید."] },
+    q_long_amplicon: { t: "آمپلیکون برای qPCR بلند است", w: "آمپلیکون بلند کارایی را کم می‌کند.", s: ["به ۷۰ تا ۱۵۰ bp دوباره طراحی کنید.", "Tm پرایمر را نزدیک ۶۰ درجه نگه دارید."] },
+    q_low_expression: { t: "فراوانی کم هدف", w: "Ct دیر ممکن است فقط بیانگر بیان کم باشد.", s: ["مقدار cDNA را بیشتر کنید.", "الگوی بیشتر یا پیش‌تکثیر (pre-amplification).", "با نمونه‌ی مثبت تأیید کنید."] },
+    g_vector_carryover: { t: "باقی‌ماندن الگوی وکتور", w: "پلاسمید الگوی هضم‌نشده ترانسفورم می‌شود و کلنی پس‌زمینه می‌دهد.", s: ["PCR را با DpnI هضم کنید (۱ ساعت، ۳۷ درجه).", "قطعات خطی را از ژل خالص کنید.", "الگوی PCR را ≤ ۱ نانوگرم بگیرید یا با آنزیم محدودکننده خطی کنید."] },
+    g_overlap: { t: "مشکل طراحی همپوشانی", w: "همپوشانی کوتاه، پرساختار یا نادرست مونتاژ را می‌شکند.", s: ["همپوشانی ۲۰ تا ۴۰ جفت‌باز با Tm حدود ۴۸ تا ۶۰.", "پیش‌نمایش محل اتصال را در تب Gibson ببینید.", "از سنجاقی در همپوشانی دوری کنید."] },
+    g_ratio: { t: "نسبت مولی نادرست", w: "قطعات باید نسبت درست insert:vector داشته باشند.", s: ["برای قطعات بالای ۲۰۰ bp، ۲ تا ۳ برابر insert (برای کوتاه‌ها حدود ۵ برابر).", "DNA را دقیق اندازه بگیرید و مجموع را ۰٫۰۲ تا ۰٫۵ pmol نگه دارید."] },
+    g_cells: { t: "سلول مستعد ضعیف یا ترانسفورماسیون ناموفق", w: "نبودن کلنی ممکن است از سلول باشد نه مونتاژ.", s: ["سلول‌ها را با پلاسمید کنترل بسنجید (≥ ۱۰⁸ cfu/µg).", "حداکثر ۱۰٪ حجم واکنش را بزنید.", "مرحله‌ی ریکاوری را رعایت کنید و سلول بیشتری کشت دهید."] },
+    sdm_wt_background: { t: "الگوی وحشی (WT) حذف نشده", w: "پلاسمید والد زنده می‌ماند و کلنی WT می‌دهد.", s: ["DpnI حداقل ۱ ساعت.", "الگوی پلاسمید ≤ ۱۰ ng و ۱۲ تا ۱۸ چرخه.", "پلاسمید را از E. coli با dam⁺ (متیله) تهیه کنید."] },
+    sdm_primer: { t: "طراحی/کیفیت پرایمر موتاژنیک", w: "پرایمر با Tm ضعیف، موتاسیون خارج از مرکز یا خلوص پایین گسترش نمی‌یابد.", s: ["موتاسیون در وسط و ۱۰ تا ۱۵ باز مطابق دو طرف، Tm ≥ ۷۸.", "پرایمر خالص‌سازی‌شده با PAGE.", "extension حدود ۱ دقیقه به ازای هر kb پلاسمید."] },
+    c_nmd_escape: { t: "برش خیلی دیر (فرار از NMD / پروتئین کوتاه‌شده)", w: "frameshift در اگزون آخر یا نزدیک آخرین اتصال اغلب از NMD فرار می‌کند و پروتئین کوتاه می‌دهد.", s: ["اگزون کدکننده‌ی زودتر را هدف بگیرید (نه آخرین).", "با دو گاید ناحیه‌ی حیاتی را حذف کنید.", "با آنتی‌بادی علیه اپیتوپ N-ترمینال تأیید کنید."] },
+    c_inframe: { t: "indel درون-قاب یا پرش اگزون", w: "indel با مضرب ۳ قاب خوانش را حفظ می‌کند.", s: ["کلون‌ها را با توالی‌یابی (TIDE/ICE) ژنوتایپ کنید.", "دمین ضروری را هدف بگیرید.", "از گایدهای جفتی استفاده کنید."] },
+    c_guide_activity: { t: "گاید با فعالیت پایین", w: "GC، ساختار ثانویه یا ویژگی‌های توالی برش را کم می‌کند.", s: ["برای هر ژن ۳ گاید را آزمایش کنید.", "گاید با GC متعادل و بدون TTTT را ترجیح دهید.", "on/off-target را با CRISPOR بررسی کنید."] },
+    c_delivery: { t: "انتقال ضعیف / بیان Cas9 کم", w: "ممکن است سلول‌ها نوکلئاز کافی دریافت نکنند.", s: ["از الکتروپوریشن RNP استفاده کنید.", "تعداد سلول و ولتاژ را بهینه کنید.", "انتخاب یا غنی‌سازی اضافه کنید (مثلاً نشانگر فلورسنت)."] },
+    c_polyclonal: { t: "جمعیت پلی‌کلونال", w: "جمعیت توده‌ای آلل‌های زیادی دارد.", s: ["کلون تک‌سلولی جدا کنید.", "هر کلون را با NGS یا دکانولوشن سنجر ژنوتایپ کنید."] },
+  },
+};
+
+export const EVID: Record<Lang, Record<string, string>> = {
+  en: {
+    ta_low_vs_tm: "Your annealing temperature is ≥ 8 °C below the lower primer Tm.", ta_high_vs_tm: "Your annealing temperature is at or above the lower primer Tm.",
+    template_excess: "Template amount is above the usual range.", template_scarce: "Template amount is very low.", template_poor: "You marked the template as crude/degraded.", colony_template: "Colony/crude template can carry inhibitors.",
+    cycles_many: "More than 35 cycles.", cycles_few: "Fewer than 25 cycles.", dimer_risk_high: "The design card shows high primer-dimer risk.", dimer_risk_medium: "The design card shows medium primer-dimer risk.",
+    hairpin_risk_high: "The design card shows a high hairpin risk.", hairpin_risk_medium: "The design card shows a medium hairpin risk.", mg_high: "Mg²⁺ above 3 mM.", mg_low: "Mg²⁺ below 1.5 mM.",
+    ext_short: "Extension time is less than 70% of what this product size needs.", gc_high_no_additive: "Amplicon GC > 65% without DMSO/additive.", no_hotstart: "You did not use hot-start.",
+    primer_conc_high: "Primer concentration above 500 nM.", specificity_unchecked: "Primer specificity has not been checked.", cdna_template: "Template is cDNA.", no_dnase: "RNA was not DNase-treated.",
+    amplicon_long: "Amplicon longer than 200 bp.", no_dpni: "No DpnI digestion.", overlap_range: "Overlap outside 15–40 bp.", ratio_off: "Insert:vector ratio outside 1.5–10.",
+    cut_last_exon: "The guide cuts in the last exon.", guide_score_low: "Guide heuristic score below 60.", plasmid_delivery: "Plasmid delivery is less efficient than RNP.",
+  },
+  fa: {
+    ta_low_vs_tm: "دمای اتصال شما حداقل ۸ درجه کمتر از Tm پایین‌تر پرایمرها است.", ta_high_vs_tm: "دمای اتصال شما برابر یا بالاتر از Tm پایین‌تر پرایمرها است.",
+    template_excess: "مقدار الگو بیشتر از محدوده‌ی معمول است.", template_scarce: "مقدار الگو بسیار کم است.", template_poor: "الگو را خام/تخریب‌شده علامت زدید.", colony_template: "الگوی کلنی/خام ممکن است مهارکننده داشته باشد.",
+    cycles_many: "بیش از ۳۵ چرخه.", cycles_few: "کمتر از ۲۵ چرخه.", dimer_risk_high: "کارت طراحی ریسک بالای پرایمر-دایمر نشان می‌دهد.", dimer_risk_medium: "کارت طراحی ریسک متوسط پرایمر-دایمر نشان می‌دهد.",
+    hairpin_risk_high: "کارت طراحی ریسک بالای سنجاقی نشان می‌دهد.", hairpin_risk_medium: "کارت طراحی ریسک متوسط سنجاقی نشان می‌دهد.", mg_high: "Mg²⁺ بالای ۳ mM.", mg_low: "Mg²⁺ کمتر از ۱٫۵ mM.",
+    ext_short: "زمان extension کمتر از ۷۰٪ مقدار لازم برای این اندازه‌ی محصول است.", gc_high_no_additive: "GC آمپلیکون بالای ۶۵٪ بدون DMSO/افزودنی.", no_hotstart: "از hot-start استفاده نکردید.",
+    primer_conc_high: "غلظت پرایمر بالای ۵۰۰ nM.", specificity_unchecked: "اختصاصیت پرایمر بررسی نشده است.", cdna_template: "الگو cDNA است.", no_dnase: "RNA با DNase تیمار نشده است.",
+    amplicon_long: "آمپلیکون بلندتر از ۲۰۰ bp.", no_dpni: "هضم DpnI انجام نشده.", overlap_range: "همپوشانی خارج از ۱۵ تا ۴۰ bp.", ratio_off: "نسبت insert:vector خارج از ۱٫۵ تا ۱۰.",
+    cut_last_exon: "گاید در اگزون آخر برش می‌زند.", guide_score_low: "امتیاز ابتکاری گاید زیر ۶۰.", plasmid_delivery: "انتقال پلاسمیدی کارایی کمتری از RNP دارد.",
+  },
+};
+
+/** Next-experiment templates, keyed by backend `experiment.param`. {v} = values, {u} = unit. */
+export const EXPT: Record<Lang, Record<string, string>> = {
+  en: {
+    anneal_temp: "Run an annealing-temperature gradient: {v} {u}, same template and primers.", template: "Test a template dilution/amount series ({v}×) in the same reaction.",
+    cycles: "Compare cycle numbers: {v}.", mg: "Titrate Mg²⁺: {v} {u}.", dmso: "Titrate DMSO: {v} {u}.", extension: "Test extension times: {v} {u}.", primer: "Titrate primer concentration: {v} {u}.",
+    standard_curve: "Run a fresh 10× standard curve in triplicate: {v}.", controls: "Repeat with fresh reagents and several NTCs plus a known-good positive control.",
+    insert_ratio: "Test insert:vector ratios {v}{u}.", primers: "Redesign primers (see suggested settings) and re-test.",
+  },
+  fa: {
+    anneal_temp: "گرادیان دمای اتصال را اجرا کنید: {v} {u}، با همان الگو و پرایمر.", template: "سری رقت/مقدار الگو را آزمایش کنید ({v}×) در همان واکنش.",
+    cycles: "تعداد چرخه‌ها را مقایسه کنید: {v}.", mg: "Mg²⁺ را تیتر کنید: {v} {u}.", dmso: "DMSO را تیتر کنید: {v} {u}.", extension: "زمان‌های extension را آزمایش کنید: {v} {u}.", primer: "غلظت پرایمر را تیتر کنید: {v} {u}.",
+    standard_curve: "منحنی استاندارد ۱۰ برابر تازه را سه‌تایی بزنید: {v}.", controls: "با مواد تازه، چند NTC و یک کنترل مثبت معتبر تکرار کنید.",
+    insert_ratio: "نسبت‌های insert:vector را آزمایش کنید: {v}{u}.", primers: "پرایمرها را دوباره طراحی کنید (تنظیمات پیشنهادی) و آزمایش کنید.",
+  },
+};

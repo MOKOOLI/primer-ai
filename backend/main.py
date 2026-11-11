@@ -272,6 +272,7 @@ class ChatRequest(BaseModel):
     tail_sequence: str = Field("", max_length=80)  # legacy: applied to both
     mutation: str = Field("", max_length=24)
     mode: str = "standard"
+    qpcr_chemistry: str = "taqman"
     polymerase: str = "taq"
     region_start: int = 0
     region_end: int = 0
@@ -302,6 +303,20 @@ class CRISPRRequest(BaseModel):
 
 class TmRequest(BaseModel):
     sequence: str = Field(max_length=200)
+
+
+class QPCRWell(BaseModel):
+    sample: str = Field(min_length=1, max_length=120)
+    target: str = Field(min_length=1, max_length=80)
+    ct: Optional[float] = None
+    group: str = Field("control", max_length=80)
+    replicate: str = Field("", max_length=40)
+
+
+class QPCRAnalysisRequest(BaseModel):
+    wells: List[QPCRWell] = Field(..., min_items=2, max_items=2000)
+    reference_target: str = Field(min_length=1, max_length=80)
+    control_group: str = Field(min_length=1, max_length=80)
 
 
 class OrderFormatRequest(BaseModel):
@@ -592,7 +607,7 @@ def _pos(v):
     return int(v[0]), int(v[1])
 
 
-def build_global_args(tm, size_range, mode, params, relaxed=False, num=3):
+def build_global_args(tm, size_range, mode, params, relaxed=False, num=3, qpcr_chemistry="taqman"):
     win = 5.0 if relaxed else 3.0
     g = {
         "PRIMER_OPT_TM": tm, "PRIMER_MIN_TM": tm - win, "PRIMER_MAX_TM": tm + win,
@@ -608,7 +623,7 @@ def build_global_args(tm, size_range, mode, params, relaxed=False, num=3):
         "PRIMER_TM_FORMULA": 1, "PRIMER_SALT_CORRECTIONS": 1,
         "PRIMER_EXPLAIN_FLAG": 1,
     }
-    if mode == "qpcr":
+    if mode == "qpcr" and qpcr_chemistry == "taqman":
         g.update({"PRIMER_PICK_INTERNAL_OLIGO": 1, "PRIMER_INTERNAL_OPT_TM": tm + 8,
                   "PRIMER_INTERNAL_MIN_TM": tm + 5, "PRIMER_INTERNAL_MAX_TM": tm + 11})
     return g
@@ -625,20 +640,22 @@ def run_primer3(template, g, extra=None):
         raise HTTPException(400, "Primer3 could not process this input. Check the sequence and region.")
 
 
-def design_pairs(template, tm, mode, size_range, included, juncs, params, num=3, prefer_junction=False):
+def design_pairs(template, tm, mode, size_range, included, juncs, params, num=3, prefer_junction=False,
+                 qpcr_chemistry="taqman"):
     """Returns (result, attempt, junction_used). attempt: strict | relaxed | failed."""
     extra = {"SEQUENCE_INCLUDED_REGION": included} if included else {}
     res = {}
     if prefer_junction and juncs:
         try:
-            res = run_primer3(template, build_global_args(tm, size_range, mode, params, False, num),
+            res = run_primer3(template, build_global_args(tm, size_range, mode, params, False, num, qpcr_chemistry),
                               {**extra, "SEQUENCE_OVERLAP_JUNCTION_LIST": juncs})
             if res.get("PRIMER_PAIR_NUM_RETURNED", 0) > 0:
                 return res, "strict", True
         except HTTPException:
             pass
     for att in ("strict", "relaxed"):
-        res = run_primer3(template, build_global_args(tm, size_range, mode, params, att == "relaxed", num), extra)
+        res = run_primer3(template, build_global_args(tm, size_range, mode, params, att == "relaxed", num,
+                                                       qpcr_chemistry), extra)
         if res.get("PRIMER_PAIR_NUM_RETURNED", 0) > 0:
             return res, att, False
     return res, "failed", False
@@ -786,6 +803,7 @@ def sdm_design(seq, pos, new):
 def chat_design(request: Request, req: ChatRequest):
     seq = clean_dna(req.sequence, "sequence", MAX_SEQ_LEN, min_len=60)
     mode = req.mode if req.mode in MODES else "standard"
+    qpcr_chemistry = req.qpcr_chemistry if req.qpcr_chemistry in ("taqman", "sybr") else "taqman"
     polymerase = req.polymerase if req.polymerase in ("taq", "hifi") else "taq"
     ann = clean_annotation(req.annotation, len(seq))
     params, source, warnings = parse_prompt(req.user_prompt or "")
@@ -821,7 +839,7 @@ def chat_design(request: Request, req: ChatRequest):
         warnings.append("no_annotation_qpcr")
 
     res, attempt, jused = design_pairs(seq, tm, mode, [lo, hi], included, juncs, params,
-                                       prefer_junction=(mode == "qpcr"))
+                                       prefer_junction=(mode == "qpcr"), qpcr_chemistry=qpcr_chemistry)
     if attempt == "relaxed":
         warnings.append("relaxed")
     if mode == "qpcr" and juncs and not jused:
@@ -835,6 +853,7 @@ def chat_design(request: Request, req: ChatRequest):
         "explain": explain,
         "warnings": warnings,
         "parameters": {"tm": tm, "source": source, "mode": mode, "polymerase": polymerase,
+                        "qpcr_chemistry": qpcr_chemistry if mode == "qpcr" else None,
                        "size_range": [lo, hi], "region": [rs, re_] if included else None,
                        "junction_mode": bool(jused), "primer3": getattr(primer3, "__version__", "")},
         "mutation": mut_info,
@@ -1439,6 +1458,109 @@ async def verify_primer_status(job_id: str, user=Depends(get_current_user)):
 # =====================================================================
 # Tools: Tm, protocol, order format, GenBank export
 # =====================================================================
+@app.post("/analyze-qpcr")
+@limiter.limit("15/minute")
+def analyze_qpcr(request: Request, req: QPCRAnalysisRequest):
+    """Analyze technical-replicate Ct values with the comparative Ct method."""
+    ref_label = req.reference_target.strip()
+    control_label = req.control_group.strip()
+    if not ref_label or not control_label:
+        raise HTTPException(400, "Reference target and control group are required.")
+
+    sample_groups = {}
+    grouped_ct = {}
+    target_labels = {}
+    warnings = []
+    detected = 0
+    for well in req.wells:
+        sample, target, group = well.sample.strip(), well.target.strip(), well.group.strip()
+        if not sample or not target or not group:
+            raise HTTPException(400, "Each well needs a sample, target, and group.")
+        if well.ct is None:
+            continue
+        ct = float(well.ct)
+        if not math.isfinite(ct) or not (0 < ct <= 50):
+            raise HTTPException(400, "Ct values must be greater than 0 and at most 50.")
+        detected += 1
+        skey, tkey = sample.casefold(), target.casefold()
+        if skey in sample_groups and sample_groups[skey]["key"] != group.casefold():
+            raise HTTPException(400, f"Sample '{sample}' appears in more than one group.")
+        sample_groups.setdefault(skey, {"label": sample, "group": group, "key": group.casefold()})
+        target_labels.setdefault(tkey, target)
+        grouped_ct.setdefault((skey, tkey), []).append(ct)
+
+    if not detected:
+        raise HTTPException(400, "No detected Ct values were provided.")
+    ref_key, control_key = ref_label.casefold(), control_label.casefold()
+    if ref_key not in target_labels:
+        raise HTTPException(400, "The reference target was not found in the Ct data.")
+    if not any(s["key"] == control_key for s in sample_groups.values()):
+        raise HTTPException(400, "The selected control group was not found in the Ct data.")
+
+    means, qc = {}, []
+    for (skey, tkey), values in grouped_ct.items():
+        mean_ct = sum(values) / len(values)
+        sd = math.sqrt(sum((x - mean_ct) ** 2 for x in values) / (len(values) - 1)) if len(values) > 1 else 0.0
+        means[(skey, tkey)] = mean_ct
+        qc.append({"sample": sample_groups[skey]["label"], "group": sample_groups[skey]["group"],
+                   "target": target_labels[tkey], "n": len(values), "mean_ct": round(mean_ct, 3),
+                   "sd_ct": round(sd, 3)})
+        if len(values) > 1 and sd > 0.5:
+            warnings.append(f"High technical-replicate variation: {sample_groups[skey]['label']} / "
+                            f"{target_labels[tkey]} (SD {sd:.2f} Ct).")
+
+    targets = [k for k in target_labels if k != ref_key]
+    if not targets:
+        raise HTTPException(400, "Add at least one target assay besides the reference target.")
+
+    sample_deltas = {}
+    for skey, sample_info in sample_groups.items():
+        ref_ct = means.get((skey, ref_key))
+        if ref_ct is None:
+            warnings.append(f"Skipped {sample_info['label']}: no reference-target Ct.")
+            continue
+        for tkey in targets:
+            target_ct = means.get((skey, tkey))
+            if target_ct is not None:
+                sample_deltas[(skey, tkey)] = target_ct - ref_ct
+
+    calibrators = {}
+    for tkey in targets:
+        control_deltas = [delta for (skey, tk), delta in sample_deltas.items()
+                          if tk == tkey and sample_groups[skey]["key"] == control_key]
+        if control_deltas:
+            calibrators[tkey] = sum(control_deltas) / len(control_deltas)
+        else:
+            warnings.append(f"No complete control samples for target {target_labels[tkey]}; "
+                            "fold change was not calculated.")
+
+    records = []
+    group_values = {}
+    for (skey, tkey), delta_ct in sample_deltas.items():
+        if tkey not in calibrators:
+            continue
+        sample_info = sample_groups[skey]
+        ddct = delta_ct - calibrators[tkey]
+        fold = 2 ** (-ddct)
+        records.append({"sample": sample_info["label"], "group": sample_info["group"],
+                        "target": target_labels[tkey], "delta_ct": round(delta_ct, 3),
+                        "ddct": round(ddct, 3), "fold_change": round(fold, 6)})
+        group_values.setdefault((sample_info["key"], tkey), []).append(delta_ct)
+
+    groups = []
+    for (group_key, tkey), deltas in group_values.items():
+        mean_delta = sum(deltas) / len(deltas)
+        ddct = mean_delta - calibrators[tkey]
+        group_label = next(s["group"] for s in sample_groups.values() if s["key"] == group_key)
+        groups.append({"group": group_label, "target": target_labels[tkey], "n": len(deltas),
+                       "mean_delta_ct": round(mean_delta, 3), "ddct": round(ddct, 3),
+                       "fold_change": round(2 ** (-ddct), 6)})
+
+    return {"method": "comparative Ct (2^-ΔΔCt; assumes near-100% and similar assay efficiencies)",
+            "reference_target": target_labels[ref_key], "control_group": control_label,
+            "groups": groups, "samples": records, "qc": qc, "warnings": warnings}
+
+
 @app.post("/calculate-tm")
 @limiter.limit("60/minute")
 def calculate_tm_endpoint(request: Request, req: TmRequest):
