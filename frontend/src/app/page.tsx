@@ -80,9 +80,20 @@ const T: Record<Lang, Record<string, string>> = {
     // Troubleshooting translations
     ts_title: "Troubleshooting", ts_desc: "Describe the problem you see in your PCR or cloning experiment.",
     ts_symptom: "Symptom", ts_select: "Select a symptom...", ts_analyze: "Analyze", ts_cause: "Likely Cause", ts_solutions: "Suggested Solutions",
+    report: "Download report", reportCsv: "Results CSV", reportPrint: "Open the report and use Print → Save as PDF.",
+    report_title_design: "Primer design report", report_title_qpcr: "RT-qPCR analysis report", report_generated: "Generated",
+    report_inputs: "Inputs", report_results: "Results", report_method: "Method & provenance", report_cite: "How to cite the tools",
+    qpcr_controls: "Controls (NTC / −RT)", qpcr_curves: "Standard curves", qpcr_type: "Type", qpcr_status: "Status", qpcr_note: "Note",
+    qpcr_slope: "Slope", qpcr_eff: "Efficiency", qpcr_r2: "R²", st_pass: "pass", st_warn: "check", st_fail: "fail",
+    qpcr_types_hint: "Optional columns: type (sample, ntc, nrt / -RT, standard) and quantity (for standard-curve dilutions).",
+    chat_title: "Ask Primer AI", chat_open: "Ask AI", chat_ph: "Ask about primers, qPCR, exons…", chat_send: "Send",
+    chat_clear: "New chat", chat_ctx: "Uses your current gene and results as context", chat_disabled: "The AI assistant is not enabled on this server.",
+    chat_note: "AI can be wrong. Verify before using it in the lab or in a thesis.",
+    chat_hello: "Hi! Ask me anything about your primers, qPCR data or exon/intron structure.",
+    chat_s1: "Why is an exon–exon junction primer better for qPCR?", chat_s2: "Explain my ΔΔCt result like I'm a student", chat_s3: "What do NTC and −RT controls tell me?",
     qpcr_title: "RT-qPCR Ct analysis", qpcr_desc: "Upload or paste one well per row. The comparative ΔΔCt method assumes near-100% and similar amplification efficiencies; use cDNA Ct values and a validated reference target.",
     qpcr_csv_label: "Ct data (CSV)", qpcr_csv_hint: "Required columns: sample, target, ct. Optional: group, replicate. Use a blank Ct or Undetermined for no amplification.",
-    qpcr_csv_example: "sample,target,ct,group,replicate\ncontrol_1,ACTB,20.1,control,1\ncontrol_1,GENE_X,25.0,control,1\ntreated_1,ACTB,20.3,treated,1\ntreated_1,GENE_X,22.4,treated,1",
+    qpcr_csv_example: "sample,target,ct,group,replicate,type,quantity\ncontrol_1,ACTB,20.1,control,1,sample,\ncontrol_1,GENE_X,25.0,control,1,sample,\ntreated_1,ACTB,20.3,treated,1,sample,\ntreated_1,GENE_X,22.4,treated,1,sample,\nNTC,GENE_X,,,,ntc,\nRT_minus,GENE_X,,,,nrt,",
     qpcr_upload: "Choose CSV file", qpcr_control_group: "Control group", qpcr_reference_target: "Reference target",
     qpcr_analyze: "Analyze Ct data", qpcr_results: "Expression results", qpcr_sample_results: "Per-sample results",
     qpcr_qc: "Replicate QC", qpcr_group: "Group", qpcr_sample: "Sample", qpcr_target: "Target", qpcr_samples: "Samples",
@@ -158,9 +169,20 @@ const T: Record<Lang, Record<string, string>> = {
     // Troubleshooting translations
     ts_title: "عیب‌یابی", ts_desc: "مشکلی که در آزمایش PCR یا کلونینگ خود می‌بینید را توصیف کنید.",
     ts_symptom: "علامت", ts_select: "یک علامت انتخاب کنید...", ts_analyze: "تحلیل", ts_cause: "علت احتمالی", ts_solutions: "راه‌حل‌های پیشنهادی",
+    report: "دانلود گزارش", reportCsv: "CSV نتایج", reportPrint: "گزارش را باز کنید و با Print → Save as PDF ذخیره کنید.",
+    report_title_design: "گزارش طراحی پرایمر", report_title_qpcr: "گزارش تحلیل RT-qPCR", report_generated: "تاریخ تهیه",
+    report_inputs: "ورودی‌ها", report_results: "نتایج", report_method: "روش و منشأ داده", report_cite: "ارجاع به ابزارها",
+    qpcr_controls: "کنترل‌ها (NTC / −RT)", qpcr_curves: "منحنی‌های استاندارد", qpcr_type: "نوع", qpcr_status: "وضعیت", qpcr_note: "توضیح",
+    qpcr_slope: "شیب", qpcr_eff: "بازده", qpcr_r2: "R²", st_pass: "قبول", st_warn: "بررسی شود", st_fail: "رد",
+    qpcr_types_hint: "ستون‌های اختیاری: type (sample، ntc، nrt یا -RT، standard) و quantity (برای رقت‌های منحنی استاندارد).",
+    chat_title: "از Primer AI بپرسید", chat_open: "پرسش از AI", chat_ph: "درباره‌ی پرایمر، qPCR، اگزون و… بپرسید", chat_send: "ارسال",
+    chat_clear: "گفت‌وگوی جدید", chat_ctx: "ژن و نتایج فعلی شما به‌عنوان زمینه استفاده می‌شود", chat_disabled: "دستیار هوش مصنوعی روی این سرور فعال نیست.",
+    chat_note: "هوش مصنوعی ممکن است اشتباه کند. پیش از استفاده در آزمایشگاه یا پایان‌نامه بررسی کنید.",
+    chat_hello: "سلام! هر سؤالی درباره‌ی پرایمرها، داده‌ی qPCR یا ساختار اگزون/اینترون دارید بپرسید.",
+    chat_s1: "چرا پرایمر روی اتصال اگزون–اگزون برای qPCR بهتر است؟", chat_s2: "نتیجه‌ی ΔΔCt من را ساده توضیح بده", chat_s3: "کنترل‌های NTC و −RT چه چیزی را نشان می‌دهند؟",
     qpcr_title: "تحلیل Ct در RT-qPCR", qpcr_desc: "برای هر چاهک یک ردیف بارگذاری یا جای‌گذاری کنید. روش مقایسه‌ای ΔΔCt فرض می‌کند بازده تکثیر نزدیک ۱۰۰٪ و بین assayها مشابه است؛ از Ct مربوط به cDNA و ژن مرجع اعتبارسنجی‌شده استفاده کنید.",
     qpcr_csv_label: "داده‌های Ct (CSV)", qpcr_csv_hint: "ستون‌های لازم: sample، target، ct. ستون‌های اختیاری: group، replicate. برای عدم تکثیر Ct را خالی یا Undetermined بگذارید.",
-    qpcr_csv_example: "sample,target,ct,group,replicate\ncontrol_1,ACTB,20.1,control,1\ncontrol_1,GENE_X,25.0,control,1\ntreated_1,ACTB,20.3,treated,1\ntreated_1,GENE_X,22.4,treated,1",
+    qpcr_csv_example: "sample,target,ct,group,replicate,type,quantity\ncontrol_1,ACTB,20.1,control,1,sample,\ncontrol_1,GENE_X,25.0,control,1,sample,\ntreated_1,ACTB,20.3,treated,1,sample,\ntreated_1,GENE_X,22.4,treated,1,sample,\nNTC,GENE_X,,,,ntc,\nRT_minus,GENE_X,,,,nrt,",
     qpcr_upload: "انتخاب فایل CSV", qpcr_control_group: "گروه کنترل", qpcr_reference_target: "ژن مرجع",
     qpcr_analyze: "تحلیل داده Ct", qpcr_results: "نتایج بیان", qpcr_sample_results: "نتایج هر نمونه",
     qpcr_qc: "کنترل تکرارها", qpcr_group: "گروه", qpcr_sample: "نمونه", qpcr_target: "هدف", qpcr_samples: "نمونه‌ها",
@@ -223,6 +245,8 @@ function parseQpcrCsv(text: string) {
   const ctI = find("ct", "cq", "thresholdcycle");
   const groupI = find("group", "condition", "treatment");
   const repI = find("replicate", "rep", "technicalreplicate");
+  const typeI = find("type", "welltype", "task", "role");
+  const qtyI = find("quantity", "qty", "copies", "concentration", "input");
   if (sampleI < 0 || targetI < 0 || ctI < 0) throw new Error("headers");
   const data = rows.slice(1).filter((r) => r.some((v) => v.trim()));
   if (data.length > 2000) throw new Error("limit");
@@ -231,8 +255,13 @@ function parseQpcrCsv(text: string) {
     const group = groupI >= 0 ? (r[groupI] || "").trim() : "control";
     const rawCt = (r[ctI] || "").trim();
     const ct = !rawCt || /^(undetermined|undet|na|n\/a|no ct)$/i.test(rawCt) ? null : Number(rawCt);
-    if (!sample || !target || !group || (ct !== null && !Number.isFinite(ct))) throw new Error("row");
-    return { sample, target, ct, group, replicate: repI >= 0 ? (r[repI] || "").trim() : "" };
+    if (!sample || !target || (ct !== null && !Number.isFinite(ct))) throw new Error("row");
+    const rawType = typeI >= 0 ? (r[typeI] || "").trim().toLowerCase().replace(/\s+/g, "") : "";
+    const well_type = !rawType || rawType === "unknown" ? "sample" : rawType === "-rt" || rawType === "nort" || rawType === "no-rt" || rawType === "minusrt" ? "nrt" : rawType === "std" ? "standard" : rawType;
+    const rawQty = qtyI >= 0 ? (r[qtyI] || "").trim() : "";
+    const quantity = rawQty ? Number(rawQty) : null;
+    if (quantity !== null && !Number.isFinite(quantity)) throw new Error("row");
+    return { sample, target, ct, group: group || "control", replicate: repI >= 0 ? (r[repI] || "").trim() : "", well_type, quantity };
   });
 }
 const AA3: Record<string, string> = { ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C", GLN: "Q", GLU: "E", GLY: "G", HIS: "H", ILE: "I", LEU: "L", LYS: "K", MET: "M", PHE: "F", PRO: "P", SER: "S", THR: "T", TRP: "W", TYR: "Y", VAL: "V" };
@@ -260,6 +289,32 @@ function download(name: string, text: string, mime = "text/plain") {
   const a = document.createElement("a");
   a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const esc = (v: any) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+const htmlTable = (head: string[], rows: any[][]) =>
+  `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+const csvCell = (v: any) => { const x = String(v ?? ""); return /[",\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+const toCsv = (head: string[], rows: any[][]) => [head, ...rows].map((r) => r.map(csvCell).join(",")).join("\n") + "\n";
+
+/** Self-contained, printable HTML report (Print → Save as PDF gives a citable PDF). */
+function downloadReport(lang: Lang, t: Record<string, string>, fileBase: string, title: string, sections: { h: string; html: string }[]) {
+  const rtl = lang === "fa";
+  const stamp = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  const doc = `<!doctype html><html lang="${lang}" dir="${rtl ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>body{font-family:system-ui,Segoe UI,Tahoma,sans-serif;max-width:900px;margin:32px auto;padding:0 20px;color:#1e293b;line-height:1.5}
+h1{color:#1e40af;margin-bottom:4px}h2{color:#1e40af;font-size:17px;border-bottom:2px solid #dbeafe;padding-bottom:4px;margin-top:28px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0;direction:ltr}th,td{border:1px solid #cbd5e1;padding:5px 8px;text-align:left}
+th{background:#f1f5f9}code,.mono{font-family:ui-monospace,Consolas,monospace;word-break:break-all}.muted{color:#64748b;font-size:13px}
+ul{padding-inline-start:20px}@media print{body{margin:0}h2{break-after:avoid}table{break-inside:avoid}}</style></head><body>
+<h1>${esc(title)}</h1><p class="muted">Primer AI · ${esc(t.report_generated)}: ${esc(stamp)}</p>
+${sections.map((s) => `<h2>${esc(s.h)}</h2>${s.html}`).join("\n")}
+<h2>${esc(t.report_cite)}</h2><ul class="muted"><li>Untergasser A. et al. (2012) Primer3 — new capabilities and interfaces. Nucleic Acids Res 40:e115.</li>
+<li>SantaLucia J. (1998) A unified view of polymer, dumbbell, and oligonucleotide DNA nearest-neighbor thermodynamics. PNAS 95:1460–1465.</li>
+<li>Livak KJ, Schmittgen TD (2001) Analysis of relative gene expression data using real-time quantitative PCR and the 2^−ΔΔCT method. Methods 25:402–408.</li>
+<li>Bustin SA et al. (2009) The MIQE guidelines. Clin Chem 55:611–622.</li><li>NCBI RefSeq (O'Leary et al., 2016, Nucleic Acids Res 44:D733).</li></ul>
+</body></html>`;
+  download(`${fileBase}.html`, doc, "text/html");
 }
 
 const inputCls = "w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -372,10 +427,30 @@ function TroubleshootTab({ t, call, fail }: Ctx) {
   );
 }
 
+function StatusPill({ v, t }: { v: string; t: Record<string, string> }) {
+  const c = v === "pass" ? "bg-green-100 text-green-800" : v === "fail" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800";
+  return <span className={`px-2 py-0.5 rounded font-semibold ${c}`}>{t["st_" + v] || v}</span>;
+}
+
+function downloadQpcrReport(r: any, lang: Lang, t: Record<string, string>, ref: string, control: string) {
+  downloadReport(lang, t, "qpcr_report", t.report_title_qpcr, [
+    { h: t.report_inputs, html: htmlTable(["Reference target", "Control group", "Wells analysed", "Platform version"],
+      [[ref, control, String((r.qc || []).reduce((n: number, q: any) => n + q.n, 0)), r.version || ""]]) },
+    { h: t.report_results, html: htmlTable(["Group", "Target", "n", "Mean ΔCt", "ΔΔCt", "Fold change (2^−ΔΔCt)"],
+      (r.groups || []).map((g: any) => [g.group, g.target, g.n, g.mean_delta_ct, g.ddct, g.fold_change])) +
+      htmlTable(["Group", "Sample", "Target", "ΔCt", "ΔΔCt", "Fold change"], (r.samples || []).map((x: any) => [x.group, x.sample, x.target, x.delta_ct, x.ddct, x.fold_change])) },
+    { h: t.qpcr_qc, html: htmlTable(["Group", "Sample", "Target", "Replicates", "Mean Ct", "SD Ct"], (r.qc || []).map((q: any) => [q.group, q.sample, q.target, q.n, q.mean_ct, q.sd_ct])) +
+      ((r.controls || []).length ? htmlTable(["Control", "Sample", "Target", "Ct", "Status", "Note"], r.controls.map((c: any) => [c.type === "nrt" ? "-RT" : c.type.toUpperCase(), c.sample, c.target, c.ct ?? "not detected", c.status, c.note])) : "") +
+      ((r.standard_curves || []).length ? htmlTable(["Target", "Points", "Slope", "Intercept", "Efficiency %", "R²", "Status"], r.standard_curves.map((c: any) => [c.target, c.points, c.slope, c.intercept, c.efficiency, c.r2, c.status])) : "") +
+      ((r.warnings || []).length ? `<ul>${r.warnings.map((w: string) => `<li>${esc(w)}</li>`).join("")}</ul>` : "") },
+    { h: t.report_method, html: `<p>${esc(r.method)}. Technical replicates are averaged per sample; ΔCt = Ct(target) − Ct(reference); ΔΔCt is calibrated to the mean ΔCt of the control group. Analysed ${esc(r.analyzed_at || "")}.</p>` },
+  ]);
+}
+
 /* ------------------------------------------------------------------ */
 /* RT-qPCR Ct analysis                                                  */
 /* ------------------------------------------------------------------ */
-function QPCRTab({ t, call, fail, notify }: Ctx) {
+function QPCRTab({ t, lang, call, fail, notify, onResult }: Ctx & { onResult?: (r: any) => void }) {
   const [csv, setCsv] = useState("");
   const [controlGroup, setControlGroup] = useState("control");
   const [referenceTarget, setReferenceTarget] = useState("");
@@ -391,7 +466,7 @@ function QPCRTab({ t, call, fail, notify }: Ctx) {
     try {
       setResult(await call("/analyze-qpcr", { method: "POST", body: JSON.stringify({
         wells, reference_target: referenceTarget.trim(), control_group: controlGroup.trim(),
-      }) }));
+      }) }).then((r: any) => { onResult?.(r); return r; }));
     } catch (e) { fail(e); } finally { setLoading(false); }
   };
 
@@ -410,7 +485,7 @@ function QPCRTab({ t, call, fail, notify }: Ctx) {
           <Field label={t.qpcr_control_group}><input className={inputCls} value={controlGroup} onChange={(e) => setControlGroup(e.target.value)} placeholder="control" /></Field>
           <Field label={t.qpcr_reference_target}><input className={inputCls} value={referenceTarget} onChange={(e) => setReferenceTarget(e.target.value)} placeholder="ACTB" /></Field>
         </div>
-        <Field label={t.qpcr_csv_label} hint={t.qpcr_csv_hint}>
+        <Field label={t.qpcr_csv_label} hint={`${t.qpcr_csv_hint} ${t.qpcr_types_hint}`}>
           <textarea dir="ltr" className={seqCls + " h-48"} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={t.qpcr_csv_example} />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
@@ -427,8 +502,32 @@ function QPCRTab({ t, call, fail, notify }: Ctx) {
 
       {result && (
         <section className="space-y-4">
-          <h3 className="text-lg font-bold text-blue-800">{t.qpcr_results}</h3>
-          <p className="text-xs text-slate-500">{result.method}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg font-bold text-blue-800">{t.qpcr_results}</h3>
+            <div className="flex flex-wrap gap-2">
+              <Btn kind="dark" onClick={() => downloadQpcrReport(result, lang, t, referenceTarget, controlGroup)}>{t.report}</Btn>
+              <Btn kind="ghost" onClick={() => download("qpcr_results.csv", toCsv(["group", "sample", "target", "delta_ct", "ddct", "fold_change"],
+                (result.samples || []).map((r: any) => [r.group, r.sample, r.target, r.delta_ct, r.ddct, r.fold_change])), "text/csv")}>{t.reportCsv}</Btn>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">{result.method} · {t.reportPrint}</p>
+          {result.controls?.length > 0 && <div>
+            <p className="font-semibold text-sm mb-1">{t.qpcr_controls}</p>
+            <div className="overflow-x-auto border rounded-lg"><table className="w-full text-xs" dir="ltr">
+              <thead className="bg-slate-100"><tr>{[t.qpcr_type, t.qpcr_sample, t.qpcr_target, "Ct", t.qpcr_status, t.qpcr_note].map((h, i) => <th key={i} className="text-start p-2 whitespace-nowrap">{h}</th>)}</tr></thead>
+              <tbody>{result.controls.map((r: any, i: number) => <tr key={i} className="border-t">
+                <td className="p-2 uppercase">{r.type === "nrt" ? "−RT" : r.type}</td><td className="p-2">{r.sample}</td><td className="p-2">{r.target}</td>
+                <td className="p-2">{r.ct ?? "—"}</td><td className="p-2"><StatusPill v={r.status} t={t} /></td><td className="p-2">{r.note}</td>
+              </tr>)}</tbody></table></div>
+          </div>}
+          {result.standard_curves?.length > 0 && <div>
+            <p className="font-semibold text-sm mb-1">{t.qpcr_curves}</p>
+            <div className="overflow-x-auto border rounded-lg"><table className="w-full text-xs" dir="ltr">
+              <thead className="bg-slate-100"><tr>{[t.qpcr_target, t.qpcr_slope, t.qpcr_eff, t.qpcr_r2, t.qpcr_status].map((h, i) => <th key={i} className="text-start p-2 whitespace-nowrap">{h}</th>)}</tr></thead>
+              <tbody>{result.standard_curves.map((c: any, i: number) => <tr key={i} className="border-t">
+                <td className="p-2">{c.target}</td><td className="p-2">{c.slope}</td><td className="p-2">{c.efficiency ?? "—"}%</td><td className="p-2">{c.r2}</td><td className="p-2"><StatusPill v={c.status} t={t} /></td>
+              </tr>)}</tbody></table></div>
+          </div>}
           {result.warnings?.length > 0 && <div className="bg-yellow-50 border-s-4 border-yellow-500 p-3 text-sm">
             <b>{t.qpcr_warnings}</b><ul className="list-disc ps-5 mt-1">{result.warnings.map((w: string, i: number) => <li key={i}>{w}</li>)}</ul>
           </div>}
@@ -469,6 +568,24 @@ function QPCRTab({ t, call, fail, notify }: Ctx) {
 /* ------------------------------------------------------------------ */
 /* Design tab                                                          */
 /* ------------------------------------------------------------------ */
+function downloadDesignReport(r: any, gene: any, seq: string, lang: Lang, t: Record<string, string>) {
+  const pr = r.parameters || {};
+  const exonTxt: Record<string, string> = { junction_primer: "primer spans an exon-exon junction", intron_spanning: "amplicon spans an intron", none: "no exon junction covered", unknown: "no exon annotation" };
+  downloadReport(lang, t, `${gene?.symbol || "primer"}_design_report`, t.report_title_design, [
+    { h: t.report_inputs, html: htmlTable(["Gene", "Transcript", "Organism", "Template length", "Exons", "CDS"],
+      [[gene?.symbol || "custom sequence", gene?.accession || "—", gene?.organism || "—", `${seq.length} nt`, gene?.annotation?.exons?.length ?? "—",
+        gene?.annotation?.cds_start ? `${gene.annotation.cds_start}-${gene.annotation.cds_end}` : "—"]]) +
+      htmlTable(["Application", "qPCR chemistry", "Polymerase", "Target Tm", "Product size", "Region", "Junction mode"],
+      [[pr.mode, pr.qpcr_chemistry || "—", pr.polymerase, `${pr.tm} °C (${pr.source})`, `${pr.size_range?.[0]}-${pr.size_range?.[1]} bp`, pr.region ? pr.region.join("-") : "whole template", pr.junction_mode ? "yes" : "no"]]) },
+    { h: t.report_results, html: htmlTable(["Pair", "Forward 5′→3′", "Reverse 5′→3′", "Tm F/R", "GC F/R", "Product", "Anneal", "Probe", "Exon check", "Structure risk"],
+      r.pairs.map((x: any, i: number) => [i + 1, `${x.left.seq_tail} (${x.left.start1}-${x.left.end1})`, `${x.right.seq_tail} (${x.right.start1}-${x.right.end1})`,
+        `${x.left.tm}/${x.right.tm} °C`, `${x.left.gc}/${x.right.gc}%`, `${x.product_size} bp`, `${x.anneal_temp} °C`, x.probe ? `${x.probe.seq} (Tm ${x.probe.tm})` : "—",
+        exonTxt[x.exon?.status] || x.exon?.status, x.risk?.overall])) +
+      ((r.warnings || []).length ? `<ul>${r.warnings.map((w: string) => `<li>${esc(t["warn_" + w] || w)}</li>`).join("")}</ul>` : "") },
+    { h: t.report_method, html: `<p>Primer3 ${esc(pr.primer3 || "")}; Tm by SantaLucia nearest-neighbour (50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM primer). Hairpin, self-/hetero-dimer and 3′ end stability rated against the annealing temperature. Exon boundaries from the NCBI RefSeq record. In-silico design: verify specificity (Primer-BLAST) and validate experimentally (gradient PCR, melt curve, efficiency).</p>` },
+  ]);
+}
+
 type GeneState = { symbol: string; accession: string; title: string; sequence: string; annotation: any; uniprot: any; organism: string; alternatives: any[]; protein_id?: string };
 
 function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: GeneState | null; setGene: (g: GeneState | null) => void; annotation: any; maxLen: number; onDesign: (r: any) => void }) {
@@ -628,6 +745,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
             <span className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full">{t.detectedTm}: {result.parameters.tm} °C ({t["src_" + result.parameters.source]})</span>
             <span className="bg-slate-100 px-3 py-1 rounded-full">{t.size}: {result.parameters.size_range[0]}–{result.parameters.size_range[1]} bp</span>
             {result.pairs.length > 0 && <Btn kind="dark" onClick={exportCsv}>{t.csvIdt}</Btn>}
+            {result.pairs.length > 0 && <Btn kind="dark" onClick={() => downloadDesignReport(result, gene, seq, p.lang, t)}>{t.report}</Btn>}
           </div>
           {result.warnings.map((w: string) => <div key={w} className="bg-yellow-50 border-s-4 border-yellow-500 p-3 text-sm text-yellow-900">{t["warn_" + w] || w}</div>)}
 
@@ -1026,6 +1144,72 @@ function LibraryTab({ t, call, token, notify, fail }: Ctx) {
 }
 
 /* ------------------------------------------------------------------ */
+/* AI chat assistant (floating)                                        */
+/* ------------------------------------------------------------------ */
+type ChatMsg = { role: "user" | "assistant"; content: string };
+
+function ChatBox({ t, lang, call, token, notify, fail, llm, context }: Ctx & { llm: boolean; context: string }) {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy, open]);
+
+  const send = async (text?: string) => {
+    const q = (text ?? input).trim();
+    if (!q || busy) return;
+    if (!llm) return notify(t.chat_disabled);
+    if (!token) return notify(t.loginRequired);
+    const next: ChatMsg[] = [...msgs, { role: "user", content: q.slice(0, 2000) }];
+    setMsgs(next); setInput(""); setBusy(true);
+    try {
+      const r = await call("/ask-ai", { method: "POST", body: JSON.stringify({ messages: next.slice(-12), lang, context: context.slice(0, 6000) }) });
+      setMsgs((m) => [...m, { role: "assistant", content: r.reply }]);
+    } catch (e) { setMsgs((m) => m.slice(0, -1)); setInput(q); fail(e); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed bottom-4 end-4 z-50 flex flex-col items-end gap-2">
+      {open && (
+        <section role="dialog" aria-label={t.chat_title} className="w-[min(92vw,380px)] h-[min(75vh,560px)] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          <header className="bg-blue-800 text-white px-4 py-3 flex items-center justify-between gap-2">
+            <div><p className="font-bold">{t.chat_title}</p><p className="text-xs text-blue-100">{context ? t.chat_ctx : t.chat_note}</p></div>
+            <div className="flex gap-1">
+              {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="text-xs bg-blue-700 hover:bg-blue-600 rounded px-2 py-1">{t.chat_clear}</button>}
+              <button type="button" aria-label="close" onClick={() => setOpen(false)} className="text-lg leading-none px-2 hover:text-blue-200">×</button>
+            </div>
+          </header>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50" aria-live="polite">
+            {msgs.length === 0 && (<div className="space-y-2">
+              <p className="text-sm bg-white border rounded-xl p-3">{t.chat_hello}</p>
+              {[t.chat_s1, t.chat_s2, t.chat_s3].map((sug) => (
+                <button key={sug} type="button" onClick={() => send(sug)} className="block w-full text-start text-sm bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg px-3 py-2">{sug}</button>))}
+            </div>)}
+            {msgs.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <p dir="auto" className={`max-w-[85%] whitespace-pre-wrap text-sm rounded-2xl px-3 py-2 ${m.role === "user" ? "bg-blue-700 text-white" : "bg-white border text-slate-800"}`}>{m.content}</p>
+              </div>))}
+            {busy && <p className="text-sm text-slate-500">{t.working}</p>}
+            <div ref={endRef} />
+          </div>
+          <footer className="border-t p-2 space-y-1">
+            <div className="flex gap-2">
+              <textarea dir="auto" rows={2} className={inputCls + " resize-none text-sm"} value={input} maxLength={2000} placeholder={t.chat_ph}
+                onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
+              <Btn onClick={() => send()} disabled={busy || !input.trim()}>{t.chat_send}</Btn>
+            </div>
+            <p className="text-[11px] text-slate-500 px-1">{t.chat_note}</p>
+          </footer>
+        </section>
+      )}
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="bg-blue-800 hover:bg-blue-900 text-white font-semibold rounded-full shadow-xl px-5 py-3">{open ? "×" : `✦ ${t.chat_open}`}</button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Page shell                                                          */
 /* ------------------------------------------------------------------ */
 export default function Home() {
@@ -1039,6 +1223,7 @@ export default function Home() {
   const [design, setDesign] = useState<any>(null);
   const [guides, setGuides] = useState<any[]>([]);
   const [focusAa, setFocusAa] = useState<number | null>(null);
+  const [qpcrRes, setQpcrRes] = useState<any>(null);
   const t = T[lang];
 
   useEffect(() => {
@@ -1071,6 +1256,26 @@ export default function Home() {
   }, [design, guides]);
 
   const ctx: Ctx = { t, lang, call, token, notify, fail };
+
+  const aiContext = useMemo(() => {
+    const lines: string[] = [`Current tab: ${tab}`];
+    if (gene) lines.push(`Gene: ${gene.symbol} (${gene.organism}), transcript ${gene.accession}, ${gene.sequence.length} nt` +
+      (gene.annotation?.exons ? `, ${gene.annotation.exons.length} exons [${gene.annotation.exons.slice(0, 30).map((e: number[]) => e.join("-")).join(", ")}]` : "") +
+      (gene.annotation?.cds_start ? `, CDS ${gene.annotation.cds_start}-${gene.annotation.cds_end}` : ""));
+    if (design?.pairs?.length) {
+      const pr = design.parameters || {};
+      lines.push(`Primer design: mode ${pr.mode}${pr.qpcr_chemistry ? ` (${pr.qpcr_chemistry})` : ""}, Tm ${pr.tm}, size ${pr.size_range?.join("-")} bp, warnings: ${(design.warnings || []).join(", ") || "none"}`);
+      design.pairs.slice(0, 3).forEach((x: any, i: number) => lines.push(
+        `Pair ${i + 1}: F ${x.left.seq} (Tm ${x.left.tm}, ${x.left.start1}-${x.left.end1}), R ${x.right.seq} (Tm ${x.right.tm}), product ${x.product_size} bp, anneal ${x.anneal_temp}, exon ${x.exon?.status}, risk ${x.risk?.overall}${x.probe ? `, probe ${x.probe.seq}` : ""}`));
+    }
+    if (qpcrRes) {
+      lines.push(`qPCR: reference ${qpcrRes.reference_target}, control ${qpcrRes.control_group}`);
+      (qpcrRes.groups || []).slice(0, 12).forEach((g: any) => lines.push(`  ${g.group}/${g.target}: n=${g.n}, ΔΔCt ${g.ddct}, fold ${g.fold_change}`));
+      (qpcrRes.standard_curves || []).forEach((c: any) => lines.push(`  curve ${c.target}: eff ${c.efficiency}%, R² ${c.r2}`));
+      (qpcrRes.warnings || []).slice(0, 8).forEach((w: string) => lines.push(`  QC: ${w}`));
+    }
+    return lines.length > 1 ? lines.join("\n") : "";
+  }, [tab, gene, design, qpcrRes]);
   const tabs: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "toolbox", "explorer", "tutorial", "troubleshoot", "library"];
 
   const logout = () => { localStorage.removeItem("token"); setToken(null); };
@@ -1103,7 +1308,7 @@ export default function Home() {
         </nav>
 
         {tab === "design" && <DesignTab {...ctx} seq={seq} setSeq={setSeq} gene={gene} setGene={setGene} annotation={annotation} maxLen={config.max_seq_len} onDesign={setDesign} />}
-        {tab === "qpcr" && <QPCRTab {...ctx} />}
+        {tab === "qpcr" && <QPCRTab {...ctx} onResult={setQpcrRes} />}
         {tab === "multiplex" && <MultiplexTab {...ctx} />}
         {tab === "gibson" && <GibsonTab {...ctx} />}
         {tab === "crispr" && <CrisprTab {...ctx} seq={seq} setSeq={setSeq} annotation={annotation} onGuides={setGuides} openExplorer={(aa) => { setFocusAa(aa); setTab("explorer"); }} />}
@@ -1114,6 +1319,7 @@ export default function Home() {
         {tab === "library" && <LibraryTab {...ctx} />}
 
         <footer className="mt-10 pt-4 border-t text-xs text-slate-500">{t.footer}</footer>
+        <ChatBox {...ctx} llm={!!config.llm} context={aiContext} />
       </div>
     </main>
   );
