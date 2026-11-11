@@ -25,6 +25,14 @@ const T: Record<Lang, Record<string, string>> = {
     geneInfo: "CDS {cds} · {n} exons", noAnn: "No exon annotation found for this transcript.",
     sequence: "DNA sequence (FASTA or raw)", seqHint: "Allowed: A C G T N (U is converted to T). Max {max} nt.",
     region: "Design only inside region (optional)", from: "From", to: "To",
+    criteriaTitle: "Primer criteria (advanced)", criteriaHint: "Custom Primer3 ranges. Leave this off to keep using the current defaults and prompt.",
+    criteriaInvalid: "Check the custom ranges: minimums must be below maximums and values must be within the allowed limits.",
+    useCriteria: "Use custom ranges", tmMin: "Tm minimum (°C)", tmOpt: "Tm optimal (°C)", tmMax: "Tm maximum (°C)", tmDiff: "Max pair Tm difference (°C)",
+    primerLength: "Primer length (nt)", primerGc: "Primer GC (%)", productRange: "PCR product size (bp)", min: "Min", optimal: "Optimal", max: "Max",
+    pairCount: "Primer pairs to return", junctionPreference: "Exon-junction preference", junctionAuto: "Automatic (qPCR-aware)",
+    junctionNone: "No preference", junctionRequire: "Require a primer across an exon junction", junctionAvoid: "Avoid primers across exon junctions",
+    templateSummary: "Template: {n} nt · GC {gc}%", primerMap: "Primer positions on template",
+    primerMapNote: "Exons appear when RefSeq annotation is available. Coordinates are on the input sequence, not the genome.", ampliconGc: "Amplicon GC",
     prompt: "Describe what you want", promptPh: "e.g. Tm 62, product 100-200 bp  /  دما را روی ۶۲ تنظیم کن",
     mode: "Application", mode_standard: "Standard PCR (100–1000 bp)", mode_qpcr: "qPCR (70–150 bp)", mode_sanger: "PCR for Sanger (400–900 bp)",
     qpcr_chemistry: "qPCR chemistry", qpcr_taqman: "TaqMan probe", qpcr_sybr: "SYBR Green (primer pair only)",
@@ -32,7 +40,7 @@ const T: Record<Lang, Record<string, string>> = {
     polymerase: "Polymerase profile", pol_taq: "Taq-type", pol_hifi: "High-fidelity (Q5/Phusion)",
     tailLeft: "5′ tail, forward (optional)", tailRight: "5′ tail, reverse (optional)",
     mutation: "Site-directed mutation (optional)", mutationHint: "DNA substitution, 1-based: e.g. A120G → designs mutagenic primers",
-    designBtn: "Design primers", detectedTm: "Target Tm", src_llm: "AI-parsed", src_regex: "from your text", src_default: "default",
+    designBtn: "Design primers", detectedTm: "Target Tm", src_llm: "AI-parsed", src_regex: "from your text", src_default: "default", src_custom: "custom ranges",
     noPrimers: "No primers found", noPrimersHelp: "Try a wider product size, a different Tm, or a smaller region. Primer3 says:",
     pair: "Pair", forward: "Forward", reverse: "Reverse", probe: "Probe", tm: "Tm", gc: "GC", len: "nt", size: "Product", anneal: "Annealing",
     hairpin: "Hairpin", selfDimer: "Self-dimer", heteroDimer: "Primer-dimer", endDimer: "3′ end stability",
@@ -44,13 +52,15 @@ const T: Record<Lang, Record<string, string>> = {
     onTarget: "on-target", other: "other", provenance: "Tm: SantaLucia nearest-neighbour, 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM primer · Primer3 {v}",
     ex_junction_primer: "Primer spans an exon–exon junction (gDNA-safe)", ex_intron_spanning: "Amplicon spans an intron (gDNA product would be larger)",
     ex_none: "No exon junction covered — may amplify genomic DNA", ex_unknown: "No exon annotation (fetch the gene by symbol to enable this check)",
+    warn_junction_unavailable: "Exon-junction filtering needs transcript exon annotation. This run was not filtered by junction location.",
+    warn_junction_filter_no_pair: "Primer candidates were found, but all crossed an exon junction. Try another junction preference or a wider range.",
     note_tm_diff: "Primer Tm difference is {v} °C.", note_gc_range: "{side} primer GC is {v}% (aim 40–60%).",
     note_clamp_weak: "{side} primer: no G/C in the last 5 bases (weak 3′ clamp).", note_clamp_strong: "{side} primer: ≥4 G/C in the last 5 bases (risk of mispriming).",
     note_run: "{side} primer has a run of 4+ identical bases.", note_structure_high: "A secondary structure is stable near the annealing temperature.",
     note_structure_low: "Hairpins and dimers are weak relative to the annealing temperature.", note_junction_ok: "Spans an exon–exon junction.",
     note_intron_ok: "Amplicon includes an intron, so gDNA would give a longer product.", note_junction_none: "No exon junction covered.",
     note_amplicon_gc: "Amplicon GC is {v}% — consider DMSO or a GC enhancer.",
-    warn_tm_out_of_range: "The temperature in your text was outside 40–80 °C and was ignored.", warn_relaxed: "No primers met the strict limits, so the Tm/size/GC window was relaxed.",
+    warn_tm_out_of_range: "The temperature in your text was outside 40–80 °C and was ignored.", warn_relaxed: "No pair met the requested limits. Tm (±2 °C), primer length (−1/+3 nt), GC (±5%), and max pair ΔTm (+2 °C) were widened; product size was kept.",
     warn_junction_fallback: "Could not place a primer on an exon junction; showing best standard primers.", warn_no_annotation_qpcr: "No exon annotation: use a RefSeq mRNA fetched by gene symbol for junction-aware qPCR design.",
     sdm: "Site-directed mutagenesis primers", sdmHint: "Complementary QuikChange-style pair (mutation centred). Tm = 81.5 + 0.41·GC% − 675/N − %mismatch.",
     sdmOk: "meets Tm ≥ 78 °C, GC ≥ 40%, G/C 3′ end", sdmWeak: "does not meet all criteria — consider a longer primer or Q5-SDM design",
@@ -137,6 +147,14 @@ const T: Record<Lang, Record<string, string>> = {
     geneInfo: "CDS {cds} · {n} اگزون", noAnn: "برای این ترنسکریپت اطلاعات اگزون یافت نشد.",
     sequence: "توالی DNA (FASTA یا خام)", seqHint: "مجاز: A C G T N (U به T تبدیل می‌شود). حداکثر {max} نوکلئوتید.",
     region: "طراحی فقط داخل بازه (اختیاری)", from: "از", to: "تا",
+    criteriaTitle: "معیارهای پرایمر (پیشرفته)", criteriaHint: "بازه‌های سفارشی Primer3. اگر خاموش باشد، تنظیمات فعلی و متن درخواست استفاده می‌شود.",
+    criteriaInvalid: "بازه‌های سفارشی را بررسی کنید: حداقل باید از حداکثر کمتر باشد و مقدارها در محدوده‌ی مجاز باشند.",
+    useCriteria: "استفاده از بازه‌های سفارشی", tmMin: "حداقل Tm (°C)", tmOpt: "Tm بهینه (°C)", tmMax: "حداکثر Tm (°C)", tmDiff: "حداکثر اختلاف Tm جفت (°C)",
+    primerLength: "طول پرایمر (nt)", primerGc: "GC پرایمر (%)", productRange: "اندازه‌ی محصول PCR (bp)", min: "حداقل", optimal: "بهینه", max: "حداکثر",
+    pairCount: "تعداد جفت پرایمر", junctionPreference: "ترجیح اتصال اگزونی", junctionAuto: "خودکار (متناسب با qPCR)",
+    junctionNone: "بدون ترجیح", junctionRequire: "قرارگیری یک پرایمر روی اتصال اگزونی الزامی باشد", junctionAvoid: "پرایمر روی اتصال اگزونی نباشد",
+    templateSummary: "توالی الگو: {n} nt · GC {gc}٪", primerMap: "جایگاه پرایمرها روی توالی الگو",
+    primerMapNote: "اگزون‌ها در صورت وجود حاشیه‌نویسی RefSeq نمایش داده می‌شوند. مختصات برای توالی ورودی است، نه ژنوم.", ampliconGc: "GC آمپلیکون",
     prompt: "چه می‌خواهید؟", promptPh: "مثلاً: دما را روی ۶۲ تنظیم کن، محصول ۱۰۰ تا ۲۰۰ bp  /  Tm 62",
     mode: "کاربرد", mode_standard: "PCR معمولی (۱۰۰ تا ۱۰۰۰ bp)", mode_qpcr: "qPCR (۷۰ تا ۱۵۰ bp)", mode_sanger: "PCR برای سنگر (۴۰۰ تا ۹۰۰ bp)",
     qpcr_chemistry: "روش qPCR", qpcr_taqman: "پروب TaqMan", qpcr_sybr: "SYBR Green (فقط جفت پرایمر)",
@@ -144,7 +162,7 @@ const T: Record<Lang, Record<string, string>> = {
     polymerase: "نوع پلیمراز", pol_taq: "از نوع Taq", pol_hifi: "دقت بالا (Q5/Phusion)",
     tailLeft: "دنباله ′5 پرایمر رفت (اختیاری)", tailRight: "دنباله ′5 پرایمر برگشت (اختیاری)",
     mutation: "موتاسیون هدفمند (اختیاری)", mutationHint: "جایگزینی DNA با شماره‌ی ۱-مبنا، مثلاً A120G ← طراحی پرایمر موتاژنیک",
-    designBtn: "طراحی پرایمر", detectedTm: "Tm هدف", src_llm: "تحلیل هوشمند", src_regex: "از متن شما", src_default: "پیش‌فرض",
+    designBtn: "طراحی پرایمر", detectedTm: "Tm هدف", src_llm: "تحلیل هوشمند", src_regex: "از متن شما", src_default: "پیش‌فرض", src_custom: "بازه‌های سفارشی",
     noPrimers: "پرایمری پیدا نشد", noPrimersHelp: "محدوده‌ی اندازه‌ی محصول را بازتر کنید، Tm دیگری بدهید یا بازه‌ی کوچک‌تری بگیرید. پاسخ Primer3:",
     pair: "جفت", forward: "رفت", reverse: "برگشت", probe: "پروب", tm: "Tm", gc: "GC", len: "nt", size: "محصول", anneal: "دمای اتصال",
     hairpin: "سنجاقی", selfDimer: "دایمر خودی", heteroDimer: "دایمر بین پرایمرها", endDimer: "پایداری انتهای ′3",
@@ -156,13 +174,15 @@ const T: Record<Lang, Record<string, string>> = {
     onTarget: "هدف اصلی", other: "سایر", provenance: "Tm: روش نزدیک‌ترین همسایه (SantaLucia)، ۵۰ mM Na⁺، ۱٫۵ mM Mg²⁺، ۰٫۶ mM dNTP، ۵۰ nM پرایمر · Primer3 {v}",
     ex_junction_primer: "پرایمر روی اتصال اگزون–اگزون قرار دارد (ایمن از DNA ژنومی)", ex_intron_spanning: "آمپلیکون از اینترون عبور می‌کند (محصول ژنومی بزرگ‌تر می‌شود)",
     ex_none: "هیچ اتصال اگزونی پوشش داده نشده — ممکن است DNA ژنومی را هم تکثیر کند", ex_unknown: "اطلاعات اگزون موجود نیست (ژن را با نماد دریافت کنید)",
+    warn_junction_unavailable: "برای فیلتر اتصال اگزونی، حاشیه‌نویسی اگزون ترنسکریپت لازم است. این نوبت بر اساس محل اتصال فیلتر نشد.",
+    warn_junction_filter_no_pair: "پرایمر پیدا شد، اما همه از اتصال اگزونی عبور می‌کردند. ترجیح اتصال یا بازه‌ها را تغییر دهید.",
     note_tm_diff: "اختلاف Tm پرایمرها {v} درجه است.", note_gc_range: "GC پرایمر {side} برابر {v}٪ است (هدف ۴۰ تا ۶۰٪).",
     note_clamp_weak: "پرایمر {side}: در ۵ باز آخر G/C ندارد (گیره‌ی ′3 ضعیف).", note_clamp_strong: "پرایمر {side}: بیش از ۴ باز G/C در ۵ باز آخر (خطر اتصال نادرست).",
     note_run: "پرایمر {side} توالی ۴ باز یکسان یا بیشتر پشت‌سرهم دارد.", note_structure_high: "یک ساختار ثانویه نزدیک دمای اتصال پایدار است.",
     note_structure_low: "سنجاقی و دایمرها نسبت به دمای اتصال ضعیف‌اند.", note_junction_ok: "روی اتصال اگزون–اگزون قرار دارد.",
     note_intron_ok: "آمپلیکون اینترون دارد؛ محصول ژنومی بزرگ‌تر خواهد بود.", note_junction_none: "اتصال اگزونی پوشش داده نشده.",
     note_amplicon_gc: "GC آمپلیکون {v}٪ است — DMSO یا GC enhancer را در نظر بگیرید.",
-    warn_tm_out_of_range: "دمای نوشته‌شده در متن خارج از ۴۰ تا ۸۰ درجه بود و نادیده گرفته شد.", warn_relaxed: "هیچ پرایمری در محدوده‌ی سخت‌گیرانه نبود؛ بازه‌ی Tm/اندازه/GC بازتر شد.",
+    warn_tm_out_of_range: "دمای نوشته‌شده در متن خارج از ۴۰ تا ۸۰ درجه بود و نادیده گرفته شد.", warn_relaxed: "با محدودیت‌های درخواستی جفتی پیدا نشد. Tm (۲ درجه)، طول پرایمر (۱−/۳+ nt)، GC (۵٪) و اختلاف Tm جفت (۲ درجه) کمی بازتر شد؛ اندازه‌ی محصول ثابت ماند.",
     warn_junction_fallback: "پرایمر روی اتصال اگزونی پیدا نشد؛ بهترین پرایمرهای معمولی نمایش داده می‌شود.", warn_no_annotation_qpcr: "اطلاعات اگزون نیست: برای qPCR مبتنی بر اتصال اگزونی، mRNA مرجع را با نماد ژن دریافت کنید.",
     sdm: "پرایمرهای موتاژنز هدفمند", sdmHint: "جفت مکمل به سبک QuikChange (موتاسیون در مرکز). Tm = 81.5 + 0.41·GC% − 675/N − %mismatch.",
     sdmOk: "شرایط Tm ≥ ۷۸، GC ≥ ۴۰٪ و انتهای G/C برقرار است", sdmWeak: "همه‌ی شرایط برقرار نیست — پرایمر بلندتر یا طراحی Q5-SDM را در نظر بگیرید",
@@ -661,22 +681,80 @@ function downloadDesignBundle(r: any, input: any) {
 
 function downloadDesignReport(r: any, gene: any, seq: string, lang: Lang, t: Record<string, string>) {
   const pr = r.parameters || {};
+  const normalized = norm(seq);
+  const templateGc = normalized.length
+    ? Math.round(1000 * [...normalized].filter((base) => base === "G" || base === "C").length / normalized.length) / 10
+    : 0;
   const exonTxt: Record<string, string> = { junction_primer: "primer spans an exon-exon junction", intron_spanning: "amplicon spans an intron", none: "no exon junction covered", unknown: "no exon annotation" };
   downloadReport(lang, t, `${gene?.symbol || "primer"}_design_report`, t.report_title_design, [
-    { h: t.report_inputs, html: htmlTable(["Gene", "Transcript", "Organism", "Template length", "Exons", "CDS"],
-      [[gene?.symbol || "custom sequence", gene?.accession || "—", gene?.organism || "—", `${seq.length} nt`, gene?.annotation?.exons?.length ?? "—",
+    { h: t.report_inputs, html: htmlTable(["Gene", "Transcript", "Organism", "Template length", "Template GC", "Exons", "CDS"],
+      [[gene?.symbol || "custom sequence", gene?.accession || "—", gene?.organism || "—", `${normalized.length} nt`, `${templateGc}%`, gene?.annotation?.exons?.length ?? "—",
         gene?.annotation?.cds_start ? `${gene.annotation.cds_start}-${gene.annotation.cds_end}` : "—"]]) +
-      htmlTable(["Application", "qPCR chemistry", "Polymerase", "Target Tm", "Product size", "Region", "Junction mode"],
-      [[pr.mode, pr.qpcr_chemistry || "—", pr.polymerase, `${pr.tm} °C (${pr.source})`, `${pr.size_range?.[0]}-${pr.size_range?.[1]} bp`, pr.region ? pr.region.join("-") : "whole template", pr.junction_mode ? "yes" : "no"]]) +
+      htmlTable(["Application", "qPCR chemistry", "Polymerase", "Tm min/opt/max", "Primer length min/max", "Primer GC min/max", "Product size", "Pairs", "Region", "Junction preference"],
+      [[pr.mode, pr.qpcr_chemistry || "—", pr.polymerase, `${pr.tm_range?.[0] ?? pr.tm}/${pr.tm_range?.[1] ?? pr.tm}/${pr.tm_range?.[2] ?? pr.tm} °C`,
+        `${pr.primer_length_range?.[0] ?? "—"}-${pr.primer_length_range?.[1] ?? "—"} nt`, `${pr.primer_gc_range?.[0] ?? "—"}-${pr.primer_gc_range?.[1] ?? "—"}%`,
+        `${pr.size_range?.[0]}-${pr.size_range?.[1]} bp`, pr.num_return ?? "—", pr.region ? pr.region.join("-") : "whole template", pr.junction_policy || "—"]]) +
       htmlTable(["Run time (UTC)", "Platform version", "Primer3 version", "Normalized template SHA-256"],
        [[r.created_at || "—", r.version || "—", pr.primer3 || "—", r.input_sha256 || "—"]]) },
-    { h: t.report_results, html: htmlTable(["Pair", "Forward 5′→3′", "Reverse 5′→3′", "Tm F/R", "GC F/R", "Product", "Anneal", "Probe", "Exon check", "Structure risk"],
+    { h: t.report_results, html: htmlTable(["Pair", "Forward 5′→3′", "Reverse 5′→3′", "Tm F/R", "GC F/R", "Length F/R", "Product", "Amplicon GC", "Anneal", "Probe", "Exon check", "Structure risk"],
       r.pairs.map((x: any, i: number) => [i + 1, `${x.left.seq_tail} (${x.left.start1}-${x.left.end1})`, `${x.right.seq_tail} (${x.right.start1}-${x.right.end1})`,
-        `${x.left.tm}/${x.right.tm} °C`, `${x.left.gc}/${x.right.gc}%`, `${x.product_size} bp`, `${x.anneal_temp} °C`, x.probe ? `${x.probe.seq} (Tm ${x.probe.tm})` : "—",
+        `${x.left.tm}/${x.right.tm} °C`, `${x.left.gc}/${x.right.gc}%`, `${x.left.len}/${x.right.len} nt`, `${x.product_size} bp`, `${x.amplicon_gc}%`, `${x.anneal_temp} °C`, x.probe ? `${x.probe.seq} (Tm ${x.probe.tm})` : "—",
         exonTxt[x.exon?.status] || x.exon?.status, x.risk?.overall])) +
       ((r.warnings || []).length ? `<ul>${r.warnings.map((w: string) => `<li>${esc(t["warn_" + w] || w)}</li>`).join("")}</ul>` : "") },
     { h: t.report_method, html: `<p>Primer3 ${esc(pr.primer3 || "")}; Tm by SantaLucia nearest-neighbour (50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM primer). Hairpin, self-/hetero-dimer and 3′ end stability rated against the annealing temperature. Exon boundaries from the NCBI RefSeq record. In-silico design: verify specificity (Primer-BLAST) and validate experimentally (gradient PCR, melt curve, efficiency).</p>` },
   ]);
+}
+
+function PrimerPairMap({ length, exons, pairs, t }: { length: number; exons: number[][]; pairs: any[]; t: Record<string, string> }) {
+  if (!length || !pairs?.length) return null;
+  const width = 1000, left = 92, right = 24, plotWidth = width - left - right;
+  const exonY = 28, firstPairY = 68, rowHeight = 28;
+  const height = firstPairY + pairs.length * rowHeight + 28;
+  const x = (position: number) => left + (Math.max(1, Math.min(length, position)) - 1) / Math.max(1, length - 1) * plotWidth;
+  const colors = ["#2563eb", "#ea580c", "#9333ea", "#059669", "#dc2626", "#0891b2", "#4f46e5", "#ca8a04", "#db2777", "#475569"];
+  const ticks = [1, Math.round(length / 2), length].filter((value, index, arr) => arr.indexOf(value) === index);
+  return (
+    <section className="border border-slate-200/80 rounded-2xl p-4 bg-white shadow-sm">
+      <h4 className="font-bold mb-1">{t.primerMap}</h4>
+      <p className="text-xs text-slate-500 mb-2">{t.primerMapNote}</p>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label={t.primerMap}>
+        <text x="8" y={exonY + 11} fontSize="12" fill="#475569">{t.exon}</text>
+        <line x1={left} x2={left + plotWidth} y1={exonY + 7} y2={exonY + 7} stroke="#cbd5e1" strokeWidth="2" />
+        {exons.filter((e) => Array.isArray(e) && e.length === 2 && e[0] <= e[1]).map((e, i) => (
+          <rect key={`exon-${i}`} x={x(e[0])} y={exonY} width={Math.max(3, x(e[1]) - x(e[0]))} height="14" rx="2" fill={i % 2 ? "#93c5fd" : "#3b82f6"}>
+            <title>{t.exon} {i + 1}: {e[0]}–{e[1]}</title>
+          </rect>
+        ))}
+        {pairs.map((pair, i) => {
+          const y = firstPairY + i * rowHeight, color = colors[i % colors.length];
+          const fs = x(pair.left.start1), fe = x(pair.left.end1);
+          const rs = x(pair.right.start1), re = x(pair.right.end1);
+          return (
+            <g key={`pair-${i}`}>
+              <text x="8" y={y + 4} fontSize="12" fill="#334155">{t.pair} {i + 1}</text>
+              <line x1={fs} x2={re} y1={y} y2={y} stroke="#e2e8f0" strokeWidth="2" />
+              <line x1={fs} x2={Math.max(fs + 2, fe)} y1={y} y2={y} stroke={color} strokeWidth="7" strokeLinecap="round" />
+              <polygon points={`${fe},${y - 5} ${fe + 8},${y} ${fe},${y + 5}`} fill={color} />
+              <line x1={rs} x2={Math.max(rs + 2, re)} y1={y} y2={y} stroke={color} strokeOpacity="0.72" strokeWidth="7" strokeLinecap="round" />
+              <polygon points={`${rs},${y - 5} ${rs - 8},${y} ${rs},${y + 5}`} fill={color} />
+              <title>{t.pair} {i + 1}: {pair.left.start1}–{pair.left.end1} / {pair.right.start1}–{pair.right.end1}</title>
+            </g>
+          );
+        })}
+        <line x1={left} x2={left + plotWidth} y1={height - 20} y2={height - 20} stroke="#64748b" />
+        {ticks.map((tick, i) => (
+          <g key={`tick-${tick}`}>
+            <line x1={x(tick)} x2={x(tick)} y1={height - 23} y2={height - 17} stroke="#64748b" />
+            <text x={x(tick)} y={height - 4} textAnchor={i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle"} fontSize="11" fill="#64748b">{tick}</text>
+          </g>
+        ))}
+      </svg>
+      <div className="flex flex-wrap gap-4 text-xs text-slate-600 mt-2" dir="ltr">
+        <span><i className="inline-block w-3 h-2 rounded-sm bg-blue-600 me-1" />{t.exon}</span>
+        <span><i className="inline-block w-3 h-2 rounded-sm bg-slate-400 me-1" />{t.forward} / {t.reverse}</span>
+      </div>
+    </section>
+  );
 }
 
 type GeneState = { symbol: string; accession: string; title: string; sequence: string; annotation: any; uniprot: any; organism: string; alternatives: any[]; protein_id?: string };
@@ -689,6 +767,13 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
   const [rs, setRs] = useState(""); const [re, setRe] = useState("");
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState("standard"); const [qpcrChemistry, setQpcrChemistry] = useState("taqman"); const [polymerase, setPolymerase] = useState("taq");
+  const [useCriteria, setUseCriteria] = useState(false);
+  const [tmMin, setTmMin] = useState("57"); const [tmOpt, setTmOpt] = useState("60"); const [tmMax, setTmMax] = useState("63");
+  const [tmDiff, setTmDiff] = useState("3");
+  const [primerMinLen, setPrimerMinLen] = useState("18"); const [primerOptLen, setPrimerOptLen] = useState("21"); const [primerMaxLen, setPrimerMaxLen] = useState("27");
+  const [gcMin, setGcMin] = useState("35"); const [gcMax, setGcMax] = useState("65");
+  const [productMin, setProductMin] = useState(""); const [productMax, setProductMax] = useState("");
+  const [pairCount, setPairCount] = useState("10"); const [junctionPolicy, setJunctionPolicy] = useState("auto");
   const [tailL, setTailL] = useState(""); const [tailR, setTailR] = useState(""); const [mutation, setMutation] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -714,8 +799,35 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
 
   const submit = async () => {
     const normalizedSequence = norm(seq);
+    const defaultProductRange = mode === "qpcr" ? [70, 150] : mode === "sanger" ? [400, 900] : [100, 250];
+    const designOptions = useCriteria ? {
+      tm_min: Number(tmMin), tm_opt: Number(tmOpt), tm_max: Number(tmMax), max_tm_diff: Number(tmDiff),
+      primer_min_len: Number(primerMinLen), primer_opt_len: Number(primerOptLen), primer_max_len: Number(primerMaxLen),
+      gc_min: Number(gcMin), gc_max: Number(gcMax),
+      product_size_min: productMin.trim() ? Number(productMin) : defaultProductRange[0],
+      product_size_max: productMax.trim() ? Number(productMax) : defaultProductRange[1],
+      num_return: Number(pairCount), junction_policy: junctionPolicy,
+    } : undefined;
+    if (designOptions && (
+      ![designOptions.tm_min, designOptions.tm_opt, designOptions.tm_max, designOptions.max_tm_diff,
+        designOptions.primer_min_len, designOptions.primer_opt_len, designOptions.primer_max_len,
+        designOptions.gc_min, designOptions.gc_max, designOptions.product_size_min,
+        designOptions.product_size_max, designOptions.num_return].every(Number.isFinite) ||
+      ![designOptions.primer_min_len, designOptions.primer_opt_len, designOptions.primer_max_len,
+        designOptions.product_size_min, designOptions.product_size_max, designOptions.num_return].every(Number.isInteger) ||
+      !(40 <= designOptions.tm_min && designOptions.tm_min <= designOptions.tm_opt && designOptions.tm_opt <= designOptions.tm_max && designOptions.tm_max <= 80) ||
+      !(15 <= designOptions.primer_min_len && designOptions.primer_min_len <= designOptions.primer_opt_len && designOptions.primer_opt_len <= designOptions.primer_max_len && designOptions.primer_max_len <= 36) ||
+      !(0 <= designOptions.gc_min && designOptions.gc_min < designOptions.gc_max && designOptions.gc_max <= 100) ||
+      !(30 <= designOptions.product_size_min && designOptions.product_size_min < designOptions.product_size_max && designOptions.product_size_max <= 5000) ||
+      !(1 <= designOptions.num_return && designOptions.num_return <= 20) ||
+      !(0 <= designOptions.max_tm_diff && designOptions.max_tm_diff <= 20)
+    )) {
+      notify(t.criteriaInvalid, "error");
+      return;
+    }
     const runInputs = { user_prompt: prompt, mode, qpcr_chemistry: qpcrChemistry, polymerase,
-      region_start: parseInt(rs) || 0, region_end: parseInt(re) || 0, tail_left: tailL, tail_right: tailR, mutation };
+      region_start: parseInt(rs) || 0, region_end: parseInt(re) || 0, tail_left: tailL, tail_right: tailR, mutation,
+      design_options: designOptions };
     setDesignSnapshot({ sequence: normalizedSequence, sequence_length: normalizedSequence.length,
       gene: gene ? { symbol: gene.symbol, accession: gene.accession, organism: gene.organism, annotation: gene.annotation } : null,
       parameters: runInputs });
@@ -723,7 +835,8 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
     try {
       const r = await call("/chat-design", { method: "POST", body: JSON.stringify({
          sequence: seq, user_prompt: prompt, tail_left: tailL, tail_right: tailR, mutation, mode, qpcr_chemistry: qpcrChemistry, polymerase,
-        region_start: parseInt(rs) || 0, region_end: parseInt(re) || 0, annotation, gene: gene?.symbol || "" }) });
+        region_start: parseInt(rs) || 0, region_end: parseInt(re) || 0, annotation, gene: gene?.symbol || "",
+        design_options: designOptions }) });
       setResult(r); p.onDesign(r);
     } catch (e) { fail(e); } finally { setLoading(false); }
   };
@@ -799,6 +912,11 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
   };
 
   const side = (s: string) => (s === "left" ? t.forward : t.reverse);
+  const normalizedTemplate = norm(seq);
+  const templateGcPercent = normalizedTemplate.length
+    ? Math.round(1000 * [...normalizedTemplate].filter((base) => base === "G" || base === "C").length / normalizedTemplate.length) / 10
+    : 0;
+  const modeProductRange = mode === "qpcr" ? [70, 150] : mode === "sanger" ? [400, 900] : [100, 250];
 
   return (
     <div className="space-y-6">
@@ -824,7 +942,9 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
 
       <div className="grid md:grid-cols-2 gap-4">
         <div className="md:col-span-2"><Field label={t.sequence} hint={fmt(t.seqHint, { max: p.maxLen })}>
-          <textarea dir="ltr" className={seqCls + " h-28"} value={seq} onChange={(e) => setSeq(e.target.value)} placeholder="ATGC…" /></Field></div>
+          <textarea dir="ltr" className={seqCls + " h-28"} value={seq} onChange={(e) => setSeq(e.target.value)} placeholder="ATGC…" />
+          <p className="text-xs text-slate-500 mt-1" dir="ltr">{fmt(t.templateSummary, { n: normalizedTemplate.length, gc: templateGcPercent })}</p>
+        </Field></div>
         <Field label={t.prompt}><input className={inputCls} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t.promptPh} /></Field>
         <Field label={t.region}>
           <div className="flex items-center gap-2" dir="ltr"><span className="text-xs">{t.from}</span><input className={inputCls} inputMode="numeric" value={rs} onChange={(e) => setRs(e.target.value)} />
@@ -835,6 +955,38 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
           <option value="taqman">{t.qpcr_taqman}</option><option value="sybr">{t.qpcr_sybr}</option></select></Field>}
         <Field label={t.polymerase}><select className={inputCls} value={polymerase} onChange={(e) => setPolymerase(e.target.value)}>
           <option value="taq">{t.pol_taq}</option><option value="hifi">{t.pol_hifi}</option></select></Field>
+        <details open className="md:col-span-2 border border-slate-200 rounded-xl p-3 bg-white">
+          <summary className="font-semibold text-sm cursor-pointer">{t.criteriaTitle}</summary>
+          <p className="text-xs text-slate-500 mt-2">{t.criteriaHint}</p>
+          <label className="flex items-center gap-2 text-sm mt-3">
+            <input type="checkbox" checked={useCriteria} onChange={(e) => setUseCriteria(e.target.checked)} />
+            {t.useCriteria}
+          </label>
+          <div className={`grid md:grid-cols-3 gap-3 mt-3 ${useCriteria ? "" : "opacity-60"}`}>
+            <Field label={t.tmMin}><input type="number" step="0.1" min="40" max="80" disabled={!useCriteria} className={inputCls} value={tmMin} onChange={(e) => setTmMin(e.target.value)} /></Field>
+            <Field label={t.tmOpt}><input type="number" step="0.1" min="40" max="80" disabled={!useCriteria} className={inputCls} value={tmOpt} onChange={(e) => setTmOpt(e.target.value)} /></Field>
+            <Field label={t.tmMax}><input type="number" step="0.1" min="40" max="80" disabled={!useCriteria} className={inputCls} value={tmMax} onChange={(e) => setTmMax(e.target.value)} /></Field>
+            <Field label={t.tmDiff}><input type="number" step="0.1" min="0" max="20" disabled={!useCriteria} className={inputCls} value={tmDiff} onChange={(e) => setTmDiff(e.target.value)} /></Field>
+            <Field label={t.primerLength + ` · ${t.min}`}><input type="number" min="15" max="36" disabled={!useCriteria} className={inputCls} value={primerMinLen} onChange={(e) => setPrimerMinLen(e.target.value)} /></Field>
+            <Field label={t.primerLength + ` · ${t.optimal}`}><input type="number" min="15" max="36" disabled={!useCriteria} className={inputCls} value={primerOptLen} onChange={(e) => setPrimerOptLen(e.target.value)} /></Field>
+            <Field label={t.primerLength + ` · ${t.max}`}><input type="number" min="15" max="36" disabled={!useCriteria} className={inputCls} value={primerMaxLen} onChange={(e) => setPrimerMaxLen(e.target.value)} /></Field>
+            <Field label={t.primerGc + ` · ${t.min}`}><input type="number" step="0.1" min="0" max="100" disabled={!useCriteria} className={inputCls} value={gcMin} onChange={(e) => setGcMin(e.target.value)} /></Field>
+            <Field label={t.primerGc + ` · ${t.max}`}><input type="number" step="0.1" min="0" max="100" disabled={!useCriteria} className={inputCls} value={gcMax} onChange={(e) => setGcMax(e.target.value)} /></Field>
+            <Field label={t.productRange + ` · ${t.min}`}>
+              <input type="number" min="30" max="5000" disabled={!useCriteria} className={inputCls} value={productMin} placeholder={String(modeProductRange[0])} onChange={(e) => setProductMin(e.target.value)} />
+            </Field>
+            <Field label={t.productRange + ` · ${t.max}`}>
+              <input type="number" min="31" max="5000" disabled={!useCriteria} className={inputCls} value={productMax} placeholder={String(modeProductRange[1])} onChange={(e) => setProductMax(e.target.value)} />
+            </Field>
+            <Field label={t.pairCount}><input type="number" min="1" max="20" disabled={!useCriteria} className={inputCls} value={pairCount} onChange={(e) => setPairCount(e.target.value)} /></Field>
+            <Field label={t.junctionPreference}>
+              <select className={inputCls} disabled={!useCriteria} value={junctionPolicy} onChange={(e) => setJunctionPolicy(e.target.value)}>
+                <option value="auto">{t.junctionAuto}</option><option value="none">{t.junctionNone}</option>
+                <option value="require">{t.junctionRequire}</option><option value="avoid">{t.junctionAvoid}</option>
+              </select>
+            </Field>
+          </div>
+        </details>
         <Field label={t.tailLeft}><input dir="ltr" className={seqCls} value={tailL} onChange={(e) => setTailL(e.target.value)} placeholder="GAATTC" /></Field>
         <Field label={t.tailRight}><input dir="ltr" className={seqCls} value={tailR} onChange={(e) => setTailR(e.target.value)} placeholder="AAGCTT" /></Field>
         <div className="md:col-span-2"><Field label={t.mutation} hint={t.mutationHint}><input dir="ltr" className={seqCls} value={mutation} onChange={(e) => setMutation(e.target.value)} placeholder="A120G" /></Field></div>
@@ -844,8 +996,9 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
       {result && (
         <section className="space-y-5 border-t pt-6">
           <div className="flex flex-wrap gap-2 items-center text-sm">
-            <span className="bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full">{t.detectedTm}: {result.parameters.tm} °C ({t["src_" + result.parameters.source]})</span>
+            <span className="bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full">{t.detectedTm}: {result.parameters.tm_range?.[0] ?? result.parameters.tm}–{result.parameters.tm_range?.[2] ?? result.parameters.tm} °C · {t.optimal} {result.parameters.tm} °C ({t["src_" + result.parameters.source]})</span>
             <span className="bg-slate-100 px-3 py-1 rounded-full">{t.size}: {result.parameters.size_range[0]}–{result.parameters.size_range[1]} bp</span>
+            <span className="bg-slate-100 px-3 py-1 rounded-full">{fmt(t.templateSummary, { n: result.template_length, gc: result.template_gc })}</span>
             {result.pairs.length > 0 && <Btn kind="dark" onClick={exportCsv}>{t.csvIdt}</Btn>}
             {result.pairs.length > 0 && <Btn kind="dark" onClick={() => downloadDesignReport(result, designSnapshot?.gene, designSnapshot?.sequence || seq, p.lang, t)}>{t.report}</Btn>}
              {result.pairs.length > 0 && <Btn kind="ghost" onClick={() => downloadDesignBundle(result, designSnapshot)}>{t.reproBundle}</Btn>}
@@ -872,7 +1025,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
                   ))}
                   {pr.probe && (<div><p className="text-xs font-semibold text-purple-700 mb-1">{t.probe}</p>
                     <div className="bg-purple-50 rounded p-2 font-mono text-sm flex justify-between" dir="ltr"><span className="break-all">{pr.probe.seq}</span><CopyBtn text={pr.probe.seq} t={t} /></div>
-                    <p className="text-xs text-slate-600 mt-1" dir="ltr">{t.tm} {pr.probe.tm} °C</p></div>)}
+                    <p className="text-xs text-slate-600 mt-1" dir="ltr">{t.tm} {pr.probe.tm} °C · {t.gc} {pr.probe.gc}% · {pr.probe.len} {t.len}</p></div>)}
                   <dl className="text-xs space-y-1">
                     {([[t.hairpin, worstOf(pr.hairpin.left.risk, pr.hairpin.right.risk), `${pr.hairpin.left.tm}/${pr.hairpin.right.tm} °C`],
                       [t.selfDimer, worstOf(pr.self_dimer.left.risk, pr.self_dimer.right.risk), `${pr.self_dimer.left.dg}/${pr.self_dimer.right.dg} kcal`],
@@ -880,7 +1033,10 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
                       [t.endDimer, pr.end_dimer.risk, `${pr.end_dimer.dg} kcal`]] as any[]).map(([l, r, d]) => (
                       <div key={l} className="flex justify-between items-center gap-2"><dt>{l}</dt><dd className="flex gap-2 items-center"><span className="text-slate-500" dir="ltr">{d}</span><Risk v={r} t={t} /></dd></div>))}
                   </dl>
-                  <div className="bg-slate-100 rounded p-2 text-sm" dir="ltr"><div className="flex justify-between font-semibold"><span>{t.size}: {pr.product_size} bp</span><span>{t.anneal}: {pr.anneal_temp} °C</span></div></div>
+                  <div className="bg-slate-100 rounded p-2 text-sm" dir="ltr">
+                    <div className="flex flex-wrap justify-between gap-2 font-semibold"><span>{t.size}: {pr.product_size} bp</span><span>{t.anneal}: {pr.anneal_temp} °C</span></div>
+                    <p className="text-xs text-slate-600 mt-1">{t.ampliconGc}: {pr.amplicon_gc}%</p>
+                  </div>
                   <p className={`text-xs p-2 rounded ${pr.exon.status === "none" ? "bg-yellow-50 text-yellow-900" : pr.exon.status === "unknown" ? "bg-slate-50 text-slate-600" : "bg-green-50 text-green-900"}`}>{t["ex_" + pr.exon.status]}</p>
                   <ul className="text-xs space-y-1">{pr.notes.map((n: any, k: number) => (
                     <li key={k} className={n.kind === "good" ? "text-green-800" : "text-yellow-800"}>{n.kind === "good" ? "✓ " : "! "}{fmt(t["note_" + n.code], { ...n.p, side: n.p.side ? side(n.p.side) : "" })}</li>))}</ul>
@@ -900,6 +1056,7 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
               ))}
             </div>
           )}
+          {result.pairs.length > 0 && <PrimerPairMap length={result.template_length} exons={designSnapshot?.gene?.annotation?.exons || []} pairs={result.pairs} t={t} />}
           {result.pairs.length > 0 && <p className="text-xs text-slate-500" dir="ltr">{fmt(t.provenance, { v: result.parameters.primer3 })}</p>}
 
           {result.mutation && (

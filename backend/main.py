@@ -435,6 +435,7 @@ class ChatRequest(BaseModel):
     region_end: int = 0
     annotation: Optional[AnnotationModel] = None
     gene: str = Field("", max_length=40)
+    design_options: Optional[Dict[str, Any]] = None
 
 
 class MultiplexRequest(BaseModel):
@@ -817,13 +818,24 @@ def _pos(v):
 
 def build_global_args(tm, size_range, mode, params, relaxed=False, num=3, qpcr_chemistry="taqman"):
     win = 5.0 if relaxed else 3.0
+    tm_min = float(params.get("tm_min", tm - 3.0))
+    tm_max = float(params.get("tm_max", tm + 3.0))
+    primer_min_len = int(params.get("primer_min_len", 18))
+    primer_opt_len = int(params.get("primer_opt_len", 21))
+    primer_max_len = int(params.get("primer_max_len", 27))
+    primer_opt_len = min(max(primer_opt_len, primer_min_len), primer_max_len)
+    gc_min = float(params.get("gc_min", 35.0))
+    gc_max = float(params.get("gc_max", 65.0))
+    max_tm_diff = float(params.get("max_tm_diff", 3.0))
     g = {
-        "PRIMER_OPT_TM": tm, "PRIMER_MIN_TM": tm - win, "PRIMER_MAX_TM": tm + win,
-        "PRIMER_PAIR_MAX_DIFF_TM": 5.0 if relaxed else 3.0,
-        "PRIMER_MIN_SIZE": params.get("primer_min_len", 18 if not relaxed else 17),
-        "PRIMER_OPT_SIZE": 21,
-        "PRIMER_MAX_SIZE": params.get("primer_max_len", 27 if not relaxed else 30),
-        "PRIMER_MIN_GC": 35.0 if not relaxed else 25.0, "PRIMER_MAX_GC": 65.0 if not relaxed else 75.0,
+        "PRIMER_OPT_TM": tm, "PRIMER_MIN_TM": max(40.0, tm_min - (2.0 if relaxed else 0.0)),
+        "PRIMER_MAX_TM": min(80.0, tm_max + (2.0 if relaxed else 0.0)),
+        "PRIMER_PAIR_MAX_DIFF_TM": max_tm_diff + (2.0 if relaxed else 0.0),
+        "PRIMER_MIN_SIZE": max(15, primer_min_len - (1 if relaxed else 0)),
+        "PRIMER_OPT_SIZE": primer_opt_len,
+        "PRIMER_MAX_SIZE": min(36, primer_max_len + (3 if relaxed else 0)),
+        "PRIMER_MIN_GC": max(0.0, gc_min - (5.0 if relaxed else 0.0)),
+        "PRIMER_MAX_GC": min(100.0, gc_max + (5.0 if relaxed else 0.0)),
         "PRIMER_NUM_RETURN": num,
         "PRIMER_PRODUCT_SIZE_RANGE": [size_range],
         "PRIMER_SALT_MONOVALENT": SALT["mv_conc"], "PRIMER_SALT_DIVALENT": SALT["dv_conc"],
@@ -849,11 +861,11 @@ def run_primer3(template, g, extra=None):
 
 
 def design_pairs(template, tm, mode, size_range, included, juncs, params, num=3, prefer_junction=False,
-                 qpcr_chemistry="taqman"):
+                 qpcr_chemistry="taqman", require_junction=False):
     """Returns (result, attempt, junction_used). attempt: strict | relaxed | failed."""
     extra = {"SEQUENCE_INCLUDED_REGION": included} if included else {}
     res = {}
-    if prefer_junction and juncs:
+    if (prefer_junction or require_junction) and juncs:
         try:
             res = run_primer3(template, build_global_args(tm, size_range, mode, params, False, num, qpcr_chemistry),
                               {**extra, "SEQUENCE_OVERLAP_JUNCTION_LIST": juncs})
@@ -861,6 +873,15 @@ def design_pairs(template, tm, mode, size_range, included, juncs, params, num=3,
                 return res, "strict", True
         except HTTPException:
             pass
+        if require_junction:
+            try:
+                res = run_primer3(template, build_global_args(tm, size_range, mode, params, True, num, qpcr_chemistry),
+                                  {**extra, "SEQUENCE_OVERLAP_JUNCTION_LIST": juncs})
+                if res.get("PRIMER_PAIR_NUM_RETURNED", 0) > 0:
+                    return res, "relaxed", True
+            except HTTPException:
+                pass
+            return res, "failed", False
     for att in ("strict", "relaxed"):
         res = run_primer3(template, build_global_args(tm, size_range, mode, params, att == "relaxed", num,
                                                        qpcr_chemistry), extra)
@@ -942,10 +963,54 @@ def build_pairs(res, template, ann, tail_l, tail_r, polymerase, offset=0):
         pseq = res.get(f"PRIMER_INTERNAL_{i}_SEQUENCE")
         if pseq:
             pair["probe"] = {"seq": pseq, "tm": round(float(res.get(f"PRIMER_INTERNAL_{i}_TM", 0)), 1),
-                             "gc": gc_percent(pseq)}
+                             "gc": gc_percent(pseq), "len": len(pseq)}
         pair["notes"] = pair_notes(pair)
         pairs.append(pair)
     return pairs
+
+
+def validate_design_options(raw, mode):
+    """Validate the optional structured Primer3 controls sent by the web form."""
+    if raw is None:
+        return None
+    default_size = {"standard": (100, 250), "qpcr": (70, 150), "sanger": (400, 900)}[mode]
+
+    def number(key, default, low, high, integer=False):
+        try:
+            value = int(raw.get(key, default)) if integer else float(raw.get(key, default))
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"Invalid design option: {key}.")
+        if not low <= value <= high:
+            raise HTTPException(400, f"{key} must be between {low} and {high}.")
+        return value
+
+    out = {
+        "tm_min": number("tm_min", 57, 40, 80),
+        "tm_opt": number("tm_opt", 60, 40, 80),
+        "tm_max": number("tm_max", 63, 40, 80),
+        "primer_min_len": number("primer_min_len", 18, 15, 36, True),
+        "primer_opt_len": number("primer_opt_len", 21, 15, 36, True),
+        "primer_max_len": number("primer_max_len", 27, 15, 36, True),
+        "gc_min": number("gc_min", 35, 0, 100),
+        "gc_max": number("gc_max", 65, 0, 100),
+        "max_tm_diff": number("max_tm_diff", 3, 0, 20),
+        "product_size_min": number("product_size_min", default_size[0], 30, 5000, True),
+        "product_size_max": number("product_size_max", default_size[1], 31, 5000, True),
+        "num_return": number("num_return", 10, 1, 20, True),
+    }
+    if not out["tm_min"] <= out["tm_opt"] <= out["tm_max"]:
+        raise HTTPException(400, "Tm values must satisfy min ≤ optimal ≤ max.")
+    if not out["primer_min_len"] <= out["primer_opt_len"] <= out["primer_max_len"]:
+        raise HTTPException(400, "Primer lengths must satisfy min ≤ optimal ≤ max.")
+    if out["gc_min"] >= out["gc_max"]:
+        raise HTTPException(400, "GC limits must satisfy minimum < maximum.")
+    if out["product_size_min"] >= out["product_size_max"]:
+        raise HTTPException(400, "Product size must satisfy minimum < maximum.")
+    policy = str(raw.get("junction_policy", "auto"))
+    if policy not in ("auto", "none", "require", "avoid"):
+        raise HTTPException(400, "Invalid exon-junction preference.")
+    out["junction_policy"] = policy
+    return out
 
 
 def parse_mutation(m: str, seq: str):
@@ -1015,7 +1080,13 @@ def chat_design(request: Request, req: ChatRequest):
     polymerase = req.polymerase if req.polymerase in ("taq", "hifi") else "taq"
     ann = clean_annotation(req.annotation, len(seq))
     params, source, warnings = parse_prompt(req.user_prompt or "")
+    options = validate_design_options(req.design_options, mode)
+    if options:
+        params.update(options)
+        params["tm"] = options["tm_opt"]
+        source = "custom"
     tm = params.get("tm", 60.0)
+    junction_policy = options["junction_policy"] if options else ("auto" if mode == "qpcr" else "none")
 
     included = None
     rs, re_ = req.region_start, req.region_end
@@ -1026,12 +1097,17 @@ def chat_design(request: Request, req: ChatRequest):
         included = [rs - 1, re_ - rs + 1]
 
     lo, hi = {"standard": (100, 1000), "qpcr": (70, 150), "sanger": (400, 900)}[mode]
-    if "product_min" in params:
+    if options:
+        lo, hi = options["product_size_min"], options["product_size_max"]
+    elif "product_min" in params:
         lo, hi = params["product_min"], params["product_max"]
     span = included[1] if included else len(seq)
     if hi > span:
+        if options and lo > span:
+            raise HTTPException(400, "The minimum product size exceeds the available template or selected region.")
         hi = span
-        lo = min(lo, max(30, hi - 20))
+        if not options:
+            lo = min(lo, max(30, hi - 20))
 
     tl = clean_dna(req.tail_left or req.tail_sequence, "tail_left", 80, allow_n=False, min_len=0)
     tr = clean_dna(req.tail_right or req.tail_sequence, "tail_right", 80, allow_n=False, min_len=0)
@@ -1042,31 +1118,55 @@ def chat_design(request: Request, req: ChatRequest):
         mut_info = mutation_effect(mut, seq, ann)
         sdm = sdm_design(seq, mut["pos"], mut["new"])
 
-    juncs = junction_positions(ann) if mode == "qpcr" else []
-    if mode == "qpcr" and not juncs:
+    juncs = junction_positions(ann)
+    if mode == "qpcr" and junction_policy == "auto" and not juncs:
         warnings.append("no_annotation_qpcr")
+    if junction_policy in ("require", "avoid") and not juncs:
+        warnings.append("junction_unavailable")
 
-    res, attempt, jused = design_pairs(seq, tm, mode, [lo, hi], included, juncs, params,
-                                       prefer_junction=(mode == "qpcr"), qpcr_chemistry=qpcr_chemistry)
+    requested_pairs = int(options["num_return"]) if options else 3
+    design_count = min(30, requested_pairs * 3) if junction_policy == "avoid" and juncs else requested_pairs
+    res, attempt, jused = design_pairs(
+        seq, tm, mode, [lo, hi], included, juncs, params, num=design_count,
+        prefer_junction=(junction_policy == "auto" and mode == "qpcr"),
+        qpcr_chemistry=qpcr_chemistry,
+        require_junction=(junction_policy == "require" and bool(juncs)),
+    )
     if attempt == "relaxed":
         warnings.append("relaxed")
-    if mode == "qpcr" and juncs and not jused:
+    if mode == "qpcr" and junction_policy == "auto" and juncs and not jused:
         warnings.append("junction_fallback")
 
     pairs = build_pairs(res, seq, ann, tl, tr, polymerase)
+    if junction_policy == "avoid" and juncs:
+        unfiltered_count = len(pairs)
+        pairs = [pair for pair in pairs if pair["exon"]["status"] != "junction_primer"][:requested_pairs]
+        if unfiltered_count and not pairs:
+            warnings.append("junction_filter_no_pair")
     explain = {k: res.get(k) for k in ("PRIMER_LEFT_EXPLAIN", "PRIMER_RIGHT_EXPLAIN", "PRIMER_PAIR_EXPLAIN")}
+    tm_range = [params.get("tm_min", tm - 3.0), tm, params.get("tm_max", tm + 3.0)]
+    primer_length_range = [
+        params.get("primer_min_len", 18), params.get("primer_max_len", 27),
+    ]
+    primer_gc_range = [params.get("gc_min", 35.0), params.get("gc_max", 65.0)]
     return {
         "pairs": pairs,
         "attempt": attempt,
         "explain": explain,
         "warnings": warnings,
-        "parameters": {"tm": tm, "source": source, "mode": mode, "polymerase": polymerase,
+        "parameters": {"tm": tm, "tm_range": tm_range, "source": source, "mode": mode,
+                        "polymerase": polymerase, "max_tm_diff": params.get("max_tm_diff", 3.0),
+                        "primer_length_range": primer_length_range,
+                        "primer_opt_len": params.get("primer_opt_len", 21),
+                        "primer_gc_range": primer_gc_range,
+                        "num_return": requested_pairs, "junction_policy": junction_policy,
                         "qpcr_chemistry": qpcr_chemistry if mode == "qpcr" else None,
                        "size_range": [lo, hi], "region": [rs, re_] if included else None,
                        "junction_mode": bool(jused), "primer3": getattr(primer3, "__version__", "")},
         "mutation": mut_info,
         "sdm": sdm,
         "template_length": len(seq),
+        "template_gc": gc_percent(seq),
         "version": VERSION,
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "input_sha256": hashlib.sha256(seq.encode("ascii")).hexdigest(),
