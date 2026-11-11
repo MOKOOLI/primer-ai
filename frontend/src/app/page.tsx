@@ -3,16 +3,17 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Script from "next/script";
+import type { Lang } from "./i18n";
+import { LANGUAGES, isRtl, isLang, EXTRA_T, EXTRA_TUT, EXTRA_LANDING } from "./i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://primer-ai.onrender.com";
 
-type Lang = "en" | "fa";
 type TabId = "design" | "qpcr" | "multiplex" | "gibson" | "crispr" | "toolbox" | "explorer" | "tutorial" | "troubleshoot" | "library" | "classroom";
 
 /* ------------------------------------------------------------------ */
 /* Translations                                                        */
 /* ------------------------------------------------------------------ */
-const T: Record<Lang, Record<string, string>> = {
+const T_CORE: Record<"en" | "fa", Record<string, string>> = {
   en: {
     title: "Primer AI", subtitle: "From gene to structure to literature — designed in your language.",
     tab_design: "Primer design", tab_qpcr: "RT-qPCR analysis", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
@@ -88,7 +89,7 @@ const T: Record<Lang, Record<string, string>> = {
     libEmpty: "No saved primers yet.", libDelete: "Delete", libExport: "Export all (CSV)", legacy: "imported",
     footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC",
     privacyNotice: "Sequences and qPCR data are processed by the Primer AI server. BLAST, ESMFold sequence prediction, and Anthropic AI each ask before sending data to that provider.",
-    pricing: "Pricing", privacy: "Privacy", blastConsent: "I agree to send these primers and target details to NCBI for BLAST.",
+    language: "Language", nav_services: "Services", home: "Home", open_tool: "Open →", privacy: "Privacy", blastConsent: "I agree to send these primers and target details to NCBI for BLAST.",
     aiDisclosure: "Your question is sent to Anthropic. Current-session details are not shared unless you opt in.",
     aiConsent: "I understand my question will be sent to Anthropic.", aiContextConsent: "Also include my current gene, primer and qPCR summary (optional).",
     explainConsent: "I agree to send retrieved UniProt and paper context to Anthropic for this explanation.",
@@ -210,7 +211,7 @@ const T: Record<Lang, Record<string, string>> = {
     libEmpty: "هنوز پرایمری ذخیره نشده.", libDelete: "حذف", libExport: "خروجی همه (CSV)", legacy: "قدیمی",
     footer: "Primer3 (Untergasser et al., 2012) · NCBI · UniProt · AlphaFold DB · Europe PMC",
     privacyNotice: "توالی‌ها و داده‌های qPCR برای پردازش به سرور Primer AI فرستاده می‌شوند. برای ارسال به BLAST، پیش‌بینی ESMFold و قابلیت‌های هوش مصنوعی Anthropic، پیش از ارسال از شما اجازه گرفته می‌شود.",
-    pricing: "تعرفه‌ها", privacy: "حریم خصوصی", blastConsent: "موافقم این پرایمرها و اطلاعات هدف برای BLAST به NCBI فرستاده شوند.",
+    language: "زبان", nav_services: "خدمات", home: "خانه", open_tool: "← باز کردن", privacy: "حریم خصوصی", blastConsent: "موافقم این پرایمرها و اطلاعات هدف برای BLAST به NCBI فرستاده شوند.",
     aiDisclosure: "پرسش شما به Anthropic فرستاده می‌شود. جزئیات این نشست فقط با انتخاب شما ارسال می‌شوند.",
     aiConsent: "می‌دانم پرسشم به Anthropic فرستاده می‌شود.", aiContextConsent: "خلاصه‌ی ژن، پرایمر و qPCR فعلی هم ارسال شود (اختیاری).",
     explainConsent: "موافقم اطلاعات بازیابی‌شده از UniProt و مقاله‌ها برای این توضیح به Anthropic فرستاده شود.",
@@ -258,8 +259,12 @@ const T: Record<Lang, Record<string, string>> = {
     qpcr_empty: "جفت کامل هدف و ژن مرجع برای محاسبه پیدا نشد.",
   },
 };
+const T = {
+  ...T_CORE,
+  ...Object.fromEntries(Object.entries(EXTRA_T).map(([code, dict]) => [code, { ...T_CORE.en, ...dict }])),
+} as Record<Lang, Record<string, string>>;
 
-const TUT: Record<Lang, { h: string; p: string }[]> = {
+const TUT_CORE: Record<"en" | "fa", { h: string; p: string }[]> = {
   en: [
     { h: "What a primer must do", p: "Forward and reverse primers bracket the DNA you amplify. Good pairs have similar Tm (within ~2 °C), 40–60% GC, a mild G/C 3′ end, and no stable hairpins or primer-dimers." },
     { h: "Tm and annealing", p: "Tm is the temperature where half of the primer is bound. For Taq-type enzymes anneal ≈ 5 °C below the lower Tm; high-fidelity enzymes often anneal at or near Tm — confirm with your vendor's calculator." },
@@ -277,6 +282,7 @@ const TUT: Record<Lang, { h: string; p: string }[]> = {
     { h: "همیشه اعتبارسنجی کنید", p: "اختصاصیت را (BLAST / Primer-BLAST) بررسی کنید، PCR گرادیانی بزنید و شرایط را گزارش دهید. نتیجه‌ی آزمایشگاهی را با ما به اشتراک بگذارید تا پیشنهادها بهتر شوند." },
   ],
 };
+const TUT = { ...TUT_CORE, ...EXTRA_TUT } as Record<Lang, { h: string; p: string }[]>;
 
 const ORGS = ["Homo sapiens", "Mus musculus", "Rattus norvegicus", "Danio rerio", "Arabidopsis thaliana", "Drosophila melanogaster",
   "Saccharomyces cerevisiae", "Caenorhabditis elegans", "Gallus gallus", "Bos taurus", "Sus scrofa", "Oryza sativa"];
@@ -379,7 +385,7 @@ const toCsv = (head: string[], rows: any[][]) => [head, ...rows].map((r) => r.ma
 
 /** Self-contained, printable HTML report (Print → Save as PDF gives a citable PDF). */
 function downloadReport(lang: Lang, t: Record<string, string>, fileBase: string, title: string, sections: { h: string; html: string }[]) {
-  const rtl = lang === "fa";
+  const rtl = isRtl(lang);
   const stamp = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
   const doc = `<!doctype html><html lang="${lang}" dir="${rtl ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>body{font-family:system-ui,Segoe UI,Tahoma,sans-serif;max-width:900px;margin:32px auto;padding:0 20px;color:#1e293b;line-height:1.5}
@@ -1585,6 +1591,7 @@ const SHELL_CSS = `@import url('https://fonts.googleapis.com/css2?family=Inter:w
 @layer base{.pa-root *,.pa-root ::before,.pa-root ::after{border-color:#e2e8f0}}
 .pa-root{font-family:"Inter","Vazirmatn",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .pa-root[dir=rtl]{font-family:"Vazirmatn","Inter",system-ui,sans-serif}
+.pa-root[lang=zh]{font-family:"Inter","PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif}
 .pa-root .font-mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
 .pa-root table th{font-weight:600;color:#334155}
 .pa-root ::selection{background:#bbf7d0;color:#052e1c}
@@ -1598,12 +1605,12 @@ const SHELL_CSS = `@import url('https://fonts.googleapis.com/css2?family=Inter:w
 .pa-lanes{background-image:repeating-linear-gradient(90deg,#fff 0 46px,transparent 46px 70px)}
 @media (prefers-reduced-motion:reduce){.pa-band,.pa-panel,.pa-step,.pa-demo{animation:none}}`;
 
-const LANDING: Record<Lang, any> = {
+const LANDING_CORE: Record<"en" | "fa", any> = {
   en: {
     nav_tools: "Tools", nav_classroom: "For classrooms", nav_sources: "Data sources", open: "Open workbench",
     kicker: "Free molecular biology workbench",
     h1a: "From gene to primers,", h1b: "qPCR and 3D structure.", h1c: "One workbench.",
-    sub: "Fetch a RefSeq transcript, design exon-aware primers, check specificity, analyze Ct data and map residues on AlphaFold models. Ask in English or Persian. Nothing to install.",
+    sub: "Fetch a RefSeq transcript, design exon-aware primers, check specificity, analyze Ct data and map residues on AlphaFold models. Ask in your own language. Nothing to install.",
     cta_start: "Start for free", cta_try: "Try it without an account", cta_note: "Most tools work without signing in. An account saves your primers and joins classrooms.",
     demo_gene: "GENE_X · example transcript", demo_prompt: "qPCR, Tm 60, span an exon junction", demo_pair: "Pair 1", demo_fwd: "Forward", demo_rev: "Reverse",
     demo_junction: "Spans an exon–exon junction", demo_size: "Product 118 bp", demo_risk: "Dimer risk: low", demo_label: "Illustrative example",
@@ -1614,16 +1621,21 @@ const LANDING: Record<Lang, any> = {
       crispr: ["gRNA", "CRISPR guides", "SpCas9, SaCas9 and Cas12a PAM scanning."], explorer: ["3D", "Gene & protein explorer", "AlphaFold structure, UniProt features, literature."],
       toolbox: ["Tm", "Toolbox", "Tm calculator and vendor order formats."], library: ["LIB", "My library", "Save pairs and export order sheets."] },
     class_kicker: "For instructors", class_title: "Run a lab course from one link.", class_body: "Create a class, share a join code, publish assignments and review each student's submitted design or qPCR result with feedback and a grade.",
-    class_points: ["Join codes, not spreadsheets", "Submissions keep the exact inputs", "Bilingual: English and Persian"], class_cta: "Open classroom",
+    class_points: ["Join codes, not spreadsheets", "Submissions keep the exact inputs", "Available in 7 languages"], class_cta: "Open classroom",
     trust_title: "Built on the references you would cite", trust_sub: "Results show their method and source so they can go into a report.",
     privacy_title: "Your sequences, your call.", privacy_body: "BLAST, ESMFold and AI features ask before sending data to an outside service. Export or delete your data anytime.",
     final_title: "Design your next primer pair now.", contact: "Contact",
+    svc_kicker: "Molecular biology services", svc_title: "We run the analysis for you.", svc_sub: "From raw files to the final figure for your thesis or paper.",
+    svc_items: [["qPCR data analysis", "ΔΔCt and Pfaffl, efficiency curves, QC and publication-ready charts."], ["Statistical analysis", "t-tests, ANOVA, non-parametric tests and regression in R, SPSS or GraphPad Prism."],
+      ["Primer, probe & CRISPR design", "PCR, qPCR, cloning and mutagenesis primers plus gRNAs, checked with Primer-BLAST."], ["Sequence analysis", "Sanger read QC, alignment, variant and mutation detection."],
+      ["Bioinformatics", "GEO and RNA-seq data, differential expression, enrichment and pathway analysis."], ["Figures & methods", "Publication-ready figures, methods write-up and interpretation of results."]],
+    svc_cta: "Request a service", svc_telegram: "Message on Telegram", svc_note: "Send a short description of your project; we reply with scope, timeline and a quote.",
   },
   fa: {
     nav_tools: "ابزارها", nav_classroom: "برای کلاس‌ها", nav_sources: "منابع داده", open: "ورود به میز کار",
     kicker: "میز کار رایگان زیست‌شناسی مولکولی",
     h1a: "از ژن تا پرایمر،", h1b: "qPCR و ساختار سه‌بعدی.", h1c: "همه در یک میز کار.",
-    sub: "ترنسکریپت RefSeq را بگیرید، پرایمر آگاه از اگزون طراحی کنید، اختصاصیت را بسنجید، داده‌ی Ct را تحلیل کنید و residueها را روی مدل AlphaFold ببینید. به فارسی یا انگلیسی بپرسید؛ بدون نصب.",
+    sub: "ترنسکریپت RefSeq را بگیرید، پرایمر آگاه از اگزون طراحی کنید، اختصاصیت را بسنجید، داده‌ی Ct را تحلیل کنید و residueها را روی مدل AlphaFold ببینید. به زبان خودتان بپرسید؛ بدون نصب.",
     cta_start: "شروع رایگان", cta_try: "امتحان بدون حساب", cta_note: "بیشتر ابزارها بدون ورود کار می‌کنند. با حساب کاربری پرایمرها ذخیره می‌شوند و می‌توانید عضو کلاس شوید.",
     demo_gene: "GENE_X · ترنسکریپت نمونه", demo_prompt: "qPCR، Tm ۶۰، روی اتصال اگزون", demo_pair: "جفت ۱", demo_fwd: "رفت", demo_rev: "برگشت",
     demo_junction: "روی اتصال اگزون–اگزون", demo_size: "محصول ۱۱۸ bp", demo_risk: "خطر دایمر: کم", demo_label: "نمونه‌ی نمایشی",
@@ -1634,12 +1646,34 @@ const LANDING: Record<Lang, any> = {
       crispr: ["gRNA", "گایدهای CRISPR", "جست‌وجوی PAM برای SpCas9، SaCas9 و Cas12a."], explorer: ["3D", "کاوشگر ژن و پروتئین", "ساختار AlphaFold، ویژگی‌های UniProt و مقالات."],
       toolbox: ["Tm", "ابزارها", "محاسبه‌گر Tm و فرمت سفارش شرکت‌ها."], library: ["LIB", "کتابخانه‌ی من", "ذخیره‌ی جفت‌ها و خروجی فرم سفارش."] },
     class_kicker: "برای استادها", class_title: "یک درس عملی را با یک لینک اداره کنید.", class_body: "کلاس بسازید، کد عضویت را به دانشجوها بدهید، تکلیف منتشر کنید و نتیجه‌ی طراحی یا qPCR هر دانشجو را با بازخورد و نمره بررسی کنید.",
-    class_points: ["کد عضویت به‌جای فایل اکسل", "تحویل‌ها ورودی دقیق را نگه می‌دارند", "دوزبانه: فارسی و انگلیسی"], class_cta: "ورود به کلاس",
+    class_points: ["کد عضویت به‌جای فایل اکسل", "تحویل‌ها ورودی دقیق را نگه می‌دارند", "در دسترس به ۷ زبان"], class_cta: "ورود به کلاس",
     trust_title: "ساخته‌شده روی منابعی که در مقاله ارجاع می‌دهید", trust_sub: "هر نتیجه روش و منبعش را نشان می‌دهد تا در گزارش قابل استفاده باشد.",
     privacy_title: "توالی شما، تصمیم شما.", privacy_body: "BLAST، ESMFold و قابلیت‌های هوش مصنوعی پیش از ارسال داده به سرویس بیرونی از شما اجازه می‌گیرند. هر زمان بخواهید داده‌هایتان را خروجی بگیرید یا حذف کنید.",
     final_title: "جفت پرایمر بعدی‌تان را همین حالا طراحی کنید.", contact: "تماس",
+    svc_kicker: "خدمات زیست‌شناسی مولکولی", svc_title: "تحلیل‌تان را ما انجام می‌دهیم.", svc_sub: "از فایل خام تا شکل نهایی برای پایان‌نامه یا مقاله.",
+    svc_items: [["تحلیل داده‌ی qPCR", "ΔΔCt و Pfaffl، منحنی بازده، کنترل کیفیت و نمودارهای آماده‌ی مقاله."], ["تحلیل آماری", "آزمون t، ANOVA، آزمون‌های ناپارامتری و رگرسیون با R، SPSS یا GraphPad Prism."],
+      ["طراحی پرایمر، پروب و CRISPR", "پرایمر PCR، qPCR، کلونینگ و موتاژنز و gRNA، بررسی‌شده با Primer-BLAST."], ["تحلیل توالی", "کنترل کیفیت خوانش‌های سنگر، هم‌ترازی، شناسایی واریانت و جهش."],
+      ["بیوانفورماتیک", "داده‌های GEO و RNA-seq، بیان افتراقی، تحلیل غنی‌سازی و مسیرها."], ["شکل‌ها و بخش روش‌ها", "شکل‌های آماده‌ی انتشار، نگارش روش‌ها و تفسیر نتایج."]],
+    svc_cta: "درخواست خدمت با ایمیل", svc_telegram: "پیام در تلگرام", svc_note: "توضیح کوتاهی از پروژه‌تان بفرستید؛ دامنه‌ی کار، زمان‌بندی و هزینه را اعلام می‌کنیم.",
   },
 };
+const LANDING = {
+  ...LANDING_CORE,
+  ...Object.fromEntries(Object.entries(EXTRA_LANDING).map(([code, dict]) => [code, { ...LANDING_CORE.en, ...dict }])),
+} as Record<Lang, any>;
+
+const SERVICES_EMAIL = (process.env.NEXT_PUBLIC_SERVICES_EMAIL || "mkoolivand14@gmail.com").trim();
+const SERVICES_TELEGRAM = (process.env.NEXT_PUBLIC_SERVICES_TELEGRAM || "https://t.me/moh3nko").trim();
+const servicesMailto = (subject: string) => (SERVICES_EMAIL ? `mailto:${SERVICES_EMAIL}?subject=${encodeURIComponent(subject)}` : "");
+
+function LangSelect({ lang, setLang, label }: { lang: Lang; setLang: (l: Lang) => void; label: string }) {
+  return (
+    <select aria-label={label} value={lang} onChange={(e) => setLang(e.target.value as Lang)}
+      className="cursor-pointer rounded-full bg-white/10 px-3 py-1.5 font-semibold text-white ring-1 ring-white/15 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#5ef0a8]">
+      {LANGUAGES.map((l) => <option key={l.code} value={l.code} className="text-slate-900">{l.label}</option>)}
+    </select>
+  );
+}
 
 const SOURCES = ["Primer3", "NCBI RefSeq", "BLAST", "UniProt", "AlphaFold DB", "Europe PMC", "ESMFold"];
 
@@ -1680,8 +1714,8 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
           <nav className="flex flex-wrap items-center gap-1 text-sm">
             <a href="#tools" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_tools}</a>
             <a href="#classroom" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_classroom}</a>
-            <a href="/pricing" className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{t.pricing}</a>
-            <button type="button" onClick={() => setLang(lang === "en" ? "fa" : "en")} className="rounded-full bg-white/10 px-3.5 py-1.5 font-semibold ring-1 ring-white/15 hover:bg-white/20">{lang === "en" ? "فارسی" : "English"}</button>
+            <a href="#services" className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{t.nav_services}</a>
+            <LangSelect lang={lang} setLang={setLang} label={t.language} />
             <button type="button" onClick={() => onEnter()} className="rounded-full bg-white px-4 py-1.5 font-bold text-[#101a30] hover:bg-emerald-50">{token ? L.open : t.login}</button>
           </nav>
         </div>
@@ -1713,7 +1747,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
           <button key={id} type="button" onClick={() => onEnter(id)} className="group rounded-2xl border border-slate-200/80 bg-white p-5 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-900/5">
             <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-[#101a30] px-2 font-mono text-xs font-bold text-[#5ef0a8]" dir="ltr">{tag}</span>
             <p className="mt-4 font-bold text-[#16233f]">{name}</p><p className="mt-1 text-sm leading-relaxed text-slate-600">{desc}</p>
-            <span className="mt-3 inline-block text-sm font-semibold text-emerald-700 opacity-0 transition group-hover:opacity-100">{lang === "fa" ? "← باز کردن" : "Open →"}</span>
+            <span className="mt-3 inline-block text-sm font-semibold text-emerald-700 opacity-0 transition group-hover:opacity-100">{t.open_tool}</span>
           </button>); })}</div>
       </section>
 
@@ -1724,6 +1758,23 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
           <button type="button" onClick={() => onEnter("classroom")} className="mt-6 rounded-2xl bg-[#16233f] px-5 py-3 font-bold text-white transition hover:bg-[#22345c]">{L.class_cta}</button></div>
         <ul className="space-y-3 self-center">{L.class_points.map((pt: string) => (
           <li key={pt} className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-3 font-semibold text-[#16233f] shadow-sm"><i className="block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />{pt}</li>))}</ul>
+      </section>
+
+      <section id="services" className="scroll-mt-6 rounded-3xl bg-[#101a30] p-6 text-white md:p-10">
+        <span className="text-sm font-bold uppercase tracking-wider text-[#5ef0a8]">{L.svc_kicker}</span>
+        <h2 className="mt-2 text-2xl font-extrabold tracking-tight md:text-4xl">{L.svc_title}</h2>
+        <p className="mt-2 max-w-2xl text-slate-300">{L.svc_sub}</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3">{L.svc_items.map(([h, p]: string[]) => (
+          <div key={h} className="rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/10 transition hover:bg-white/[0.09]">
+            <p className="font-bold text-white">{h}</p><p className="mt-1 text-sm leading-relaxed text-slate-300">{p}</p></div>))}</div>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          {SERVICES_EMAIL && <a href={servicesMailto(`Primer AI · ${L.svc_cta}`)}
+            className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{L.svc_cta}</a>}
+          {SERVICES_TELEGRAM && <a href={SERVICES_TELEGRAM} target="_blank" rel="noopener noreferrer"
+            className="rounded-2xl bg-white/10 px-6 py-3.5 font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/15">{L.svc_telegram}</a>}
+          <p className="max-w-xl text-sm text-slate-400">{L.svc_note}</p>
+        </div>
+        {SERVICES_EMAIL && <p className="mt-3 text-sm text-slate-400" dir="ltr">{SERVICES_EMAIL}</p>}
       </section>
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-sm md:p-8">
@@ -1739,7 +1790,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
 
       <footer className="flex flex-wrap items-center justify-between gap-3 px-2 pb-10 text-sm text-slate-500">
         <span className="font-extrabold text-[#16233f]">Primer<span className="text-emerald-600"> AI</span></span>
-        <nav className="flex flex-wrap gap-4"><a href="/pricing" className="hover:text-[#16233f]">{t.pricing}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
+        <nav className="flex flex-wrap gap-4"><a href="#services" className="hover:text-[#16233f]">{t.nav_services}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
         <p className="w-full font-mono text-[11px] text-slate-400">{t.footer}</p>
       </footer>
     </div>
@@ -1762,6 +1813,7 @@ export default function Home() {
   const t = T[lang];
   const enterApp = (next?: TabId) => { if (next) setTab(next); setView("app"); sessionStorage.setItem("pa_view", "app"); window.scrollTo({ top: 0 }); };
   const goHome = () => { setView("landing"); sessionStorage.removeItem("pa_view"); window.scrollTo({ top: 0 }); };
+  const goServices = () => { goHome(); setTimeout(() => document.getElementById("services")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); };
   const startFree = () => { enterApp(); setTimeout(() => { const el = document.getElementById("account-tools") as HTMLDetailsElement | null; if (el) { el.open = true; el.scrollIntoView({ behavior: "smooth", block: "start" }); } }, 60); };
 
   useEffect(() => {
@@ -1770,10 +1822,10 @@ export default function Home() {
     localStorage.removeItem("token");
     setToken(sessionStorage.getItem("token"));
     if (sessionStorage.getItem("token") || sessionStorage.getItem("pa_view") === "app") setView("app");
-    const l = localStorage.getItem("lang"); if (l === "fa" || l === "en") setLang(l);
+    const l = localStorage.getItem("lang"); if (isLang(l)) setLang(l);
     apiFetch("/config", null).then(setConfig).catch(() => {});
   }, []);
-  useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = lang === "fa" ? "rtl" : "ltr"; localStorage.setItem("lang", lang); }, [lang]);
+  useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = isRtl(lang) ? "rtl" : "ltr"; localStorage.setItem("lang", lang); }, [lang]);
   useEffect(() => { if (!notice) return; const x = setTimeout(() => setNotice(null), 7000); return () => clearTimeout(x); }, [notice]);
 
   const call = useCallback((path: string, init?: RequestInit) => apiFetch(path, token, init), [token]);
@@ -1831,21 +1883,21 @@ export default function Home() {
   };
 
   return (
-    <main dir={lang === "fa" ? "rtl" : "ltr"} className="pa-root min-h-screen bg-[#f3f6f4] bg-[radial-gradient(1200px_500px_at_100%_-10%,#dcefe6_0%,transparent_60%)] p-3 md:p-8 text-slate-800">
+    <main lang={lang} dir={isRtl(lang) ? "rtl" : "ltr"} className="pa-root min-h-screen bg-[#f3f6f4] bg-[radial-gradient(1200px_500px_at_100%_-10%,#dcefe6_0%,transparent_60%)] p-3 md:p-8 text-slate-800">
       <style>{SHELL_CSS}</style>
       {view === "landing" ? <div className="max-w-6xl mx-auto"><Landing t={t} lang={lang} setLang={setLang} onEnter={enterApp} onStart={token ? () => enterApp() : startFree} token={token} /></div> : (
       <div className="max-w-6xl mx-auto space-y-5">
         <header className="relative overflow-hidden rounded-3xl bg-[#101a30] text-white shadow-2xl shadow-[#101a30]/25">
           <div className="absolute inset-0 bg-[radial-gradient(600px_260px_at_85%_40%,rgba(94,240,168,.16),transparent_70%)]" />
-          <GelHero rtl={lang === "fa"} />
+          <GelHero rtl={isRtl(lang)} />
           <div className="relative flex flex-wrap items-center justify-between gap-3 px-5 pt-5 md:px-8">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-200 ring-1 ring-white/10">
               <i className="pa-band block h-2 w-2 rounded-full bg-[#5ef0a8] shadow-[0_0_10px_rgba(94,240,168,.9)]" />{t.hero_kicker}</span>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <button type="button" onClick={goHome} className="rounded-lg px-2.5 py-1.5 font-semibold text-slate-200 hover:bg-white/10">{lang === "fa" ? "خانه" : "Home"}</button>
-              <a href="/pricing" className="rounded-lg px-2.5 py-1.5 font-semibold text-emerald-200 hover:bg-white/10">{t.pricing}</a>
+              <button type="button" onClick={goHome} className="rounded-lg px-2.5 py-1.5 font-semibold text-slate-200 hover:bg-white/10">{t.home}</button>
+              <button type="button" onClick={goServices} className="rounded-lg px-2.5 py-1.5 font-semibold text-emerald-200 hover:bg-white/10">{t.nav_services}</button>
               <a href="/privacy" className="rounded-lg px-2.5 py-1.5 text-slate-300 hover:bg-white/10">{t.privacy}</a>
-              <button type="button" onClick={() => setLang(lang === "en" ? "fa" : "en")} className="rounded-full bg-white/10 px-3.5 py-1.5 font-semibold ring-1 ring-white/15 hover:bg-white/20 transition">{lang === "en" ? "فارسی" : "English"}</button>
+              <LangSelect lang={lang} setLang={setLang} label={t.language} />
               {token ? (<>
                 <button type="button" onClick={logout} className="rounded-full px-3.5 py-1.5 font-semibold text-slate-200 hover:bg-white/10">{t.logout}</button>
                 <details className="relative"><summary className="cursor-pointer list-none rounded-full bg-white/10 px-3.5 py-1.5 font-semibold ring-1 ring-white/15 hover:bg-white/20">{t.settings}</summary>
