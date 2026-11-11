@@ -2232,7 +2232,7 @@ async def request_email_verification(request: Request, req: EmailOnlyRequest):
 
 @app.post("/auth/verify-email")
 @limiter.limit("10/minute")
-async def verify_email(req: AuthTokenRequest):
+async def verify_email(request: Request, req: AuthTokenRequest):
     record = await _consume_auth_token(req.token, "verify_email")
     if not record: raise HTTPException(400, "Verification link is invalid or expired.")
     await database.execute(users_table.update().where(users_table.c.id == record["user_id"]).values(email_verified=True))
@@ -2256,7 +2256,7 @@ async def request_password_reset(request: Request, req: EmailOnlyRequest):
 
 @app.post("/auth/reset-password")
 @limiter.limit("8/minute")
-async def reset_password(req: PasswordResetRequest):
+async def reset_password(request: Request, req: PasswordResetRequest):
     if len(req.new_password.encode("utf-8")) > 72:
         raise HTTPException(400, "Password must be at most 72 bytes.")
     record = await _consume_auth_token(req.token, "reset_password")
@@ -2271,7 +2271,7 @@ async def reset_password(req: PasswordResetRequest):
 
 @app.post("/auth/refresh")
 @limiter.limit("30/minute")
-async def refresh_access_token(req: RefreshTokenRequest):
+async def refresh_access_token(request: Request, req: RefreshTokenRequest):
     record = await _consume_auth_token(req.refresh_token, "refresh")
     if not record: raise HTTPException(401, "Refresh token expired or revoked. Sign in again.")
     user = await database.fetch_one(users_table.select().where(users_table.c.id == record["user_id"]))
@@ -2364,7 +2364,7 @@ async def get_classroom(classroom_id: int, current_user: dict = Depends(get_curr
 
 @app.post("/classrooms/{classroom_id}/assignments")
 @limiter.limit("20/minute")
-async def create_assignment(classroom_id: int, req: AssignmentCreateRequest, current_user: dict = Depends(get_current_user)):
+async def create_assignment(request: Request, classroom_id: int, req: AssignmentCreateRequest, current_user: dict = Depends(get_current_user)):
     member = await _classroom_membership(classroom_id, current_user["id"])
     if not member or member["role"] != "teacher": raise HTTPException(403, "Only the class teacher can create assignments.")
     if req.due_at:
@@ -2378,7 +2378,7 @@ async def create_assignment(classroom_id: int, req: AssignmentCreateRequest, cur
 
 @app.post("/classrooms/{classroom_id}/submissions")
 @limiter.limit("30/minute")
-async def submit_assignment(classroom_id: int, req: SubmissionCreateRequest, current_user: dict = Depends(get_current_user)):
+async def submit_assignment(request: Request, classroom_id: int, req: SubmissionCreateRequest, current_user: dict = Depends(get_current_user)):
     member = await _classroom_membership(classroom_id, current_user["id"])
     if not member: raise HTTPException(404, "Class not found.")
     if member["role"] != "student": raise HTTPException(403, "Only students can submit work.")
@@ -2401,7 +2401,7 @@ async def submit_assignment(classroom_id: int, req: SubmissionCreateRequest, cur
 
 @app.post("/classrooms/{classroom_id}/submissions/{submission_id}/feedback")
 @limiter.limit("30/minute")
-async def review_submission(classroom_id: int, submission_id: int, req: SubmissionFeedbackRequest,
+async def review_submission(request: Request, classroom_id: int, submission_id: int, req: SubmissionFeedbackRequest,
                             current_user: dict = Depends(get_current_user)):
     member = await _classroom_membership(classroom_id, current_user["id"])
     if not member or member["role"] != "teacher": raise HTTPException(403, "Only the class teacher can review submissions.")
