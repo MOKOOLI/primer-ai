@@ -108,7 +108,6 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
     auth_verify_request: "Resend verification email", auth_reset_request: "Send password-reset email", auth_verify_token: "Verify email", auth_reset_token: "Set new password",
     auth_new_password: "New password", auth_code: "One-time token", auth_export: "Export my data (JSON)", auth_notice: "Email verification and password recovery require SMTP settings on the server.", auth_ok: "Done.",
     classroom_role_teacher: "Teacher", classroom_role_student: "Student", classroom_empty: "No assignments yet.",
-    // Troubleshooting translations
     ts_title: "Troubleshooting", ts_desc: "Describe the problem you see in your PCR or cloning experiment.",
     ts_symptom: "Symptom", ts_select: "Select a symptom...", ts_analyze: "Analyze", ts_cause: "Likely Cause", ts_solutions: "Suggested Solutions",
     report: "Download report", reportCsv: "Results CSV", reportPrint: "Open the report and use Print → Save as PDF.",
@@ -230,7 +229,6 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
     auth_verify_request: "ارسال دوباره‌ی ایمیل تأیید", auth_reset_request: "ارسال ایمیل بازنشانی گذرواژه", auth_verify_token: "تأیید ایمیل", auth_reset_token: "ثبت گذرواژه‌ی جدید",
     auth_new_password: "گذرواژه‌ی جدید", auth_code: "توکن یک‌بارمصرف", auth_export: "خروجی داده‌های من (JSON)", auth_notice: "تأیید ایمیل و بازیابی گذرواژه به تنظیم SMTP در سرور نیاز دارد.", auth_ok: "انجام شد.",
     classroom_role_teacher: "استاد", classroom_role_student: "دانشجو", classroom_empty: "هنوز تکلیفی ثبت نشده است.",
-    // Troubleshooting translations
     ts_title: "عیب‌یابی", ts_desc: "مشکلی که در آزمایش PCR یا کلونینگ خود می‌بینید را توصیف کنید.",
     ts_symptom: "علامت", ts_select: "یک علامت انتخاب کنید...", ts_analyze: "تحلیل", ts_cause: "علت احتمالی", ts_solutions: "راه‌حل‌های پیشنهادی",
     report: "دانلود گزارش", reportCsv: "CSV نتایج", reportPrint: "گزارش را باز کنید و با Print → Save as PDF ذخیره کنید.",
@@ -1796,6 +1794,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         <span className="inline-flex items-center gap-2 font-extrabold text-[#16233f]">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 rounded-lg" /><span>Primer<span className="text-emerald-600"> AI</span></span></span>
         <nav className="flex flex-wrap gap-4"><a href="#services" className="hover:text-[#16233f]">{t.nav_services}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
         <p className="w-full font-mono text-[11px] text-slate-400">{t.footer}</p>
+        <p className="w-full font-mono text-[11px] text-slate-400" dir="ltr">Funder: Fatemeh Naghizadeh</p>
       </footer>
     </div>
   );
@@ -1953,7 +1952,7 @@ export default function Home() {
 
         </section>
 
-        <footer className="space-y-1.5 px-2 pb-24 text-xs leading-relaxed text-slate-500"><p>{t.privacyNotice}</p><p className="font-mono text-[11px] text-slate-400">{t.footer}</p></footer>
+        <footer className="space-y-1.5 px-2 pb-24 text-xs leading-relaxed text-slate-500"><p>{t.privacyNotice}</p><p className="font-mono text-[11px] text-slate-400">{t.footer}</p><p className="font-mono text-[11px] text-slate-400" dir="ltr">Funder: Fatemeh Naghizadeh</p></footer>
         <ChatBox {...ctx} llm={!!config.llm} context={aiContext} />
       </div>)}
     </main>
