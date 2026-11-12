@@ -766,9 +766,9 @@ function PrimerPairMap({ length, exons, pairs, t }: { length: number; exons: num
 
 type GeneState = { symbol: string; accession: string; title: string; sequence: string; annotation: any; uniprot: any; organism: string; alternatives: any[]; protein_id?: string };
 
-function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: GeneState | null; setGene: (g: GeneState | null) => void; annotation: any; maxLen: number; onDesign: (r: any) => void }) {
+function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: GeneState | null; setGene: (g: GeneState | null) => void; annotation: any; maxLen: number; onDesign: (r: any) => void; initialGene?: string }) {
   const { t, call, token, notify, fail, seq, setSeq, gene, setGene, annotation } = p;
-  const [geneName, setGeneName] = useState("");
+  const [geneName, setGeneName] = useState(p.initialGene || "");
   const [organism, setOrganism] = useState("Homo sapiens");
   const [geneLoading, setGeneLoading] = useState(false);
   const [rs, setRs] = useState(""); const [re, setRe] = useState("");
@@ -1813,6 +1813,7 @@ export default function Home() {
   const [guides, setGuides] = useState<any[]>([]);
   const [focusAa, setFocusAa] = useState<number | null>(null);
   const [qpcrRes, setQpcrRes] = useState<any>(null);
+  const [pendingGene, setPendingGene] = useState("");
   const [view, setView] = useState<"landing" | "app">("landing");
   const t = T[lang];
   const enterApp = (next?: TabId) => { if (next) setTab(next); setView("app"); sessionStorage.setItem("pa_view", "app"); window.scrollTo({ top: 0 }); };
@@ -1937,7 +1938,7 @@ export default function Home() {
 
         <section key={tab} className="pa-panel rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-8">
 
-        {tab === "design" && <DesignTab {...ctx} seq={seq} setSeq={setSeq} gene={gene} setGene={setGene} annotation={annotation} maxLen={config.max_seq_len} onDesign={setDesign} />}
+        {tab === "design" && <DesignTab {...ctx} seq={seq} setSeq={setSeq} gene={gene} setGene={setGene} annotation={annotation} maxLen={config.max_seq_len} onDesign={setDesign} initialGene={pendingGene} />}
         {tab === "qpcr" && <QPCRTab {...ctx} onResult={setQpcrRes} />}
         {tab === "multiplex" && <MultiplexTab {...ctx} />}
         {tab === "gibson" && <GibsonTab {...ctx} />}
@@ -1948,7 +1949,7 @@ export default function Home() {
         {tab === "tutorial" && (<div className="grid gap-4 md:grid-cols-2">{TUT[lang].map((s) => (<section key={s.h} className="rounded-2xl border border-slate-200/80 bg-[#f7faf8] p-5"><h3 className="text-lg font-bold text-[#16233f]">{s.h}</h3><p className="mt-2 text-slate-700 leading-relaxed">{s.p}</p></section>))}</div>)}
         {tab === "library" && <LibraryTab {...ctx} />}
         {tab === "classroom" && <ClassroomTab {...ctx} design={design} qpcrRes={qpcrRes} />}
-        {tab === "pharma" && <PharmaResearchTab call={call} notify={notify} />}
+        {tab === "pharma" && <PharmaResearchTab call={call} notify={notify} lang={lang} onDesignGene={(g) => { setPendingGene(g); setTab("design"); window.scrollTo({ top: 0 }); }} onOpenQpcr={() => setTab("qpcr")} />}
 
         </section>
 

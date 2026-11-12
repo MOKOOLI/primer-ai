@@ -2565,6 +2565,12 @@ async def delete_account(request: Request, current_user: dict = Depends(get_curr
         await database.execute(saved_primers_v2.delete().where(saved_primers_v2.c.user_id == uid))
         await database.execute(experimental_feedback_v2.delete().where(experimental_feedback_v2.c.user_id == uid))
         await database.execute(saved_primers_table.delete().where(saved_primers_table.c.user_email == email))
+        # Remove Pharma permission and memberships before deleting this account.
+        # Owned organization/project retention is not handled here; see README.
+        for table_name in ("pharma_access_requests_v1", "pharma_organization_members"):
+            table = metadata.tables.get(table_name)
+            if table is not None:
+                await database.execute(table.delete().where(table.c.user_id == uid))
         await database.execute(users_table.delete().where(users_table.c.id == uid))
     return {"message": "Account and all associated data deleted successfully."}
 
