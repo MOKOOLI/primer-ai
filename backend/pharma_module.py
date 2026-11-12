@@ -1,9 +1,9 @@
-"""Primer AI - Pharma Research module (v1).
+"""Primer AI - Research Data Bank module (v2).
 
-Live drug -> target -> pathway data from the Open Targets Platform GraphQL API
-(https://platform.opentargets.org). Open Targets data is CC0 1.0; the drug
-mechanism-of-action records it serves come from ChEMBL (CC BY-SA 3.0), so the
-UI must keep the attribution that this module returns in every payload.
+Federated, source-linked records from Open Targets, Reactome, ClinicalTrials.gov
+and Europe PMC, with the drug-mechanism workspace retained as a focused view.
+External records are cached and saved to organization-scoped research banks with
+their provider, link, retrieval time and record-level licensing note.
 
 Organization-scoped projects: every project belongs to one organization and is
 only visible to that organization's members.
@@ -21,8 +21,11 @@ import os
 import logging
 import re
 import uuid
+import asyncio
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
+from urllib.parse import quote
 
 import requests
 import sqlalchemy
@@ -36,6 +39,7 @@ OT_GRAPHQL = "https://api.platform.opentargets.org/api/v4/graphql"
 OT_DRUG_URL = "https://platform.opentargets.org/drug/{id}"
 OT_TARGET_URL = "https://platform.opentargets.org/target/{id}"
 CACHE_TTL = timedelta(days=7)
+CATALOG_CACHE_TTL = timedelta(hours=12)
 MAX_TARGETS_WITH_PATHWAYS = 15
 MAX_PATHWAYS_PER_TARGET = 40
 
@@ -51,6 +55,25 @@ SOURCE_INFO = {
     "use": "Research use only. Not for diagnosis, treatment or dosing decisions.",
 }
 
+CATALOG_SOURCES = {
+    "Open Targets Platform": {
+        "url": "https://platform.opentargets.org",
+        "license": "Open Targets Platform data: CC0 1.0; upstream records retain their own terms",
+    },
+    "Reactome": {
+        "url": "https://reactome.org",
+        "license": "CC BY 4.0",
+    },
+    "ClinicalTrials.gov": {
+        "url": "https://clinicaltrials.gov",
+        "license": "Public registry; review record-level terms and attribution",
+    },
+    "Europe PMC": {
+        "url": "https://europepmc.org",
+        "license": "Varies by publication; follow the linked record's terms",
+    },
+}
+
 CHEMBL_RE = re.compile(r"^CHEMBL\d{1,10}$")
 ENSG_RE = re.compile(r"^ENSG\d{11}$")
 GENE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-]{0,23}$")
@@ -58,6 +81,14 @@ GENE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-]{0,23}$")
 Q_SEARCH = """
 query DrugSearch($q: String!) {
   search(queryString: $q, entityNames: ["drug"], page: {index: 0, size: 10}) {
+    total
+    hits { id entity name description }
+  }
+}"""
+
+Q_CATALOG_SEARCH = """
+query CatalogSearch($q: String!, $entities: [String!], $size: Int!) {
+  search(queryString: $q, entityNames: $entities, page: {index: 0, size: $size}) {
     total
     hits { id entity name description }
   }
@@ -128,6 +159,128 @@ def normalize_search(data: dict) -> list[dict]:
             continue
         out.append({"id": h["id"], "name": h.get("name") or h["id"],
                     "description": (h.get("description") or "")[:400]})
+    return out
+
+
+def normalize_catalog_search(data: dict) -> list[dict]:
+    """Normalize Open Targets' cross-entity search into bank-style records."""
+    hits = ((data or {}).get("search") or {}).get("hits") or []
+    out = []
+    for hit in hits:
+        entity = str(hit.get("entity") or "").lower()
+        item_id = str(hit.get("id") or "").strip()
+        if not item_id or entity not in {"drug", "target", "disease"}:
+            continue
+        if entity == "drug" and not CHEMBL_RE.match(item_id):
+            continue
+        if entity == "target" and not ENSG_RE.match(item_id):
+            continue
+        out.append({
+            "id": item_id,
+            "type": entity,
+            "title": (hit.get("name") or item_id)[:300],
+            "summary": (hit.get("description") or "")[:1200],
+            "url": f"https://platform.opentargets.org/{entity}/{item_id}",
+            "provider": "Open Targets Platform",
+            "license": CATALOG_SOURCES["Open Targets Platform"]["license"],
+        })
+    return out
+
+
+def _external_json(provider: str, url: str, params: dict) -> dict:
+    try:
+        response = requests.get(
+            url, params=params, headers={"Accept": "application/json", "User-Agent": "Primer-AI research catalog"},
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        raise UpstreamError(f"{provider} unreachable: {exc.__class__.__name__}") from exc
+    if response.status_code != 200:
+        raise UpstreamError(f"{provider} HTTP {response.status_code}")
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise UpstreamError(f"{provider} returned invalid JSON") from exc
+
+
+def normalize_reactome(data: Any) -> list[dict]:
+    rows = data.get("results", []) if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return []
+    out = []
+    seen = set()
+    for group in rows:
+        if not isinstance(group, dict):
+            continue
+        entries = group.get("entries")
+        for row in entries if isinstance(entries, list) else [group]:
+            if not isinstance(row, dict):
+                continue
+            item_id = str(row.get("stId") or row.get("stableId") or row.get("id") or "").strip()
+            name = str(row.get("name") or row.get("displayName") or "").strip()
+            if not item_id or not name or item_id in seen:
+                continue
+            seen.add(item_id)
+            out.append({
+                "id": item_id, "type": "pathway", "title": name[:300],
+                "summary": str(row.get("speciesName") or "Reactome biological pathway")[:500],
+                "url": f"https://reactome.org/content/detail/{quote(item_id, safe='')}",
+                "provider": "Reactome", "license": CATALOG_SOURCES["Reactome"]["license"],
+            })
+    return out[:10]
+
+
+def normalize_clinical_trials(data: dict) -> list[dict]:
+    studies = (data or {}).get("studies") or []
+    out = []
+    for study in studies:
+        protocol = study.get("protocolSection") or {}
+        ident = protocol.get("identificationModule") or {}
+        status = protocol.get("statusModule") or {}
+        design = protocol.get("designModule") or {}
+        desc = protocol.get("descriptionModule") or {}
+        conditions = protocol.get("conditionsModule") or {}
+        item_id = str(ident.get("nctId") or "").strip()
+        title = str(ident.get("briefTitle") or ident.get("officialTitle") or item_id).strip()
+        if not item_id or not title:
+            continue
+        pieces = [status.get("overallStatus"), ", ".join(conditions.get("conditions") or []),
+                  ", ".join(design.get("phases") or [])]
+        summary = str(desc.get("briefSummary") or "").strip()
+        context = " · ".join(str(piece) for piece in pieces if piece)
+        if context:
+            summary = f"{context}. {summary}" if summary else context
+        out.append({
+            "id": item_id, "type": "trial", "title": title[:400], "summary": summary[:1600],
+            "url": f"https://clinicaltrials.gov/study/{item_id}",
+            "provider": "ClinicalTrials.gov", "license": CATALOG_SOURCES["ClinicalTrials.gov"]["license"],
+        })
+    return out
+
+
+def normalize_publications(data: dict, query: str) -> list[dict]:
+    results = ((data or {}).get("resultList") or {}).get("result") or []
+    out = []
+    for row in results:
+        item_id = str(row.get("pmid") or row.get("pmcid") or row.get("id") or "").strip()
+        title = str(row.get("title") or "").strip()
+        if not item_id or not title:
+            continue
+        pmid, pmcid = row.get("pmid"), row.get("pmcid")
+        if pmid:
+            url = f"https://europepmc.org/article/MED/{quote(str(pmid), safe='')}"
+        elif pmcid:
+            url = f"https://europepmc.org/article/PMC/{quote(str(pmcid).removeprefix('PMC'), safe='')}"
+        else:
+            url = f"https://europepmc.org/search?query={quote(query, safe='')}"
+        summary = " · ".join(str(value) for value in (
+            row.get("authorString"), row.get("journalTitle"), row.get("pubYear")
+        ) if value)
+        out.append({
+            "id": item_id, "type": "publication", "title": title[:500], "summary": summary[:1200],
+            "url": url, "provider": "Europe PMC",
+            "license": CATALOG_SOURCES["Europe PMC"]["license"],
+        })
     return out
 
 
@@ -250,6 +403,18 @@ class ProjectCreate(BaseModel):
     pathways: list[PathwayItem] = Field(default_factory=list, max_items=20)
 
 
+class LibraryItemCreate(BaseModel):
+    kind: Literal["drug", "target", "disease", "pathway", "trial", "publication"]
+    source_id: str = Field(min_length=1, max_length=200)
+    title: str = Field(min_length=1, max_length=500)
+    summary: str = Field("", max_length=2000)
+    url: str = Field(min_length=9, max_length=1000)
+    provider: str = Field(min_length=1, max_length=100)
+    license: str = Field("", max_length=300)
+    retrieved_at: str = Field("", max_length=60)
+    details: dict = Field(default_factory=dict)
+
+
 def _uid(user: Any) -> int:
     if isinstance(user, dict):
         value = user.get("id")
@@ -311,6 +476,24 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         sqlalchemy.Column("created_at", sqlalchemy.DateTime(timezone=True), server_default=now, nullable=False),
         extend_existing=True,
     )
+    library = sqlalchemy.Table(
+        "pharma_library_items_v1", metadata,
+        sqlalchemy.Column("id", sqlalchemy.String(36), primary_key=True),
+        sqlalchemy.Column("organization_id", sqlalchemy.String(36), nullable=False, index=True),
+        sqlalchemy.Column("created_by", sqlalchemy.Integer, nullable=False),
+        sqlalchemy.Column("kind", sqlalchemy.String(24), nullable=False),
+        sqlalchemy.Column("source_id", sqlalchemy.String(200), nullable=False),
+        sqlalchemy.Column("title", sqlalchemy.String(500), nullable=False),
+        sqlalchemy.Column("summary", sqlalchemy.Text, nullable=False, default=""),
+        sqlalchemy.Column("url", sqlalchemy.String(1000), nullable=False),
+        sqlalchemy.Column("provider", sqlalchemy.String(100), nullable=False),
+        sqlalchemy.Column("license", sqlalchemy.String(300), nullable=False, default=""),
+        sqlalchemy.Column("retrieved_at", sqlalchemy.String(60), nullable=False, default=""),
+        sqlalchemy.Column("details", sqlalchemy.Text, nullable=False, default="{}"),
+        sqlalchemy.Column("created_at", sqlalchemy.DateTime(timezone=True), server_default=now, nullable=False),
+        sqlalchemy.UniqueConstraint("organization_id", "kind", "source_id", name="uq_pharma_library_source"),
+        extend_existing=True,
+    )
     cache = sqlalchemy.Table(
         "pharma_source_cache", metadata,
         sqlalchemy.Column("key", sqlalchemy.String(120), primary_key=True),
@@ -329,7 +512,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         sqlalchemy.Column("updated_at", sqlalchemy.DateTime(timezone=True), server_default=now, nullable=False),
         extend_existing=True,
     )
-    metadata.create_all(bind=engine, tables=[organizations, members, projects, cache, access])
+    metadata.create_all(bind=engine, tables=[organizations, members, projects, library, cache, access])
 
     # Privileged accounts are selected by immutable user IDs, configured on the
     # server, not by client input, email domains, or email_verified flag.
@@ -414,7 +597,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
 
 
     # ------------------------------------------------------------- caching
-    async def cached(key: str, loader):
+    async def cached(key: str, loader, ttl: timedelta = CACHE_TTL):
         """Return (payload, fetched_at). Serves stale cache if upstream fails."""
         row = await database.fetch_one(sqlalchemy.select(cache).where(cache.c.key == key))
         stale = None
@@ -424,7 +607,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             if fetched is not None and fetched.tzinfo is None:
                 fetched = fetched.replace(tzinfo=timezone.utc)
             stale = (json.loads(r["payload"]), fetched)
-            if fetched and datetime.now(timezone.utc) - fetched < CACHE_TTL:
+            if fetched and datetime.now(timezone.utc) - fetched < ttl:
                 return stale
         try:
             payload = await run_in_threadpool(loader)
@@ -469,7 +652,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     # ------------------------------------------------------- source data
     @router.get("/sources")
     async def sources():
-        return SOURCE_INFO
+        return {**SOURCE_INFO, "catalog": CATALOG_SOURCES}
 
     @router.get("/drugs/search")
     async def search_drugs(q: str = Query(..., min_length=2, max_length=80), user=Depends(get_current_user)):
@@ -495,6 +678,114 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         if not data:
             raise HTTPException(404, "Target not found in Open Targets")
         return {"target": data, "retrieved_at": _iso(ts), "source": SOURCE_INFO}
+
+    async def catalog_open_targets(term: str, entities: list[str]):
+        cache_token = hashlib.sha256(
+            json.dumps([term.casefold(), entities], separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return await cached(
+            f"catalog:ot:{cache_token}",
+            lambda: normalize_catalog_search(_ot_query(
+                Q_CATALOG_SEARCH, {"q": term, "entities": entities, "size": 10}
+            )),
+            CATALOG_CACHE_TTL,
+        )
+
+    async def catalog_reactome(term: str):
+        cache_token = hashlib.sha256(term.casefold().encode("utf-8")).hexdigest()
+        return await cached(
+            f"catalog:reactome:{cache_token}",
+            lambda: normalize_reactome(_external_json(
+                "Reactome",
+                "https://reactome.org/ContentService/search/query",
+                {"query": term, "types": "Pathways", "species": "Homo sapiens", "cluster": "true", "rows": 10},
+            )),
+            CATALOG_CACHE_TTL,
+        )
+
+    async def catalog_trials(term: str):
+        cache_token = hashlib.sha256(term.casefold().encode("utf-8")).hexdigest()
+        return await cached(
+            f"catalog:trials:{cache_token}",
+            lambda: normalize_clinical_trials(_external_json(
+                "ClinicalTrials.gov",
+                "https://clinicaltrials.gov/api/v2/studies",
+                {"query.term": term, "pageSize": 10, "format": "json"},
+            )),
+            CATALOG_CACHE_TTL,
+        )
+
+    async def catalog_publications(term: str):
+        cache_token = hashlib.sha256(term.casefold().encode("utf-8")).hexdigest()
+        return await cached(
+            f"catalog:papers:{cache_token}",
+            lambda: normalize_publications(_external_json(
+                "Europe PMC",
+                "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+                {"query": term, "format": "json", "pageSize": 10, "resultType": "lite"},
+            ), term),
+            CATALOG_CACHE_TTL,
+        )
+
+    @router.get("/catalog/search")
+    async def search_catalog(
+        q: str = Query(..., min_length=2, max_length=120),
+        kind: Literal["all", "drug", "target", "disease", "pathway", "trial", "publication"] = "all",
+        user=Depends(get_current_user),
+    ):
+        term = re.sub(r"\s+", " ", q).strip()
+        if len(term) < 2:
+            raise HTTPException(422, "Search term must contain at least two characters")
+
+        providers = {}
+        if kind == "all":
+            providers = {
+                "Open Targets Platform": catalog_open_targets(term, ["drug", "target", "disease"]),
+                "Reactome": catalog_reactome(term),
+                "ClinicalTrials.gov": catalog_trials(term),
+                "Europe PMC": catalog_publications(term),
+            }
+        elif kind in {"drug", "target", "disease"}:
+            providers = {"Open Targets Platform": catalog_open_targets(term, [kind])}
+        elif kind == "pathway":
+            providers = {"Reactome": catalog_reactome(term)}
+        elif kind == "trial":
+            providers = {"ClinicalTrials.gov": catalog_trials(term)}
+        elif kind == "publication":
+            providers = {"Europe PMC": catalog_publications(term)}
+
+        async def safe_fetch(provider: str, work):
+            try:
+                payload, fetched_at = await work
+                return provider, payload, fetched_at, None
+            except Exception:
+                log.exception("Research catalog source failed: %s", provider)
+                return provider, [], None, "Source temporarily unavailable"
+
+        fetched = await asyncio.gather(
+            *(safe_fetch(provider, work) for provider, work in providers.items())
+        )
+        items, sources, errors, timestamps = [], [], [], []
+        for provider, records, fetched_at, error in fetched:
+            source = dict(CATALOG_SOURCES[provider])
+            source["provider"] = provider
+            if fetched_at:
+                source["retrieved_at"] = _iso(fetched_at)
+                timestamps.append(fetched_at)
+            sources.append(source)
+            if error:
+                errors.append({"provider": provider, "message": error})
+            for record in records:
+                record["retrieved_at"] = _iso(fetched_at)
+                items.append(record)
+        return {
+            "query": term,
+            "kind": kind,
+            "items": items[:40],
+            "sources": sources,
+            "source_errors": errors,
+            "retrieved_at": _iso(max(timestamps)) if timestamps else None,
+        }
 
     # ----------------------------------------------------- organizations
     @router.get("/organizations")
@@ -617,6 +908,85 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             raise HTTPException(403, "Only the creator or an organization admin can delete this project")
         await database.execute(projects.delete().where(projects.c.id == project_id,
                                                        projects.c.organization_id == organization_id))
+        return {"status": "deleted"}
+
+    def library_item_out(row, user=None, role: str = "") -> dict:
+        item = _row(row)
+        item["details"] = json.loads(item.get("details") or "{}")
+        item["created_at"] = _iso(item.get("created_at"))
+        if user is not None:
+            item["can_delete"] = role in MANAGERS or int(item["created_by"]) == _uid(user)
+        return item
+
+    @router.get("/organizations/{organization_id}/library")
+    async def list_library(organization_id: str, user=Depends(get_current_user)):
+        role = await require(organization_id, user)
+        rows = await database.fetch_all(
+            sqlalchemy.select(library).where(library.c.organization_id == organization_id)
+            .order_by(library.c.created_at.desc()).limit(500)
+        )
+        return {"items": [library_item_out(row, user, role) for row in rows]}
+
+    @router.post("/organizations/{organization_id}/library", status_code=201)
+    async def save_library_item(
+        organization_id: str, req: LibraryItemCreate, user=Depends(get_current_user)
+    ):
+        role = await require(organization_id, user, *WRITERS)
+        url = req.url.strip()
+        if not url.startswith("https://"):
+            raise HTTPException(422, "Saved research links must use HTTPS")
+        details = json.dumps(req.details, ensure_ascii=False)
+        if len(details) > 12000:
+            raise HTTPException(422, "Saved record details are too large")
+        existing = await database.fetch_one(sqlalchemy.select(library.c.id).where(
+            library.c.organization_id == organization_id,
+            library.c.kind == req.kind,
+            library.c.source_id == req.source_id,
+        ))
+        if existing:
+            return {"item": library_item_out(await database.fetch_one(
+                sqlalchemy.select(library).where(
+                    library.c.organization_id == organization_id,
+                    library.c.kind == req.kind,
+                    library.c.source_id == req.source_id,
+                )
+            ), user, role), "already_saved": True}
+        item_id = str(uuid.uuid4())
+        try:
+            await database.execute(library.insert().values(
+                id=item_id, organization_id=organization_id, created_by=_uid(user),
+                kind=req.kind, source_id=req.source_id, title=req.title.strip(),
+                summary=req.summary.strip(), url=url, provider=req.provider.strip(),
+                license=req.license.strip(), retrieved_at=req.retrieved_at.strip(),
+                details=details,
+            ))
+        except sqlalchemy.exc.IntegrityError:
+            row = await database.fetch_one(sqlalchemy.select(library).where(
+                library.c.organization_id == organization_id,
+                library.c.kind == req.kind,
+                library.c.source_id == req.source_id,
+            ))
+            if row:
+                return {"item": library_item_out(row, user, role), "already_saved": True}
+            raise HTTPException(409, "Could not save this research record")
+        row = await database.fetch_one(sqlalchemy.select(library).where(library.c.id == item_id))
+        return {"item": library_item_out(row, user, role), "already_saved": False}
+
+    @router.delete("/organizations/{organization_id}/library/{item_id}")
+    async def delete_library_item(
+        organization_id: str, item_id: str, user=Depends(get_current_user)
+    ):
+        role = await require(organization_id, user, *WRITERS)
+        row = await database.fetch_one(sqlalchemy.select(library.c.created_by).where(
+            library.c.id == item_id, library.c.organization_id == organization_id
+        ))
+        if not row:
+            raise HTTPException(404, "Saved record not found")
+        if role not in MANAGERS and int(_row(row)["created_by"]) != _uid(user):
+            raise HTTPException(403, "Only the creator or an organization admin can remove this record")
+        await database.execute(library.delete().where(
+            library.c.id == item_id, library.c.organization_id == organization_id
+        ))
         return {"status": "deleted"}
 
     root.include_router(router)
