@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import DrugResearchPanel from "./DrugResearchPanel";
 import PharmaDashboard from "./PharmaDashboard";
 import PharmaStructureViewer from "./PharmaStructureViewer";
+import PharmaEvidencePanel from "./PharmaEvidencePanel";
+import ClinicalStudyDetail from "./ClinicalStudyDetail";
 
 type Target = { ensembl_id: string; symbol: string; mechanisms: string[]; references: { source: string; url: string }[]; url: string };
 type Drug = {
@@ -331,6 +333,8 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
               </div>
               <p className="break-all text-[11px] font-mono text-slate-500">{item.id}</p>
               {item.summary && <p className="whitespace-pre-wrap text-sm text-slate-700">{item.summary}</p>}
+              {item.type === "trial" && /^NCT\d{8}$/.test(item.id) &&
+                <ClinicalStudyDetail nctId={item.id} call={call} lang={lang} />}
               <p className="text-xs text-slate-500">
                 {t.source}: {item.provider}{item.license ? ` · ${item.license}` : ""}
                 {item.retrieved_at && ` · ${t.catalogRetrieved}: ${new Date(item.retrieved_at).toLocaleString()}`}
@@ -419,6 +423,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
       </section>}
 
       {drug && <DrugResearchPanel drug={drug} call={call} lang={lang} />}
+      {drug && <div key={drug.id}><PharmaEvidencePanel drugId={drug.id} call={call} lang={lang} /></div>}
 
       {/* 3. Organization */}
       <section className="rounded-2xl border p-4 space-y-3">

@@ -35,6 +35,7 @@ from starlette.concurrency import run_in_threadpool
 
 from pharma_intelligence import clean_text, lookup_fda, lookup_ema, lookup_pubchem
 from pharma_structures import load_experimental_structure
+from pharma_evidence import load_chembl_activities, load_clinical_study
 
 log = logging.getLogger("primerai.pharma")
 
@@ -688,6 +689,31 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         except RuntimeError as exc:
             log.warning("RCSB PDB structure retrieval failed: %s", exc)
             raise HTTPException(502, "Structure source unavailable or file exceeds size limit") from exc
+
+    @router.get("/drugs/{chembl_id}/activities")
+    async def drug_activities(chembl_id: str, assay_type: Literal["A", "T", "P", "B", "F"] = "A",
+                              offset: int = Query(0, ge=0, le=10000), user=Depends(get_current_user)):
+        try:
+            return await run_in_threadpool(load_chembl_activities, chembl_id, assay_type, offset)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except LookupError as exc:
+            raise HTTPException(404, "ChEMBL record not found") from exc
+        except RuntimeError as exc:
+            log.warning("ChEMBL evidence retrieval failed: %s", exc)
+            raise HTTPException(502, "ChEMBL activity data unavailable") from exc
+
+    @router.get("/clinical-studies/{nct_id}")
+    async def clinical_study(nct_id: str, user=Depends(get_current_user)):
+        try:
+            return await run_in_threadpool(load_clinical_study, nct_id)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except LookupError as exc:
+            raise HTTPException(404, "Clinical study not found") from exc
+        except RuntimeError as exc:
+            log.warning("ClinicalTrials.gov retrieval failed: %s", exc)
+            raise HTTPException(502, "Clinical study data unavailable") from exc
 
     @router.get("/drugs/search")
     async def search_drugs(q: str = Query(..., min_length=2, max_length=80), user=Depends(get_current_user)):
