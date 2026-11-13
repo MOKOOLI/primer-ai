@@ -33,6 +33,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from pharma_intelligence import clean_text, lookup_fda, lookup_ema, lookup_pubchem
+
 log = logging.getLogger("primerai.pharma")
 
 OT_GRAPHQL = "https://api.platform.opentargets.org/api/v4/graphql"
@@ -100,8 +102,7 @@ query DrugDetail($id: String!) {
     id
     name
     drugType
-    maximumClinicalTrialPhase
-    hasBeenWithdrawn
+    maximumClinicalStage
     description
     mechanismsOfAction {
       uniqueActionTypes
@@ -123,6 +124,23 @@ query TargetPathways($id: String!) {
     approvedSymbol
     approvedName
     pathways { pathway pathwayId }
+  }
+}"""
+
+Q_TARGET_ASSOCIATIONS = """
+query TargetDiseaseScores($id: String!) {
+  target(ensemblId: $id) {
+    id
+    approvedSymbol
+    associatedDiseases(page: {index: 0, size: 10}) {
+      count
+      rows {
+        score
+        disease { id name }
+        datatypeScores { id score }
+        datasourceScores { id score }
+      }
+    }
   }
 }"""
 
@@ -217,8 +235,10 @@ def normalize_reactome(data: Any) -> list[dict]:
             if not isinstance(row, dict):
                 continue
             item_id = str(row.get("stId") or row.get("stableId") or row.get("id") or "").strip()
-            name = str(row.get("name") or row.get("displayName") or "").strip()
-            if not item_id or not name or item_id in seen:
+            name = clean_text(row.get("name") or row.get("displayName"), 300)
+            if row.get("type") != "Pathway" or not re.fullmatch(r"R-HSA-\d+", item_id):
+                continue
+            if not name or item_id in seen:
                 continue
             seen.add(item_id)
             out.append({
@@ -263,7 +283,7 @@ def normalize_publications(data: dict, query: str) -> list[dict]:
     out = []
     for row in results:
         item_id = str(row.get("pmid") or row.get("pmcid") or row.get("id") or "").strip()
-        title = str(row.get("title") or "").strip()
+        title = clean_text(row.get("title"), 500)
         if not item_id or not title:
             continue
         pmid, pmcid = row.get("pmid"), row.get("pmcid")
@@ -317,7 +337,8 @@ def normalize_drug(data: dict) -> Optional[dict]:
         "id": d.get("id"), "name": d.get("name") or d.get("id"),
         "drug_type": d.get("drugType") or "",
         "max_clinical_phase": d.get("maximumClinicalTrialPhase"),
-        "withdrawn": bool(d.get("hasBeenWithdrawn")),
+        "clinical_stage": d.get("maximumClinicalStage"),
+        "withdrawn": d.get("hasBeenWithdrawn"),
         "description": (d.get("description") or "")[:1200],
         "action_types": moa.get("uniqueActionTypes") or [],
         "target_types": moa.get("uniqueTargetTypes") or [],
@@ -627,7 +648,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         cid = chembl_id.strip().upper()
         if not CHEMBL_RE.match(cid):
             raise HTTPException(422, "Drug ID must be a ChEMBL ID such as CHEMBL1487")
-        drug, ts = await cached(f"drug:{cid}", lambda: normalize_drug(_ot_query(Q_DRUG, {"id": cid})))
+        drug, ts = await cached(f"drug-v3:{cid}", lambda: normalize_drug(_ot_query(Q_DRUG, {"id": cid})))
         if not drug:
             raise HTTPException(404, "Drug not found in Open Targets")
         return drug, ts
@@ -679,6 +700,61 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             raise HTTPException(404, "Target not found in Open Targets")
         return {"target": data, "retrieved_at": _iso(ts), "source": SOURCE_INFO}
 
+    @router.get("/targets/{ensembl_id}/associations")
+    async def target_associations(ensembl_id: str, user=Depends(get_current_user)):
+        eid = ensembl_id.strip()
+        if not ENSG_RE.match(eid):
+            raise HTTPException(422, "Target ID must be an Ensembl gene ID")
+        raw, ts = await cached(
+            f"target-associations:{eid}",
+            lambda: _ot_query(Q_TARGET_ASSOCIATIONS, {"id": eid}),
+            CATALOG_CACHE_TTL,
+        )
+        target = raw.get("target")
+        if not target:
+            raise HTTPException(404, "Target not found")
+        return {
+            "target": target,
+            "retrieved_at": _iso(ts),
+            "source": SOURCE_INFO,
+            "score_method": "https://platform-docs.opentargets.org/associations",
+            "note": "Association scores are not probabilities, treatment recommendations, or drug efficacy.",
+        }
+
+    @router.get("/intelligence")
+    async def research_intelligence(
+        q: str = Query(..., min_length=2, max_length=80),
+        user=Depends(get_current_user),
+    ):
+        """Independent searches, not verified mappings between source records."""
+        term = re.sub(r"\s+", " ", q).strip()
+        if len(term) < 2:
+            raise HTTPException(422, "Search term must contain at least two characters")
+        digest = hashlib.sha256(term.casefold().encode()).hexdigest()
+
+        async def run_source(provider, loader):
+            try:
+                result, ts = await cached(
+                    f"intelligence:{provider}:{digest}", loader, CATALOG_CACHE_TTL
+                )
+                return {"provider": provider, "data": result, "retrieved_at": _iso(ts), "error": None}
+            except Exception:
+                log.exception("Research intelligence lookup failed for %s", provider)
+                return {"provider": provider, "data": None, "retrieved_at": None,
+                        "error": "Source unavailable; no conclusion can be drawn"}
+
+        results = await asyncio.gather(
+            run_source("FDA", lambda: lookup_fda(term)),
+            run_source("EMA", lambda: lookup_ema(term)),
+            run_source("PubChem", lambda: lookup_pubchem(term)),
+        )
+        return {
+            "query": term,
+            "results": results,
+            "notice": "Name matches are candidates, not confirmed chemical or regulatory equivalence. "
+                      "EMA covers centrally evaluated products, not all national products.",
+        }
+
     async def catalog_open_targets(term: str, entities: list[str]):
         cache_token = hashlib.sha256(
             json.dumps([term.casefold(), entities], separators=(",", ":")).encode("utf-8")
@@ -694,7 +770,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     async def catalog_reactome(term: str):
         cache_token = hashlib.sha256(term.casefold().encode("utf-8")).hexdigest()
         return await cached(
-            f"catalog:reactome:{cache_token}",
+            f"catalog:reactome-v2:{cache_token}",
             lambda: normalize_reactome(_external_json(
                 "Reactome",
                 "https://reactome.org/ContentService/search/query",
@@ -884,6 +960,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             "source": {"provider": SOURCE_INFO["provider"], "license": SOURCE_INFO["license"],
                        "upstream": SOURCE_INFO["upstream"]},
         }
+        evidence["drug"]["clinical_stage"] = drug.get("clinical_stage")
         pid = str(uuid.uuid4())
         values = dict(
             id=pid, organization_id=organization_id, created_by=_uid(user), name=req.name.strip(),

@@ -1,10 +1,11 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import DrugResearchPanel from "./DrugResearchPanel";
 
 type Target = { ensembl_id: string; symbol: string; mechanisms: string[]; references: { source: string; url: string }[]; url: string };
 type Drug = {
-  id: string; name: string; drug_type: string; max_clinical_phase: number | null; withdrawn: boolean; description: string;
+  id: string; name: string; drug_type: string; max_clinical_phase: number | null; clinical_stage?: string | null; withdrawn: boolean | null; description: string;
   action_types: string[]; mechanisms: { mechanism: string; target_name: string; targets: { symbol: string }[]; references: { source: string; url: string }[] }[];
   targets: Target[]; url: string;
 };
@@ -25,7 +26,7 @@ const L: Record<"en" | "fa", Record<string, string>> = {
     catalogQuery: "Search a drug, gene, protein, disease, pathway, trial or paper",
     catalogSearchBtn: "Search all sources", catalogKind: "Record type",
     catalogAll: "All record types", catalogDrug: "Drugs & compounds", catalogTarget: "Genes & proteins",
-    catalogDisease: "Diseases", catalogPathway: "Pathways", catalogTrial: "Clinical trials", catalogPublication: "Publications",
+    catalogDisease: "Diseases & biological terms", catalogPathway: "Pathways", catalogTrial: "Clinical trials", catalogPublication: "Publications",
     catalogNoResults: "No matching records found.", catalogWait: "Searching public research sources…",
     catalogSourceIssue: "A source could not be reached. Other results are still shown.",
     catalogSave: "Save to organization bank", catalogSaved: "Already in bank", catalogNeedOrg: "Create or select an organization to save records.",
@@ -55,7 +56,7 @@ const L: Record<"en" | "fa", Record<string, string>> = {
     catalogQuery: "جست‌وجوی دارو، ژن، پروتئین، بیماری، مسیر، کارآزمایی یا مقاله",
     catalogSearchBtn: "جست‌وجو در همه منابع", catalogKind: "نوع رکورد",
     catalogAll: "همه‌ی انواع", catalogDrug: "دارو و ترکیب", catalogTarget: "ژن و پروتئین",
-    catalogDisease: "بیماری", catalogPathway: "مسیر زیستی", catalogTrial: "کارآزمایی بالینی", catalogPublication: "مقاله",
+    catalogDisease: "بیماری و مفاهیم زیستی", catalogPathway: "مسیر زیستی", catalogTrial: "کارآزمایی بالینی", catalogPublication: "مقاله",
     catalogNoResults: "رکوردی پیدا نشد.", catalogWait: "در حال جست‌وجو در منابع پژوهشی عمومی…",
     catalogSourceIssue: "یکی از منابع در دسترس نبود؛ نتایج منابع دیگر نمایش داده می‌شوند.",
     catalogSave: "ذخیره در بانک سازمان", catalogSaved: "قبلاً ذخیره شده", catalogNeedOrg: "برای ذخیره، یک سازمان بسازید یا انتخاب کنید.",
@@ -360,9 +361,10 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           {drug.drug_type && <span className={`${chip} bg-slate-50 border-slate-200`}>{t.type}: {drug.drug_type}</span>}
-          {drug.max_clinical_phase != null && <span className={`${chip} bg-slate-50 border-slate-200`}>{t.phase}: {drug.max_clinical_phase}</span>}
+          {(drug.clinical_stage || drug.max_clinical_phase != null) && <span className={`${chip} bg-slate-50 border-slate-200`}>{t.phase}: {drug.clinical_stage ?? drug.max_clinical_phase}</span>}
           {drug.action_types.map((a) => <span key={a} className={`${chip} bg-slate-50 border-slate-200`}>{a}</span>)}
           {drug.withdrawn && <span className={`${chip} bg-red-50 border-red-200 text-red-800`}>{t.withdrawn}</span>}
+          {drug.withdrawn == null && <span className={`${chip} bg-amber-50 border-amber-200 text-amber-900`}>{lang === "fa" ? "وضعیت خروج از بازار در این رکورد نامشخص است" : "Withdrawal status not provided in this record"}</span>}
         </div>
         {drug.description && <p className="text-sm text-slate-700">{drug.description}</p>}
 
@@ -396,6 +398,8 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
         {badExtra.length > 0 && <p className="text-xs text-red-700">Invalid: {badExtra.join(", ")}</p>}
         {source && <p className="text-xs text-slate-500">{t.source}: <a className="hover:underline" href={source.url} target="_blank" rel="noreferrer">{source.provider}</a> ({source.license}; {(source.upstream || []).map((u: any) => `${u.name}: ${u.license}`).join("; ")}) · {t.retrieved}: {retrieved ? new Date(retrieved).toLocaleString() : "-"}</p>}
       </section>}
+
+      {drug && <DrugResearchPanel drug={drug} call={call} lang={lang} />}
 
       {/* 3. Organization */}
       <section className="rounded-2xl border p-4 space-y-3">
