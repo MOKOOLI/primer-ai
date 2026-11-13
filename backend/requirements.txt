@@ -13,4 +13,3 @@ biopython
 requests
 slowapi
 email-validator
-vina==1.2.7
