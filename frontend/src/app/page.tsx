@@ -18,7 +18,7 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
   en: {
     title: "Primer AI", subtitle: "From gene to structure to literature — designed in your language.",
     tab_design: "Primer design", tab_qpcr: "RT-qPCR analysis", tab_multiplex: "Multiplex", tab_gibson: "Gibson assembly", tab_crispr: "CRISPR gRNA",
-    tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_troubleshoot: "Troubleshooting", tab_library: "My library", tab_pharma: "Pharma Research",
+    tab_toolbox: "Toolbox", tab_explorer: "Gene & protein explorer", tab_tutorial: "Learn", tab_troubleshoot: "Troubleshooting", tab_library: "My library", tab_pharma: "Research Data Bank",
     login: "Log in / Sign up", logout: "Log out", deleteAccount: "Delete my account", settings: "Account",
     deleteConfirm: "Delete your account, saved data, classrooms you own, and their submissions? This cannot be undone.",
     loginRequired: "Please log in to use this feature.", networkErr: "Cannot reach the server. It may be waking up (free tier) — try again in ~1 minute.",
@@ -139,7 +139,7 @@ const T_CORE: Record<"en" | "fa", Record<string, string>> = {
   fa: {
     title: "Primer AI", subtitle: "از ژن تا ساختار تا مقاله — به زبان خودتان.",
     tab_design: "طراحی پرایمر", tab_qpcr: "تحلیل RT-qPCR", tab_multiplex: "مولتی‌پلکس", tab_gibson: "مونتاژ Gibson", tab_crispr: "CRISPR gRNA",
-    tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_troubleshoot: "عیب‌یابی", tab_library: "کتابخانه من", tab_pharma: "پژوهش دارویی",
+    tab_toolbox: "ابزارها", tab_explorer: "کاوشگر ژن و پروتئین", tab_tutorial: "آموزش", tab_troubleshoot: "عیب‌یابی", tab_library: "کتابخانه من", tab_pharma: "بانک داده پژوهشی",
     login: "ورود / ثبت‌نام", logout: "خروج", deleteAccount: "حذف حساب من", settings: "حساب کاربری",
     deleteConfirm: "حساب، داده‌های ذخیره‌شده، کلاس‌هایی که ساخته‌اید و تحویل‌های آن‌ها حذف شود؟ این کار برگشت‌پذیر نیست.",
     loginRequired: "برای استفاده از این قابلیت وارد شوید.", networkErr: "اتصال به سرور برقرار نشد. ممکن است سرور در حال بیدار شدن باشد (پلن رایگان) — حدود ۱ دقیقه بعد دوباره تلاش کنید.",
