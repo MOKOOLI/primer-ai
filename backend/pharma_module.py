@@ -36,6 +36,7 @@ from starlette.concurrency import run_in_threadpool
 from pharma_intelligence import clean_text, lookup_fda, lookup_ema, lookup_pubchem
 from pharma_structures import load_experimental_structure
 from pharma_evidence import load_chembl_activities, load_clinical_study
+from pharma_discovery import load_compound_profile, search_uniprot_structures
 
 log = logging.getLogger("primerai.pharma")
 
@@ -126,6 +127,15 @@ query TargetPathways($id: String!) {
     approvedSymbol
     approvedName
     pathways { pathway pathwayId }
+  }
+}"""
+
+Q_TARGET_PROTEINS = """
+query TargetProteins($id: String!) {
+  target(ensemblId: $id) {
+    id
+    approvedSymbol
+    proteinIds { id source }
   }
 }"""
 
@@ -702,6 +712,56 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         except RuntimeError as exc:
             log.warning("ChEMBL evidence retrieval failed: %s", exc)
             raise HTTPException(502, "ChEMBL activity data unavailable") from exc
+
+    @router.get("/drugs/{chembl_id}/compound-profile")
+    async def compound_profile(chembl_id: str, user=Depends(get_current_user)):
+        try:
+            return await run_in_threadpool(load_compound_profile, chembl_id)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except LookupError as exc:
+            raise HTTPException(404, "ChEMBL molecule not found") from exc
+        except RuntimeError as exc:
+            log.warning("ChEMBL molecule retrieval failed: %s", exc)
+            raise HTTPException(502, "ChEMBL molecule data unavailable") from exc
+
+    @router.get("/structure-search")
+    async def structure_search(uniprot: str = Query(..., min_length=6, max_length=10),
+                               user=Depends(get_current_user)):
+        try:
+            return await run_in_threadpool(search_uniprot_structures, uniprot)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except RuntimeError as exc:
+            log.warning("RCSB structure search failed: %s", exc)
+            raise HTTPException(502, "RCSB structure search unavailable") from exc
+
+    @router.get("/targets/{ensembl_id}/proteins")
+    async def target_proteins(ensembl_id: str, user=Depends(get_current_user)):
+        eid = ensembl_id.strip()
+        if not ENSG_RE.fullmatch(eid):
+            raise HTTPException(422, "Target ID must be an Ensembl gene ID")
+        result, ts = await cached(f"target-proteins:{eid}",
+                                  lambda: _ot_query(Q_TARGET_PROTEINS, {"id": eid}),
+                                  CATALOG_CACHE_TTL)
+        target = result.get("target")
+        if not target or target.get("id") != eid:
+            raise HTTPException(404, "Target not found")
+        valid = []
+        seen = set()
+        for row in target.get("proteinIds") or []:
+            if not isinstance(row, dict):
+                continue
+            identifier, source = str(row.get("id") or "").upper(), row.get("source") or ""
+            if source not in {"uniprot_swissprot", "uniprot_trembl"} or not re.fullmatch(r"[A-Z0-9]{6,10}", identifier):
+                continue
+            if (identifier, source) not in seen:
+                seen.add((identifier, source))
+                valid.append({"id": identifier, "source": source})
+        valid.sort(key=lambda item: (item["source"] != "uniprot_swissprot", item["id"]))
+        return {"target_id": eid, "symbol": target.get("approvedSymbol") or "",
+                "proteins": valid[:30], "truncated": len(valid) > 30,
+                "source_url": OT_TARGET_URL.format(id=eid), "retrieved_at": _iso(ts)}
 
     @router.get("/clinical-studies/{nct_id}")
     async def clinical_study(nct_id: str, user=Depends(get_current_user)):

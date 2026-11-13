@@ -13,9 +13,10 @@ type Structure = {
 type Props = {
   call: (path: string, init?: RequestInit) => Promise<any>;
   lang?: string;
+  suggestedPdb?: { id: string } | null;
 };
 
-export default function PharmaStructureViewer({ call, lang }: Props) {
+export default function PharmaStructureViewer({ call, lang, suggestedPdb }: Props) {
   const fa = lang === "fa";
   const [input, setInput] = useState("");
   const [entry, setEntry] = useState<Structure | null>(null);
@@ -33,6 +34,12 @@ export default function PharmaStructureViewer({ call, lang }: Props) {
     if ((window as any).$3Dmol) setLibraryReady(true);
     return () => { request.current += 1; };
   }, []);
+
+  useEffect(() => {
+    if (!suggestedPdb) return;
+    request.current += 1;
+    setInput(suggestedPdb.id); setEntry(null); setError(""); setRenderError(""); setLoading(false);
+  }, [suggestedPdb]);
 
   const load = async () => {
     const id = input.trim().toUpperCase();
@@ -87,7 +94,7 @@ export default function PharmaStructureViewer({ call, lang }: Props) {
   const resetView = () => { try { viewer.current?.zoomTo(); viewer.current?.render(); } catch { /* ignore */ } };
   const button = "rounded-lg border border-slate-500 px-3 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700 disabled:opacity-50";
 
-  return <section aria-labelledby="pharma-3d-title" className="space-y-4 rounded-2xl border border-slate-600 bg-[#111c34] p-4 text-slate-100">
+  return <section id="pharma-structure-viewer" aria-labelledby="pharma-3d-title" className="space-y-4 rounded-2xl border border-slate-600 bg-[#111c34] p-4 text-slate-100">
     <Script src="https://3dmol.org/build/3Dmol-min.js" strategy="afterInteractive"
       onReady={() => { setLibraryReady(true); setLibraryFailed(false); }}
       onError={() => setLibraryFailed(true)} />

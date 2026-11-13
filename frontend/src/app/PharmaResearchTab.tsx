@@ -6,6 +6,8 @@ import PharmaDashboard from "./PharmaDashboard";
 import PharmaStructureViewer from "./PharmaStructureViewer";
 import PharmaEvidencePanel from "./PharmaEvidencePanel";
 import ClinicalStudyDetail from "./ClinicalStudyDetail";
+import PharmaCompoundProfile from "./PharmaCompoundProfile";
+import TargetStructureSearch from "./TargetStructureSearch";
 
 type Target = { ensembl_id: string; symbol: string; mechanisms: string[]; references: { source: string; url: string }[]; url: string };
 type Drug = {
@@ -103,6 +105,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   const [catalogRetrieved, setCatalogRetrieved] = useState("");
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [drug, setDrug] = useState<Drug | null>(null);
+  const [suggestedPdb, setSuggestedPdb] = useState<{ id: string } | null>(null);
   const [retrieved, setRetrieved] = useState("");
   const [source, setSource] = useState<any>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
@@ -287,7 +290,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
           document.getElementById("pharma-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }} />
 
-      <PharmaStructureViewer call={call} lang={lang} />
+      <PharmaStructureViewer call={call} lang={lang} suggestedPdb={suggestedPdb} />
 
       {/* Unified, source-linked research catalog */}
       <section id="pharma-catalog" className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
@@ -408,6 +411,10 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
                   {onDesignGene && <button type="button" className={ghost} onClick={() => onDesignGene(x.symbol)}>{t.design}</button>}
                   {!pw[x.symbol] && <button type="button" className={ghost} disabled={busy} onClick={() => loadPathways(x)}>{t.loadPw}</button>}
                 </div>
+                <TargetStructureSearch targetId={x.ensembl_id} call={call} lang={lang} onChoose={(id) => {
+                  setSuggestedPdb({ id });
+                  document.getElementById("pharma-structure-viewer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }} />
                 {pw[x.symbol] && <div className="max-h-40 overflow-y-auto space-y-1 text-xs">{pw[x.symbol].map((p) => (
                   <label key={p.id} className="flex items-start gap-2">
                     <input type="checkbox" checked={!!pickedPw[p.id]} onChange={(e) => setPickedPw((s) => {
@@ -423,6 +430,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
       </section>}
 
       {drug && <DrugResearchPanel drug={drug} call={call} lang={lang} />}
+      {drug && <div key={drug.id}><PharmaCompoundProfile drugId={drug.id} call={call} lang={lang} /></div>}
       {drug && <div key={drug.id}><PharmaEvidencePanel drugId={drug.id} call={call} lang={lang} /></div>}
 
       {/* 3. Organization */}
