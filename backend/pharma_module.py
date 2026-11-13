@@ -29,14 +29,16 @@ from urllib.parse import quote
 
 import requests
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from pharma_intelligence import clean_text, lookup_fda, lookup_ema, lookup_pubchem
 from pharma_structures import load_experimental_structure
 from pharma_evidence import load_chembl_activities, load_clinical_study
 from pharma_discovery import load_compound_profile, search_uniprot_structures
+from pharma_docking import (docking_status, run_docking, DockingDisabled, DockingUnavailable,
+                            DockingBusy, DockingTimedOut, DockingFailed)
 
 log = logging.getLogger("primerai.pharma")
 
@@ -404,6 +406,16 @@ class AccessDecision(BaseModel):
     status: Literal["approved", "rejected", "revoked"]
 
 
+class DockingRequest(BaseModel):
+    receptor_pdbqt: str = Field(min_length=1, max_length=2_000_000)
+    ligand_pdbqt: str = Field(min_length=1, max_length=300_000)
+    center: list[float]
+    size: list[float]
+    seed: int = Field(ge=1, le=2_147_483_647)
+    exhaustiveness: int = Field(ge=1, le=8)
+    num_poses: int = Field(ge=1, le=5)
+
+
 class OrganizationCreate(BaseModel):
     name: str = Field(min_length=2, max_length=160)
 
@@ -686,6 +698,48 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     @router.get("/sources")
     async def sources():
         return {**SOURCE_INFO, "catalog": CATALOG_SOURCES}
+
+    @router.get("/docking/status")
+    async def get_docking_status(user=Depends(get_current_user)):
+        return docking_status()
+
+    @router.post("/docking/run")
+    async def dock_prepared_inputs(request: Request, user=Depends(get_current_user)):
+        if not docking_status()["ready"]:
+            raise HTTPException(503, "Docking is disabled or the engine is unavailable")
+        # Do not let automatic body parsing buffer an unbounded upload.
+        max_body = 2_600_000
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > max_body:
+            raise HTTPException(413, "Docking request exceeds the size limit")
+        chunks, total = [], 0
+        async for chunk in request.stream():
+            total += len(chunk)
+            if total > max_body:
+                raise HTTPException(413, "Docking request exceeds the size limit")
+            chunks.append(chunk)
+        try:
+            body = json.loads(b"".join(chunks))
+            req = DockingRequest(**body) if isinstance(body, dict) else None
+            if req is None:
+                raise ValueError("Expected a JSON object")
+        except (ValueError, TypeError, ValidationError) as exc:
+            raise HTTPException(422, "Invalid docking request") from exc
+        payload = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+        try:
+            return await run_in_threadpool(run_docking, payload)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except DockingDisabled as exc:
+            raise HTTPException(503, "Docking is disabled by the server administrator") from exc
+        except DockingUnavailable as exc:
+            raise HTTPException(503, "Docking engine or worker is unavailable") from exc
+        except DockingBusy as exc:
+            raise HTTPException(429, "The docking worker is busy; try later") from exc
+        except DockingTimedOut as exc:
+            raise HTTPException(504, "Docking timed out; reduce the search complexity") from exc
+        except DockingFailed as exc:
+            raise HTTPException(422, "Docking failed; check prepared PDBQT files and box") from exc
 
     @router.get("/structures/{pdb_id}")
     async def experimental_structure(pdb_id: str, user=Depends(get_current_user)):

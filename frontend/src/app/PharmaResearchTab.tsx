@@ -8,6 +8,7 @@ import PharmaEvidencePanel from "./PharmaEvidencePanel";
 import ClinicalStudyDetail from "./ClinicalStudyDetail";
 import PharmaCompoundProfile from "./PharmaCompoundProfile";
 import TargetStructureSearch from "./TargetStructureSearch";
+import PharmaDockingPanel from "./PharmaDockingPanel";
 
 type Target = { ensembl_id: string; symbol: string; mechanisms: string[]; references: { source: string; url: string }[]; url: string };
 type Drug = {
@@ -291,6 +292,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
         }} />
 
       <PharmaStructureViewer call={call} lang={lang} suggestedPdb={suggestedPdb} />
+      <PharmaDockingPanel call={call} lang={lang} />
 
       {/* Unified, source-linked research catalog */}
       <section id="pharma-catalog" className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
