@@ -212,6 +212,5 @@ export default function DrugResearchPanel({ drug, call, lang }: Props) {
         </div>)}
       </div>}
     </section>
-    <p className="text-xs text-slate-400">{fa ? "فقط برای پژوهش؛ نه برای تشخیص، درمان یا تعیین دوز." : "Research use only; not for diagnosis, treatment or dosing."}</p>
   </section>;
 }

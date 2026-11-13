@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from pharma_intelligence import clean_text, lookup_fda, lookup_ema, lookup_pubchem
+from pharma_structures import load_experimental_structure
 
 log = logging.getLogger("primerai.pharma")
 
@@ -674,6 +675,19 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     @router.get("/sources")
     async def sources():
         return {**SOURCE_INFO, "catalog": CATALOG_SOURCES}
+
+    @router.get("/structures/{pdb_id}")
+    async def experimental_structure(pdb_id: str, user=Depends(get_current_user)):
+        """Retrieve a user-selected experimental PDB entry; no drug match is inferred."""
+        try:
+            return await run_in_threadpool(load_experimental_structure, pdb_id)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except LookupError as exc:
+            raise HTTPException(404, "PDB structure not found") from exc
+        except RuntimeError as exc:
+            log.warning("RCSB PDB structure retrieval failed: %s", exc)
+            raise HTTPException(502, "Structure source unavailable or file exceeds size limit") from exc
 
     @router.get("/drugs/search")
     async def search_drugs(q: str = Query(..., min_length=2, max_length=80), user=Depends(get_current_user)):

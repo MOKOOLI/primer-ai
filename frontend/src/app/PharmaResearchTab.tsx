@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DrugResearchPanel from "./DrugResearchPanel";
+import PharmaDashboard from "./PharmaDashboard";
+import PharmaStructureViewer from "./PharmaStructureViewer";
 
 type Target = { ensembl_id: string; symbol: string; mechanisms: string[]; references: { source: string; url: string }[]; url: string };
 type Drug = {
@@ -20,8 +22,7 @@ type Props = {
 
 const L: Record<"en" | "fa", Record<string, string>> = {
   en: {
-    title: "Research Data Bank", subtitle: "Search drugs, genes, diseases, pathways, clinical trials and papers in one evidence-linked workspace.",
-    ruo: "Research use only. Not for diagnosis, treatment or dosing decisions.",
+    title: "Research Data Bank",
     catalogTitle: "Unified research search", catalogHint: "Search across trusted public research databases. Every result keeps its source, link and retrieval time.",
     catalogQuery: "Search a drug, gene, protein, disease, pathway, trial or paper",
     catalogSearchBtn: "Search all sources", catalogKind: "Record type",
@@ -50,8 +51,7 @@ const L: Record<"en" | "fa", Record<string, string>> = {
     selected: "selected", open: "Open", refs: "References", login: "Log in to use the Research Data Bank.",
   },
   fa: {
-    title: "بانک داده پژوهشی", subtitle: "جست‌وجوی دارو، ژن، پروتئین، بیماری، مسیر، کارآزمایی و مقاله در یک فضای مستند و یکپارچه.",
-    ruo: "فقط برای پژوهش. برای تشخیص، درمان یا تعیین دوز استفاده نشود.",
+    title: "بانک داده پژوهشی",
     catalogTitle: "جست‌وجوی یکپارچه پژوهشی", catalogHint: "در منابع عمومی معتبر جست‌وجو کنید؛ هر نتیجه منبع، پیوند و زمان دریافت را نگه می‌دارد.",
     catalogQuery: "جست‌وجوی دارو، ژن، پروتئین، بیماری، مسیر، کارآزمایی یا مقاله",
     catalogSearchBtn: "جست‌وجو در همه منابع", catalogKind: "نوع رکورد",
@@ -115,6 +115,8 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   const [memberRole, setMemberRole] = useState("researcher");
   const [projects, setProjects] = useState<any[]>([]);
   const [libraryItems, setLibraryItems] = useState<any[]>([]);
+  const [orgDataState, setOrgDataState] = useState<"no-org" | "loading" | "ready" | "error">("no-org");
+  const [loadedOrgId, setLoadedOrgId] = useState("");
   const [form, setForm] = useState({ name: "", organism: "Homo sapiens", model_system: "", dose_text: "", duration_text: "", hypothesis: "" });
   const [authErr, setAuthErr] = useState(false);
 
@@ -139,16 +141,29 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   useEffect(() => { void run(loadOrgs); }, [run, loadOrgs]);
 
   useEffect(() => {
-    if (!orgId) { setProjects([]); setMemberList([]); setLibraryItems([]); return; }
-    void run(async () => {
-      const [p, m, l] = await Promise.all([
-        call(`/pharma/organizations/${encodeURIComponent(orgId)}/projects`),
-        call(`/pharma/organizations/${encodeURIComponent(orgId)}/members`),
-        call(`/pharma/organizations/${encodeURIComponent(orgId)}/library`),
-      ]);
-      setProjects(p.items || []); setMemberList(m.items || []); setLibraryItems(l.items || []);
-    });
-  }, [orgId, call, run]);
+    let active = true;
+    setProjects([]); setMemberList([]); setLibraryItems([]);
+    if (!orgId) { setOrgDataState("no-org"); return () => { active = false; }; }
+    setOrgDataState("loading");
+    void (async () => {
+      try {
+        const [p, m, l] = await Promise.all([
+          call(`/pharma/organizations/${encodeURIComponent(orgId)}/projects`),
+          call(`/pharma/organizations/${encodeURIComponent(orgId)}/members`),
+          call(`/pharma/organizations/${encodeURIComponent(orgId)}/library`),
+        ]);
+        if (!active) return;
+        setProjects(p.items || []); setMemberList(m.items || []); setLibraryItems(l.items || []);
+        setLoadedOrgId(orgId); setOrgDataState("ready");
+      } catch (e: any) {
+        if (!active) return;
+        setOrgDataState("error");
+        if (e?.code === "auth") setAuthErr(true);
+        notify(String(e?.message || e));
+      }
+    })();
+    return () => { active = false; };
+  }, [orgId, call, notify]);
 
   const search = () => {
     const term = q.trim();
@@ -262,20 +277,24 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h2 className="text-2xl font-bold text-[#16233f]">{t.title}</h2>
-        <p className="text-sm text-slate-600">{t.subtitle}</p>
-        <p className="text-xs font-semibold text-amber-800">{t.ruo}</p>
-      </header>
+      <PharmaDashboard lang={lang} organizationName={orgs.find((org) => org.id === orgId)?.name || ""}
+        state={orgDataState === "ready" && loadedOrgId !== orgId ? "loading" : orgDataState} projects={projects} records={libraryItems}
+        onTrials={() => {
+          setCatalogKind("trial");
+          document.getElementById("pharma-catalog-query")?.focus();
+          document.getElementById("pharma-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }} />
+
+      <PharmaStructureViewer call={call} lang={lang} />
 
       {/* Unified, source-linked research catalog */}
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
+      <section id="pharma-catalog" className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
         <div>
           <h3 className="text-lg font-bold text-[#16233f]">{t.catalogTitle}</h3>
           <p className="mt-1 text-sm text-slate-600">{t.catalogHint}</p>
         </div>
         <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_220px_auto]">
-          <input className={input} dir="auto" value={catalogQuery}
+          <input id="pharma-catalog-query" className={input} dir="auto" value={catalogQuery}
             onChange={(e) => setCatalogQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && searchCatalog()}
             placeholder={t.catalogQuery} />
