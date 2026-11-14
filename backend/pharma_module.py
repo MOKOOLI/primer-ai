@@ -78,6 +78,7 @@ from pharma_constants import (
     Q_TARGET_PROTEINS,
     Q_TARGET_ASSOCIATIONS,
 )
+from pharma_helpers import _uid, _row, _iso
 
 from pharma_structures import load_experimental_structure
 from pharma_evidence import load_chembl_activities, load_clinical_study
@@ -87,28 +88,6 @@ from pharma_docking import (docking_status, run_docking, DockingDisabled, Dockin
 
 log = logging.getLogger("primerai.pharma")
 
-def _uid(user: Any) -> int:
-    if isinstance(user, dict):
-        value = user.get("id")
-    else:
-        try:
-            value = user["id"]
-        except Exception:
-            value = getattr(user, "id", None)
-    if value is None:
-        raise HTTPException(401, "Authenticated user ID missing")
-    return int(value)
-
-
-def _row(r) -> dict:
-    return dict(r._mapping) if hasattr(r, "_mapping") else dict(r)
-
-
-def _iso(v):
-    return v.isoformat() if hasattr(v, "isoformat") else v
-
-
-# -------------------------------------------------------------------- router
 def create_pharma_router(database, metadata, engine, users_table, get_current_user):
     now = sqlalchemy.func.now()
     organizations = sqlalchemy.Table(
