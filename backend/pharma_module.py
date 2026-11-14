@@ -47,6 +47,17 @@ from pharma_normalize import (
     normalize_pathways,
     clean_gene_list,
 )
+from pharma_schemas import (
+    PharmaAccessRequest,
+    AccessDecision,
+    DockingRequest,
+    OrganizationCreate,
+    MemberAdd,
+    GeneItem,
+    PathwayItem,
+    ProjectCreate,
+    LibraryItemCreate,
+)
 
 from pharma_structures import load_experimental_structure
 from pharma_evidence import load_chembl_activities, load_clinical_study
@@ -174,59 +185,6 @@ query TargetDiseaseScores($id: String!) {
   }
 }"""
 
-class PharmaAccessRequest(BaseModel):
-    organization_name: str = Field(..., min_length=2, max_length=160)
-    purpose: str = Field(..., min_length=5, max_length=1000)
-
-class AccessDecision(BaseModel):
-    status: Literal["approved", "rejected", "revoked"]
-
-class DockingRequest(BaseModel):
-    receptor_pdbqt: str = Field(min_length=1, max_length=2_000_000)
-    ligand_pdbqt: str = Field(min_length=1, max_length=300_000)
-    center: list[float]
-    size: list[float]
-    seed: int = Field(ge=1, le=2_147_483_647)
-    exhaustiveness: int = Field(ge=1, le=8)
-    num_poses: int = Field(ge=1, le=5)
-
-class OrganizationCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=160)
-
-class MemberAdd(BaseModel):
-    email: str = Field(min_length=5, max_length=254)
-    role: Literal["admin", "researcher", "viewer"] = "researcher"
-
-class GeneItem(BaseModel):
-    symbol: str = Field(min_length=1, max_length=24)
-    ensembl_id: Optional[str] = Field(None, max_length=20)
-    origin: Literal["open_targets", "user"] = "user"
-
-class PathwayItem(BaseModel):
-    id: str = Field(min_length=1, max_length=40)
-    name: str = Field(min_length=1, max_length=300)
-
-class ProjectCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=160)
-    drug_chembl_id: str = Field(min_length=7, max_length=20)
-    organism: str = Field("Homo sapiens", min_length=2, max_length=100)
-    model_system: str = Field("", max_length=200)
-    dose_text: str = Field("", max_length=120)
-    duration_text: str = Field("", max_length=120)
-    hypothesis: str = Field("", max_length=4000)
-    genes: list[GeneItem] = Field(..., min_items=1, max_items=40)
-    pathways: list[PathwayItem] = Field(default_factory=list, max_items=20)
-
-class LibraryItemCreate(BaseModel):
-    kind: Literal["drug", "target", "disease", "pathway", "trial", "publication"]
-    source_id: str = Field(min_length=1, max_length=200)
-    title: str = Field(min_length=1, max_length=500)
-    summary: str = Field("", max_length=2000)
-    url: str = Field(min_length=9, max_length=1000)
-    provider: str = Field(min_length=1, max_length=100)
-    license: str = Field("", max_length=300)
-    retrieved_at: str = Field("", max_length=60)
-    details: dict = Field(default_factory=dict)
 
 def _uid(user: Any) -> int:
     if isinstance(user, dict):
@@ -240,12 +198,16 @@ def _uid(user: Any) -> int:
         raise HTTPException(401, "Authenticated user ID missing")
     return int(value)
 
+
 def _row(r) -> dict:
     return dict(r._mapping) if hasattr(r, "_mapping") else dict(r)
+
 
 def _iso(v):
     return v.isoformat() if hasattr(v, "isoformat") else v
 
+
+# -------------------------------------------------------------------- router
 def create_pharma_router(database, metadata, engine, users_table, get_current_user):
     now = sqlalchemy.func.now()
     organizations = sqlalchemy.Table(
@@ -265,6 +227,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         sqlalchemy.Column("created_at", sqlalchemy.DateTime(timezone=True), server_default=now, nullable=False),
         extend_existing=True,
     )
+    # New table name (v2) so earlier MVP deployments need no ALTER TABLE.
     projects = sqlalchemy.Table(
         "pharma_projects_v2", metadata,
         sqlalchemy.Column("id", sqlalchemy.String(36), primary_key=True),
@@ -322,6 +285,8 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     )
     metadata.create_all(bind=engine, tables=[organizations, members, projects, library, cache, access])
 
+    # Privileged accounts are selected by immutable user IDs, configured on the
+    # server, not by client input, email domains, or email_verified flag.
     def configured_admin_ids():
         raw = os.getenv("PHARMA_ADMIN_USER_IDS", "")
         return {int(part.strip()) for part in raw.split(",") if part.strip().isdigit() and int(part.strip()) > 0}
@@ -342,6 +307,8 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             raise HTTPException(403, "Pharma access has not been approved")
         return user
 
+    # Entry/status and admin actions stay separately authenticated; every
+    # existing Pharma API route is covered by the dependency on this router.
     root = APIRouter(prefix="/pharma", tags=["Pharma Research"])
     router = APIRouter(dependencies=[Depends(require_pharma_access)])
 
@@ -364,6 +331,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             current = _row(existing)["status"]
             if current in ("pending", "approved"):
                 return {"status": current}
+            # A revoked approval cannot be regained through resubmitting.
             if current == "revoked":
                 raise HTTPException(403, "Access revoked; contact the administrator")
             await database.execute(access.update().where(access.c.user_id == uid, access.c.status == "rejected").values(
@@ -398,7 +366,10 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             status=req.status, reviewed_by=_uid(admin), updated_at=datetime.now(timezone.utc)))
         return {"status": req.status}
 
+
+    # ------------------------------------------------------------- caching
     async def cached(key: str, loader, ttl: timedelta = CACHE_TTL):
+        """Return (payload, fetched_at). Serves stale cache if upstream fails."""
         row = await database.fetch_one(sqlalchemy.select(cache).where(cache.c.key == key))
         stale = None
         if row:
@@ -432,11 +403,12 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             raise HTTPException(404, "Drug not found in Open Targets")
         return drug, ts
 
+    # -------------------------------------------------------- permissions
     async def membership(organization_id: str, user: Any) -> str:
         row = await database.fetch_one(sqlalchemy.select(members.c.role).where(
             members.c.organization_id == organization_id, members.c.user_id == _uid(user)))
         if not row:
-            raise HTTPException(404, "Organization not found")
+            raise HTTPException(404, "Organization not found")  # no enumeration
         return _row(row)["role"]
 
     async def require(organization_id: str, user: Any, *roles: str) -> str:
@@ -448,6 +420,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     WRITERS = ("owner", "admin", "researcher")
     MANAGERS = ("owner", "admin")
 
+    # ------------------------------------------------------- source data
     @router.get("/sources")
     async def sources():
         return {**SOURCE_INFO, "catalog": CATALOG_SOURCES}
@@ -460,6 +433,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     async def dock_prepared_inputs(request: Request, user=Depends(get_current_user)):
         if not docking_status()["ready"]:
             raise HTTPException(503, "Docking is disabled or the engine is unavailable")
+        # Do not let automatic body parsing buffer an unbounded upload.
         max_body = 2_600_000
         declared = request.headers.get("content-length", "")
         if declared.isdigit() and int(declared) > max_body:
@@ -495,6 +469,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
 
     @router.get("/structures/{pdb_id}")
     async def experimental_structure(pdb_id: str, user=Depends(get_current_user)):
+        """Retrieve a user-selected experimental PDB entry; no drug match is inferred."""
         try:
             return await run_in_threadpool(load_experimental_structure, pdb_id)
         except ValueError as exc:
@@ -631,6 +606,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         q: str = Query(..., min_length=2, max_length=80),
         user=Depends(get_current_user),
     ):
+        """Independent searches, not verified mappings between source records."""
         term = re.sub(r"\s+", " ", q).strip()
         if len(term) < 2:
             raise HTTPException(422, "Search term must contain at least two characters")
@@ -767,6 +743,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             "retrieved_at": _iso(max(timestamps)) if timestamps else None,
         }
 
+    # ----------------------------------------------------- organizations
     @router.get("/organizations")
     async def list_organizations(user=Depends(get_current_user)):
         rows = await database.fetch_all(
@@ -827,6 +804,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
             members.c.organization_id == organization_id, members.c.user_id == member_id))
         return {"status": "removed"}
 
+    # ---------------------------------------------------------- projects
     def project_out(r) -> dict:
         d = _row(r)
         for k in ("genes", "pathways", "evidence"):
@@ -848,7 +826,7 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         drug, ts = await load_drug(req.drug_chembl_id)
         known = {t["symbol"].upper(): t for t in drug["targets"]}
         genes = clean_gene_list([g.dict() for g in req.genes])
-        for g in genes:
+        for g in genes:  # origin is decided by the server, not the client
             if g["symbol"] in known:
                 g["origin"] = "open_targets"
                 g["ensembl_id"] = known[g["symbol"]]["ensembl_id"]
