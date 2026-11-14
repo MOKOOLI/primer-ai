@@ -1701,8 +1701,20 @@ function DemoCard({ L }: { L: any }) {
   );
 }
 
+// Product positioning: copy is deliberately limited to functionality represented in the supplied code.
+const PRODUCT_PATHS: Record<Lang, { headline: string; molecular: string; molecularDesc: string; pharma: string; pharmaDesc: string; openMolecular: string; openPharma: string; pharmaNote: string }> = {
+  en: { headline: "Molecular biology and pharmaceutical research, in one workbench.", molecular: "Molecular Biology Workbench", molecularDesc: "Primer design, qPCR, CRISPR and protein exploration.", pharma: "Pharmaceutical Research", pharmaDesc: "Explore medicines, molecular targets, mechanisms, pathways and clinical studies.", openMolecular: "Open molecular tools", openPharma: "Explore pharmaceutical research", pharmaNote: "Sign-in and approved research access required. For research use only." },
+  fa: { headline: "زیست‌شناسی مولکولی و پژوهش دارویی، در یک محیط کاری.", molecular: "ابزارهای زیست‌شناسی مولکولی", molecularDesc: "طراحی پرایمر، تحلیل qPCR، بررسی CRISPR و پروتئین.", pharma: "پژوهش دارویی", pharmaDesc: "بررسی داروها، اهداف مولکولی، مکانیسم‌ها، مسیرها و مطالعات بالینی.", openMolecular: "ورود به ابزارهای مولکولی", openPharma: "ورود به پژوهش دارویی", pharmaNote: "ورود به حساب و تأیید دسترسی پژوهشی لازم است. فقط برای استفاده پژوهشی." },
+  de: { headline: "Molekularbiologie und Arzneimittelforschung an einem Ort.", molecular: "Molekularbiologie", molecularDesc: "Primerdesign, qPCR, CRISPR und Proteine untersuchen.", pharma: "Arzneimittelforschung", pharmaDesc: "Arzneistoffe, molekulare Ziele, Wirkmechanismen, Signalwege und klinische Studien erkunden.", openMolecular: "Molekulare Werkzeuge öffnen", openPharma: "Arzneimittelforschung öffnen", pharmaNote: "Anmeldung und freigegebener Forschungszugang erforderlich. Nur für Forschungszwecke." },
+  fr: { headline: "Biologie moléculaire et recherche pharmaceutique, dans un même espace.", molecular: "Biologie moléculaire", molecularDesc: "Conception d’amorces, qPCR, CRISPR et exploration des protéines.", pharma: "Recherche pharmaceutique", pharmaDesc: "Explorer les médicaments, cibles, mécanismes, voies et études cliniques.", openMolecular: "Ouvrir les outils moléculaires", openPharma: "Ouvrir la recherche pharmaceutique", pharmaNote: "Connexion et accès de recherche approuvé requis. Réservé à la recherche." },
+  ru: { headline: "Молекулярная биология и фармацевтические исследования в одной среде.", molecular: "Молекулярная биология", molecularDesc: "Дизайн праймеров, qPCR, CRISPR и изучение белков.", pharma: "Фармацевтические исследования", pharmaDesc: "Поиск лекарств, молекулярных мишеней, механизмов, путей и клинических исследований.", openMolecular: "Открыть молекулярные инструменты", openPharma: "Открыть фармацевтические исследования", pharmaNote: "Необходимы вход и одобренный исследовательский доступ. Только для исследований." },
+  ar: { headline: "البيولوجيا الجزيئية والبحث الدوائي في مساحة واحدة.", molecular: "أدوات البيولوجيا الجزيئية", molecularDesc: "تصميم البادئات وتحليل qPCR وCRISPR واستكشاف البروتينات.", pharma: "البحث الدوائي", pharmaDesc: "استكشاف الأدوية والأهداف الجزيئية والآليات والمسارات والدراسات السريرية.", openMolecular: "فتح الأدوات الجزيئية", openPharma: "فتح البحث الدوائي", pharmaNote: "يلزم تسجيل الدخول والموافقة على الوصول البحثي. للاستخدام البحثي فقط." },
+  zh: { headline: "分子生物学与药物研究，一个工作台。", molecular: "分子生物学工作台", molecularDesc: "引物设计、qPCR、CRISPR 与蛋白质探索。", pharma: "药物研究", pharmaDesc: "探索药物、分子靶点、作用机制、通路及临床研究。", openMolecular: "打开分子工具", openPharma: "进入药物研究", pharmaNote: "需要登录并获得研究访问权限。仅供研究使用。" },
+};
+
 function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<string, string>; lang: Lang; setLang: (l: Lang) => void; onEnter: (tab?: TabId) => void; onStart: () => void; token: string | null }) {
   const L = LANDING[lang];
+  const product = PRODUCT_PATHS[lang];
   const toolIds: TabId[] = ["design", "qpcr", "multiplex", "gibson", "crispr", "explorer", "toolbox", "library"];
   return (
     <div className="space-y-6">
@@ -1724,7 +1736,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         <div className="relative grid items-center gap-10 px-6 pb-12 pt-12 md:grid-cols-[1.15fr_1fr] md:px-10 md:pb-16 md:pt-16">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-200 ring-1 ring-white/10"><i className="pa-band block h-2 w-2 rounded-full bg-[#5ef0a8]" />{L.kicker}</span>
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight md:text-[3.4rem]">{L.h1a}<br />{L.h1b}<br /><span className="text-[#5ef0a8]">{L.h1c}</span></h1>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight md:text-[3.4rem]">{product.headline}</h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300 md:text-lg">{L.sub}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button type="button" onClick={onStart} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 text-base font-bold text-[#06231a] shadow-[0_0_28px_rgba(94,240,168,.35)] transition hover:bg-[#7bf5b9] active:scale-[0.98]">{token ? L.open : L.cta_start}</button>
@@ -1734,6 +1746,20 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
           </div>
           <DemoCard L={L} />
         </div>
+      </section>
+
+      <section aria-label={product.headline} className="grid gap-4 md:grid-cols-2">
+        <article className="flex flex-col items-start rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <h2 className="text-xl font-extrabold text-[#16233f]">{product.molecular}</h2>
+          <p className="mt-2 flex-1 leading-relaxed text-slate-600">{product.molecularDesc}</p>
+          <button type="button" onClick={() => onEnter("design")} className="mt-5 rounded-xl bg-[#101a30] px-5 py-3 font-bold text-white transition hover:bg-[#22345c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">{product.openMolecular}</button>
+        </article>
+        <article className="flex flex-col items-start rounded-3xl border border-emerald-200 bg-[#e3f3ea] p-6 shadow-sm md:p-8">
+          <h2 className="text-xl font-extrabold text-[#16233f]">{product.pharma}</h2>
+          <p className="mt-2 flex-1 leading-relaxed text-slate-700">{product.pharmaDesc}</p>
+          <button type="button" onClick={() => onEnter("pharma")} className="mt-5 rounded-xl bg-[#101a30] px-5 py-3 font-bold text-white transition hover:bg-[#22345c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">{product.openPharma}</button>
+          <p className="mt-3 text-sm leading-relaxed text-slate-700">{product.pharmaNote}</p>
+        </article>
       </section>
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm md:p-8">
