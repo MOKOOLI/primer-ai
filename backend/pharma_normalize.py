@@ -13,14 +13,15 @@ from fastapi import HTTPException
 
 from pharma_intelligence import clean_text
 
-# Shared with pharma_module (kept here so this file is self-contained for deploy).
-import os
+# Shared constants
 OT_GRAPHQL = "https://api.platform.opentargets.org/api/v4/graphql"
 OT_DRUG_URL = "https://platform.opentargets.org/drug/{id}"
 OT_TARGET_URL = "https://platform.opentargets.org/target/{id}"
 CHEMBL_RE = re.compile(r"^CHEMBL\d{1,10}$")
 ENSG_RE = re.compile(r"^ENSG\d{11}$")
 GENE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-]{0,23}$")
+MAX_PATHWAYS_PER_TARGET = 40
+
 CATALOG_SOURCES = {
     "Open Targets Platform": {
         "url": "https://platform.opentargets.org",
