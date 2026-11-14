@@ -107,7 +107,9 @@ query DrugDetail($id: String!) {
     id
     name
     drugType
+    maximumClinicalTrialPhase
     maximumClinicalStage
+    hasBeenWithdrawn
     description
     mechanismsOfAction {
       uniqueActionTypes
