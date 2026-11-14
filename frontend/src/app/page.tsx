@@ -855,7 +855,12 @@ function DesignTab(p: Ctx & { seq: string; setSeq: (s: string) => void; gene: Ge
   };
 
   const savePair = async (i: number) => {
-    if (!token) return notify(t.loginRequired);
+    if (!token) {
+      notify(t.loginRequired);
+      const account = document.getElementById("account-tools") as HTMLDetailsElement | null;
+      if (account) { account.open = true; account.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      return;
+    }
     const pr = result.pairs[i];
     try {
       await call("/save-primer", { method: "POST", body: JSON.stringify({
@@ -1730,7 +1735,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
             <a href="#classroom" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_classroom}</a>
             <a href="#services" className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{t.nav_services}</a>
             <LangSelect lang={lang} setLang={setLang} label={t.language} />
-            <button type="button" onClick={() => onEnter()} className="rounded-full bg-white px-4 py-1.5 font-bold text-[#101a30] hover:bg-emerald-50">{token ? L.open : t.login}</button>
+            <button type="button" onClick={onStart} className="rounded-full bg-white px-4 py-1.5 font-bold text-[#101a30] hover:bg-emerald-50">{token ? L.open : t.login}</button>
           </nav>
         </div>
         <div className="relative grid items-center gap-10 px-6 pb-12 pt-12 md:grid-cols-[1.15fr_1fr] md:px-10 md:pb-16 md:pt-16">
@@ -1739,8 +1744,8 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
             <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight md:text-[3.4rem]">{product.headline}</h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300 md:text-lg">{L.sub}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <button type="button" onClick={onStart} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 text-base font-bold text-[#06231a] shadow-[0_0_28px_rgba(94,240,168,.35)] transition hover:bg-[#7bf5b9] active:scale-[0.98]">{token ? L.open : L.cta_start}</button>
-              {!token && <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-white/10 px-6 py-3.5 text-base font-semibold ring-1 ring-white/20 transition hover:bg-white/15">{L.cta_try}</button>}
+              <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 text-base font-bold text-[#06231a] shadow-[0_0_28px_rgba(94,240,168,.35)] transition hover:bg-[#7bf5b9] active:scale-[0.98]">{product.openMolecular}</button>
+              {!token && <button type="button" onClick={onStart} className="rounded-2xl bg-white/10 px-6 py-3.5 text-base font-semibold ring-1 ring-white/20 transition hover:bg-white/15">{t.login}</button>}
             </div>
             {!token && <p className="mt-4 max-w-md text-sm text-slate-400">{L.cta_note}</p>}
           </div>
@@ -1813,7 +1818,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
       <section className="grid gap-6 rounded-3xl bg-[#101a30] p-6 text-white md:grid-cols-[1fr_auto] md:items-center md:p-10">
         <div><h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">{L.final_title}</h2>
           <p className="mt-2 max-w-2xl text-slate-300"><b className="text-[#5ef0a8]">{L.privacy_title}</b> {L.privacy_body}</p></div>
-        <button type="button" onClick={onStart} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{token ? L.open : L.cta_start}</button>
+        <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{product.openMolecular}</button>
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 px-2 pb-10 text-sm text-slate-500">
@@ -1932,7 +1937,7 @@ export default function Home() {
                 <button type="button" onClick={logout} className="rounded-full px-3.5 py-1.5 font-semibold text-slate-200 hover:bg-white/10">{t.logout}</button>
                 <details className="relative"><summary className="cursor-pointer list-none rounded-full bg-white/10 px-3.5 py-1.5 font-semibold ring-1 ring-white/15 hover:bg-white/20">{t.settings}</summary>
                   <div className="absolute end-0 z-20 mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"><Btn kind="danger" onClick={del}>{t.deleteAccount}</Btn></div></details>
-              </>) : <a href="#account-tools" className="rounded-full bg-[#5ef0a8] px-4 py-1.5 font-bold text-[#06231a] shadow-[0_0_18px_rgba(94,240,168,.45)] hover:bg-[#7bf5b9] transition">{t.login}</a>}
+              </>) : <button type="button" onClick={startFree} className="rounded-full bg-[#5ef0a8] px-4 py-1.5 font-bold text-[#06231a] shadow-[0_0_18px_rgba(94,240,168,.45)] hover:bg-[#7bf5b9] transition">{t.login}</button>}
             </div>
           </div>
           <div className="relative px-5 pb-8 pt-8 md:px-8 md:pb-12 md:pt-10 md:max-w-[58%]">
@@ -1944,7 +1949,7 @@ export default function Home() {
 
         {notice && <div role="alert" className={`pa-panel flex items-start gap-3 rounded-2xl border p-4 text-sm shadow-sm ${notice.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}><b>{notice.kind === "error" ? "!" : "✓"}</b><span>{notice.msg}</span></div>}
 
-        <details id="account-tools" className="group rounded-2xl border border-slate-200/80 bg-white/80 px-5 py-3 shadow-sm backdrop-blur" open={!token}>
+        <details id="account-tools" className="group rounded-2xl border border-slate-200/80 bg-white/80 px-5 py-3 shadow-sm backdrop-blur">
           <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-[#16233f]"><span>{t.account_tools}</span><span className="text-slate-400 transition group-open:rotate-180">⌄</span></summary>
           <div className="mt-3"><AccountTools {...ctx} token={token} onLogin={setToken} onLogout={logout} /></div></details>
 
