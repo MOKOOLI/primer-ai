@@ -9,8 +9,8 @@ import ClinicalStudyDetail from "./ClinicalStudyDetail";
 import PharmaCompoundProfile from "./PharmaCompoundProfile";
 import TargetStructureSearch from "./TargetStructureSearch";
 import PharmaDockingPanel from "./PharmaDockingPanel";
+import PharmaResearchNote from "./PharmaResearchNote"; // <--- این خط باید بیرون از بلوک type باشد
 import type {
-import PharmaResearchNote from "./PharmaResearchNote";
   PharmaDrug as Drug,
   PharmaOrg as Org,
   PharmaTarget as Target,
