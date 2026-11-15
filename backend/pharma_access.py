@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from pharma_helpers import _iso, _row, _uid
 from pharma_schemas import AccessDecision, PharmaAccessRequest
+from pharma_observability import access_event
 
 
 def build_access_layer(*, database, access, users_table, get_current_user):
@@ -54,7 +55,9 @@ def build_access_layer(*, database, access, users_table, get_current_user):
                 sqlalchemy.select(access).where(access.c.user_id == _uid(user))
             )
             status = _row(row)["status"] if row else "not_requested"
-            return {"status": "approved" if is_admin(user) else status, "is_admin": is_admin(user)}
+            out = {"status": "approved" if is_admin(user) else status, "is_admin": is_admin(user)}
+            access_event(action="status", status=out["status"], is_admin=out["is_admin"], user_id=_uid(user))
+            return out
 
         @root.post("/access/request")
         async def request_access(req: PharmaAccessRequest, user=Depends(get_current_user)):
@@ -145,6 +148,7 @@ def build_access_layer(*, database, access, users_table, get_current_user):
                     updated_at=datetime.now(timezone.utc),
                 )
             )
+            access_event(action="decision", status=req.status, user_id=user_id)
             return {"status": req.status}
 
     return {

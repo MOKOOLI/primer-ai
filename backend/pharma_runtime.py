@@ -17,6 +17,7 @@ from starlette.concurrency import run_in_threadpool
 from pharma_constants import CACHE_TTL, CHEMBL_RE, Q_DRUG
 from pharma_helpers import _row, _uid
 from pharma_normalize import UpstreamError, _ot_query, normalize_drug
+from pharma_observability import cache_event
 
 log = logging.getLogger("primerai.pharma")
 
@@ -38,19 +39,23 @@ def build_runtime(*, database, cache, members):
                 fetched = fetched.replace(tzinfo=timezone.utc)
             stale = (json.loads(r["payload"]), fetched)
             if fetched and datetime.now(timezone.utc) - fetched < ttl:
+                cache_event(key=key, outcome="hit", ttl_hours=ttl.total_seconds() / 3600.0)
                 return stale
+        cache_event(key=key, outcome="miss")
         try:
             payload = await run_in_threadpool(loader)
         except UpstreamError as e:
             if stale:
-                log.warning("Serving stale cache for %s: %s", key, e)
+                cache_event(key=key, outcome="stale", error=str(e))
                 return stale
+            cache_event(key=key, outcome="error", error=str(e))
             raise HTTPException(502, str(e))
         ts = datetime.now(timezone.utc)
         body = json.dumps(payload, ensure_ascii=False)
         async with database.transaction():
             await database.execute(cache.delete().where(cache.c.key == key))
             await database.execute(cache.insert().values(key=key, payload=body, fetched_at=ts))
+        cache_event(key=key, outcome="store", ttl_hours=ttl.total_seconds() / 3600.0)
         return payload, ts
 
     async def load_drug(chembl_id: str) -> tuple[dict, datetime]:

@@ -6,6 +6,8 @@ Docking remains opt-in, bounded, and non-persisted.
 from __future__ import annotations
 
 import asyncio
+import hashlib  # <--- این خط اضافه شد
+import time
 import json
 import logging
 import re
@@ -59,6 +61,7 @@ from pharma_docking import (
     DockingFailed,
 )
 from pharma_intelligence import lookup_fda, lookup_ema, lookup_pubchem
+from pharma_observability import docking_event, upstream_event
 
 log = logging.getLogger("primerai.pharma")
 
@@ -78,7 +81,9 @@ def register_research_routes(
 
     @router.get("/docking/status")
     async def get_docking_status(user=Depends(get_current_user)):
-        return docking_status()
+        status = docking_status()
+        docking_event(phase="status", ok=bool(status.get("ready")))
+        return status
 
     @router.post("/docking/run")
     async def dock_prepared_inputs(request: Request, user=Depends(get_current_user)):
@@ -103,19 +108,30 @@ def register_research_routes(
         except (ValueError, TypeError, ValidationError) as exc:
             raise HTTPException(422, "Invalid docking request") from exc
         payload = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+        docking_event(phase="run_start", seed=payload.get("seed"), poses=payload.get("num_poses"))
+        _t0 = time.perf_counter()
         try:
-            return await run_in_threadpool(run_docking, payload)
+            result = await run_in_threadpool(run_docking, payload)
+            docking_event(phase="run_done", ok=True, duration_ms=int((time.perf_counter()-_t0)*1000),
+                           seed=payload.get("seed"), poses=len(result.get("scores") or []))
+            return result
         except ValueError as exc:
+            docking_event(phase="run_fail", ok=False, error_type="ValueError", error=str(exc))
             raise HTTPException(422, str(exc)) from exc
         except DockingDisabled as exc:
+            docking_event(phase="run_fail", ok=False, error_type="DockingDisabled", error=str(exc))
             raise HTTPException(503, "Docking is disabled by the server administrator") from exc
         except DockingUnavailable as exc:
+            docking_event(phase="run_fail", ok=False, error_type="DockingUnavailable", error=str(exc))
             raise HTTPException(503, "Docking engine or worker is unavailable") from exc
         except DockingBusy as exc:
+            docking_event(phase="run_fail", ok=False, error_type="DockingBusy", error=str(exc))
             raise HTTPException(429, "The docking worker is busy; try later") from exc
         except DockingTimedOut as exc:
+            docking_event(phase="run_fail", ok=False, error_type="DockingTimedOut", error=str(exc))
             raise HTTPException(504, "Docking timed out; reduce the search complexity") from exc
         except DockingFailed as exc:
+            docking_event(phase="run_fail", ok=False, error_type="DockingFailed", error=str(exc))
             raise HTTPException(422, "Docking failed; check prepared PDBQT files and box") from exc
 
     @router.get("/structures/{pdb_id}")
@@ -128,7 +144,7 @@ def register_research_routes(
         except LookupError as exc:
             raise HTTPException(404, "PDB structure not found") from exc
         except RuntimeError as exc:
-            log.warning("RCSB PDB structure retrieval failed: %s", exc)
+            upstream_event(provider="RCSB", operation="structure", ok=False, error=str(exc))
             raise HTTPException(502, "Structure source unavailable or file exceeds size limit") from exc
 
     @router.get("/drugs/{chembl_id}/activities")
@@ -141,7 +157,7 @@ def register_research_routes(
         except LookupError as exc:
             raise HTTPException(404, "ChEMBL record not found") from exc
         except RuntimeError as exc:
-            log.warning("ChEMBL evidence retrieval failed: %s", exc)
+            upstream_event(provider="ChEMBL", operation="activities", ok=False, error=str(exc))
             raise HTTPException(502, "ChEMBL activity data unavailable") from exc
 
     @router.get("/drugs/{chembl_id}/compound-profile")
@@ -153,7 +169,7 @@ def register_research_routes(
         except LookupError as exc:
             raise HTTPException(404, "ChEMBL molecule not found") from exc
         except RuntimeError as exc:
-            log.warning("ChEMBL molecule retrieval failed: %s", exc)
+            upstream_event(provider="ChEMBL", operation="compound_profile", ok=False, error=str(exc))
             raise HTTPException(502, "ChEMBL molecule data unavailable") from exc
 
     @router.get("/structure-search")
@@ -164,7 +180,7 @@ def register_research_routes(
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         except RuntimeError as exc:
-            log.warning("RCSB structure search failed: %s", exc)
+            upstream_event(provider="RCSB", operation="structure_search", ok=False, error=str(exc))
             raise HTTPException(502, "RCSB structure search unavailable") from exc
 
     @router.get("/targets/{ensembl_id}/proteins")
@@ -203,7 +219,7 @@ def register_research_routes(
         except LookupError as exc:
             raise HTTPException(404, "Clinical study not found") from exc
         except RuntimeError as exc:
-            log.warning("ClinicalTrials.gov retrieval failed: %s", exc)
+            upstream_event(provider="ClinicalTrials.gov", operation="study", ok=False, error=str(exc))
             raise HTTPException(502, "Clinical study data unavailable") from exc
 
     @router.get("/drugs/search")
@@ -270,7 +286,7 @@ def register_research_routes(
                 )
                 return {"provider": provider, "data": result, "retrieved_at": _iso(ts), "error": None}
             except Exception:
-                log.exception("Research intelligence lookup failed for %s", provider)
+                upstream_event(provider=provider, operation="intelligence", ok=False, error="lookup_failed")
                 return {"provider": provider, "data": None, "retrieved_at": None,
                         "error": "Source unavailable; no conclusion can be drawn"}
 
@@ -366,7 +382,7 @@ def register_research_routes(
                 payload, fetched_at = await work
                 return provider, payload, fetched_at, None
             except Exception:
-                log.exception("Research catalog source failed: %s", provider)
+                upstream_event(provider=provider, operation="catalog", ok=False, error="source_failed")
                 return provider, [], None, "Source temporarily unavailable"
 
         fetched = await asyncio.gather(
