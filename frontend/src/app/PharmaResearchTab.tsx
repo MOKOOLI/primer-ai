@@ -1,14 +1,12 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic"; // <--- این خط را اضافه کنید
+import dynamic from "next/dynamic";
 
-// کامپوننت‌های ساده و بدون وابستگی به مرورگر را به صورت عادی ایمپورت کنید
 import ClinicalStudyDetail from "./ClinicalStudyDetail";
 import TargetStructureSearch from "./TargetStructureSearch";
 import PharmaResearchNote from "./PharmaResearchNote";
 
-// کامپوننت‌هایی که خطای SSR می‌دهند را به صورت Dynamic ایمپورت کنید (بدون SSR)
 const PharmaDashboard = dynamic(() => import("./PharmaDashboard"), { ssr: false });
 const PharmaStructureViewer = dynamic(() => import("./PharmaStructureViewer"), { ssr: false });
 const PharmaDockingPanel = dynamic(() => import("./PharmaDockingPanel"), { ssr: false });
@@ -29,7 +27,6 @@ import type {
   PharmaProject,
   AccessRequestRow,
 } from "./types/pharma";
-
 
 const L: Record<"en" | "fa", Record<string, string>> = {
   en: {
@@ -144,7 +141,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   }, [notify]);
 
   const loadOrgs = useCallback(async () => {
-    const r = await call("/pharma/organizations");
+    const r = await call("/pharma/organizations") as any;
     const items: Org[] = r.items || [];
     setOrgs(items);
     setOrgId((cur) => (cur && items.some((o) => o.id === cur) ? cur : items[0]?.id || ""));
@@ -160,9 +157,9 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
     void (async () => {
       try {
         const [p, m, l] = await Promise.all([
-          call(`/pharma/organizations/${encodeURIComponent(orgId)}/projects`),
-          call(`/pharma/organizations/${encodeURIComponent(orgId)}/members`),
-          call(`/pharma/organizations/${encodeURIComponent(orgId)}/library`),
+          call(`/pharma/organizations/${encodeURIComponent(orgId)}/projects`) as Promise<any>,
+          call(`/pharma/organizations/${encodeURIComponent(orgId)}/members`) as Promise<any>,
+          call(`/pharma/organizations/${encodeURIComponent(orgId)}/library`) as Promise<any>,
         ]);
         if (!active) return;
         setProjects(p.items || []); setMemberList(m.items || []); setLibraryItems(l.items || []);
@@ -181,7 +178,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
     const term = q.trim();
     if (term.length < 2) return;
     void run(async () => {
-      const r = await call(`/pharma/drugs/search?q=${encodeURIComponent(term)}`);
+      const r = await call(`/pharma/drugs/search?q=${encodeURIComponent(term)}`) as any;
       setHits(r.items || []); setSource(r.source);
       if ((r.items || []).length === 1) await openDrug(r.items[0].id);
     });
@@ -193,7 +190,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
     setCatalogBusy(true);
     void (async () => {
       try {
-        const r = await call(`/pharma/catalog/search?q=${encodeURIComponent(term)}&kind=${encodeURIComponent(catalogKind)}`);
+        const r = await call(`/pharma/catalog/search?q=${encodeURIComponent(term)}&kind=${encodeURIComponent(catalogKind)}`) as any;
         setCatalogItems(r.items || []);
         setCatalogSources(r.sources || []);
         setCatalogErrors(r.source_errors || []);
@@ -216,7 +213,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
         url: item.url, provider: item.provider, license: item.license || "",
         retrieved_at: item.retrieved_at || catalogRetrieved, details: item,
       }),
-    });
+    }) as any;
     const saved = response.item;
     setLibraryItems((items) => [saved, ...items.filter((x) => x.id !== saved.id)]);
     notify(response.already_saved ? t.catalogSaved : t.catalogItemSaved, "ok");
@@ -229,7 +226,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   });
 
   const openDrug = async (id: string) => {
-    const r = await call(`/pharma/drugs/${encodeURIComponent(id)}`);
+    const r = await call(`/pharma/drugs/${encodeURIComponent(id)}`) as any;
     setDrug(r.drug); setRetrieved(r.retrieved_at || ""); setSource(r.source);
     setPicked(Object.fromEntries((r.drug.targets || []).map((x: Target) => [x.symbol, true])));
     setPw({}); setPickedPw({});
@@ -237,7 +234,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   };
 
   const loadPathways = (target: Target) => run(async () => {
-    const r = await call(`/pharma/targets/${encodeURIComponent(target.ensembl_id)}/pathways`);
+    const r = await call(`/pharma/targets/${encodeURIComponent(target.ensembl_id)}/pathways`) as any;
     setPw((x) => ({ ...x, [target.symbol]: r.target?.pathways || [] }));
   });
 
@@ -252,14 +249,15 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   }, [drug, picked, extraGenes]);
 
   const createOrg = () => run(async () => {
-    const r = await call("/pharma/organizations", { method: "POST", body: JSON.stringify({ name: orgName.trim() }) });
+    const r = await call("/pharma/organizations", { method: "POST", body: JSON.stringify({ name: orgName.trim() }) }) as any;
     setOrgName(""); await loadOrgs(); setOrgId(r.id);
   });
 
   const addMember = () => run(async () => {
     await call(`/pharma/organizations/${encodeURIComponent(orgId)}/members`, { method: "POST", body: JSON.stringify({ email: memberEmail.trim(), role: memberRole }) });
     setMemberEmail("");
-    const m = await call(`/pharma/organizations/${encodeURIComponent(orgId)}/members`); setMemberList(m.items || []);
+    const m = await call(`/pharma/organizations/${encodeURIComponent(orgId)}/members`) as any;
+    setMemberList(m.items || []);
     notify("OK", "ok");
   });
 
@@ -275,7 +273,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
       const p = await call(`/pharma/organizations/${encodeURIComponent(orgId)}/projects`, {
         method: "POST",
         body: JSON.stringify({ ...form, name: form.name.trim(), drug_chembl_id: drug!.id, genes: selectedGenes, pathways: Object.values(pickedPw) }),
-      });
+      }) as any;
       setProjects((x) => [p, ...x]); notify(t.saved, "ok");
     });
   };
@@ -306,7 +304,6 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
       <PharmaStructureViewer call={call} lang={lang} suggestedPdb={suggestedPdb} />
       <PharmaDockingPanel call={call} lang={lang} />
 
-      {/* Unified, source-linked research catalog */}
       <section id="pharma-catalog" className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
         <div>
           <h3 className="text-lg font-bold text-[#16233f]">{t.catalogTitle}</h3>
@@ -327,135 +324,101 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
             <option value="trial">{t.catalogTrial}</option>
             <option value="publication">{t.catalogPublication}</option>
           </select>
-          <button type="button" className={primary} disabled={catalogBusy || catalogQuery.trim().length < 2}
-            onClick={searchCatalog}>{catalogBusy ? t.catalogWait : t.catalogSearchBtn}</button>
+          <button type="button" className={primary} disabled={catalogBusy || catalogQuery.trim().length < 2} onClick={searchCatalog}>
+            {catalogBusy ? t.catalogWait : t.catalogSearchBtn}
+          </button>
         </div>
-        {catalogErrors.length > 0 && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-          {t.catalogSourceIssue} <span className="text-xs">{catalogErrors.map((x: any) => x.provider).join(", ")}</span>
-        </p>}
-        {catalogBusy && <p role="status" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">{t.catalogWait}</p>}
-        {catalogItems && !catalogBusy && !catalogItems.length && (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-600">
-            <p className="font-medium text-slate-800">{t.catalogNoResults}</p>
-            <p className="mt-1 text-xs text-slate-500">{lang === "fa"
-              ? "نام دارو، شناسه ChEMBL، ژن، بیماری، مسیر، NCT یا کلیدواژه مقاله را امتحان کنید."
-              : "Try a drug name, ChEMBL ID, gene, disease, pathway, NCT ID, or paper keyword."}</p>
+        {catalogErrors.length > 0 && <p className="text-xs text-amber-800">{t.catalogSourceIssue}</p>}
+        {catalogItems && !catalogItems.length && <p className="text-sm text-slate-600">{t.catalogNoResults}</p>}
+        {catalogItems && catalogItems.length > 0 && (
+          <div className="grid gap-2 md:grid-cols-2">
+            {catalogItems.map((item: any) => (
+              <article key={item.id} className="rounded-xl border bg-white p-3 space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <a className="flex-1 font-semibold text-[#16233f] hover:underline" href={item.url} target="_blank" rel="noreferrer">{item.title} ↗</a>
+                  {canWrite && <button type="button" className="text-xs text-emerald-700 hover:underline" onClick={() => saveCatalogItem(item)}>{t.catalogSave}</button>}
+                </div>
+                <p className="text-xs text-slate-500">{item.type} · {item.provider}</p>
+                {item.summary && <p className="text-xs text-slate-700">{item.summary}</p>}
+                <div className="flex flex-wrap gap-2">
+                  {item.type === "drug" && <button type="button" className={ghost} onClick={() => openDrug(item.id)}>{t.catalogOpenDrug}</button>}
+                  {onDesignGene && item.symbol && <button type="button" className={ghost} onClick={() => onDesignGene(item.symbol)}>{t.catalogDesign}</button>}
+                </div>
+              </article>
+            ))}
           </div>
         )}
-        {catalogItems && catalogItems.length > 0 && <div className="grid gap-3 md:grid-cols-2">
-          {catalogItems.map((item: any) => {
-            const typeLabel = item.type === "drug" ? t.catalogDrug
-              : item.type === "target" ? t.catalogTarget
-              : item.type === "disease" ? t.catalogDisease
-              : item.type === "pathway" ? t.catalogPathway
-              : item.type === "trial" ? t.catalogTrial : t.catalogPublication;
-            const inBank = libraryItems.some((saved: any) => saved.kind === item.type && saved.source_id === item.id);
-            return <article key={`${item.provider}:${item.type}:${item.id}`} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
-              <div className="flex flex-wrap items-start gap-2">
-                <span className={`${chip} bg-emerald-50 border-emerald-200`}>{typeLabel}</span>
-                <a className="min-w-0 flex-1 font-semibold text-[#16233f] hover:underline"
-                  href={item.url} target="_blank" rel="noreferrer">{item.title} ↗</a>
-              </div>
-              <p className="break-all text-[11px] font-mono text-slate-500">{item.id}</p>
-              {item.summary && <p className="whitespace-pre-wrap text-sm text-slate-700">{item.summary}</p>}
-              {item.type === "trial" && /^NCT\d{8}$/.test(item.id) &&
-                <ClinicalStudyDetail nctId={item.id} call={call} lang={lang} />}
-              <p className="text-xs text-slate-500">
-                {t.source}: {item.provider}{item.license ? ` · ${item.license}` : ""}
-                {item.retrieved_at && ` · ${t.catalogRetrieved}: ${new Date(item.retrieved_at).toLocaleString()}`}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {item.type === "drug" && <button type="button" className={ghost}
-                  disabled={busy} onClick={() => run(() => openDrug(item.id))}>{t.catalogOpenDrug}</button>}
-                {item.type === "target" && onDesignGene && GENE_RE.test(item.title) &&
-                  <button type="button" className={ghost} onClick={() => onDesignGene(item.title)}>{t.catalogDesign}</button>}
-                {canWrite && <button type="button" className={ghost} disabled={busy || !orgId || inBank}
-                  onClick={() => saveCatalogItem(item)}>{inBank ? t.catalogSaved : t.catalogSave}</button>}
-              </div>
-            </article>;
-          })}
-        </div>}
-        {catalogSources.length > 0 && <p className="text-xs text-slate-500">
-          {t.source}: {catalogSources.map((source: any) =>
-            <a key={source.provider} className="me-2 text-emerald-800 hover:underline"
-              href={source.url} target="_blank" rel="noreferrer">{source.provider}</a>)}
-        </p>}
       </section>
 
-      {/* Drug-specific mechanism and pathway workspace */}
-      <section className="space-y-1">
-        <h3 className="text-lg font-bold text-[#16233f]">{t.drugWorkspace}</h3>
+      <section className="rounded-2xl border p-4 space-y-3">
+        <h3 className="font-semibold">{t.drugWorkspace}</h3>
         <p className="text-sm text-slate-600">{t.drugWorkspaceHint}</p>
-      </section>
-
-      {/* Drug lookup */}
-      <section className="rounded-2xl border bg-emerald-50/60 p-4 space-y-3">
         <div className="flex gap-2">
-          <input className={input} dir="ltr" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} placeholder={t.search} />
+          <input className={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} placeholder={t.search} />
           <button type="button" className={primary} disabled={busy || q.trim().length < 2} onClick={search}>{t.searchBtn}</button>
         </div>
         {hits && !hits.length && <p className="text-sm text-slate-600">{t.noHits}</p>}
-        {hits && hits.length > 1 && <div className="flex flex-wrap gap-2">
-          {hits.map((h) => <button type="button" key={h.id} onClick={() => run(() => openDrug(h.id))}
-            className={`${chip} ${drug?.id === h.id ? "bg-[#16233f] text-white border-[#16233f]" : "bg-white border-slate-200 hover:border-emerald-500"}`}>{h.name} · {h.id}</button>)}
-        </div>}
+        {hits && hits.length > 1 && (
+          <div className="space-y-1">
+            {hits.map((h: any) => (
+              <button key={h.id} type="button" className="block w-full text-left text-sm hover:bg-slate-50 rounded-lg px-2 py-1" onClick={() => openDrug(h.id)}>
+                {h.name || h.title} <span className="text-xs text-slate-500">({h.id})</span>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* 2. Drug detail and targets */}
-      {drug && <section className="rounded-2xl border p-4 space-y-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-xl font-bold text-[#16233f]">{drug.name} <span className="text-sm font-mono text-slate-500">{drug.id}</span></h3>
-          <a className="text-sm font-semibold text-emerald-700 hover:underline" href={drug.url} target="_blank" rel="noreferrer">{t.open} ↗</a>
-        </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          {drug.drug_type && <span className={`${chip} bg-slate-50 border-slate-200`}>{t.type}: {drug.drug_type}</span>}
-          {(drug.clinical_stage || drug.max_clinical_phase != null) && <span className={`${chip} bg-slate-50 border-slate-200`}>{t.phase}: {drug.clinical_stage ?? drug.max_clinical_phase}</span>}
-          {drug.action_types.map((a) => <span key={a} className={`${chip} bg-slate-50 border-slate-200`}>{a}</span>)}
-          {drug.withdrawn && <span className={`${chip} bg-red-50 border-red-200 text-red-800`}>{t.withdrawn}</span>}
-          {drug.withdrawn == null && <span className={`${chip} bg-amber-50 border-amber-200 text-amber-900`}>{lang === "fa" ? "وضعیت خروج از بازار در این رکورد نامشخص است" : "Withdrawal status not provided in this record"}</span>}
-        </div>
-        {drug.description && <p className="text-sm text-slate-700">{drug.description}</p>}
+      {drug && (
+        <section className="rounded-2xl border p-4 space-y-4">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h3 className="text-lg font-bold">{drug.name}</h3>
+            <span className="text-xs font-mono text-slate-500">{drug.id}</span>
+            {drug.max_phase && <span className={`${chip} bg-sky-50 border-sky-300`}>{t.phase}: {drug.max_phase}</span>}
+            {drug.withdrawn && <span className={`${chip} bg-red-50 border-red-300`}>{t.withdrawn}</span>}
+          </div>
+          {drug.description && <p className="text-sm text-slate-700">{drug.description}</p>}
 
-        <div>
-          <p className="font-semibold text-sm mb-2">{t.targets}</p>
-          {!drug.targets.length ? <p className="text-sm text-slate-600">{t.noTargets}</p> :
-            <div className="grid gap-3 md:grid-cols-2">{drug.targets.map((x) => (
-              <article key={x.ensembl_id} className={`rounded-xl border p-3 space-y-2 ${picked[x.symbol] ? "border-emerald-500 bg-emerald-50/40" : "border-slate-200"}`}>
-                <label className="flex items-center gap-2 font-semibold">
-                  <input type="checkbox" checked={!!picked[x.symbol]} onChange={(e) => setPicked((p) => ({ ...p, [x.symbol]: e.target.checked }))} />
-                  <span dir="ltr">{x.symbol}</span>
-                  <a className="ms-auto text-xs font-mono text-slate-500 hover:underline" href={x.url} target="_blank" rel="noreferrer">{x.ensembl_id}</a>
-                </label>
-                <p className="text-xs text-slate-600">{x.mechanisms.join(" · ")}</p>
-                {x.references.length > 0 && <p className="text-xs">{t.refs}: {x.references.slice(0, 4).map((r, i) =>
-                  <a key={i} className="me-2 text-emerald-700 hover:underline" href={r.url} target="_blank" rel="noreferrer">{r.source || "link"}</a>)}</p>}
-                <div className="flex flex-wrap gap-2">
-                  {onDesignGene && <button type="button" className={ghost} onClick={() => onDesignGene(x.symbol)}>{t.design}</button>}
-                  {!pw[x.symbol] && <button type="button" className={ghost} disabled={busy} onClick={() => loadPathways(x)}>{t.loadPw}</button>}
-                </div>
-                <TargetStructureSearch targetId={x.ensembl_id} call={call} lang={lang} onChoose={(id) => {
-                  setSuggestedPdb({ id });
-                  document.getElementById("pharma-structure-viewer")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }} />
-                {pw[x.symbol] && <div className="max-h-40 overflow-y-auto space-y-1 text-xs">{pw[x.symbol].map((p) => (
-                  <label key={p.id} className="flex items-start gap-2">
-                    <input type="checkbox" checked={!!pickedPw[p.id]} onChange={(e) => setPickedPw((s) => {
-                      const n = { ...s }; if (e.target.checked) n[p.id] = { id: p.id, name: p.name }; else delete n[p.id]; return n; })} />
-                    <a className="hover:underline" href={p.url} target="_blank" rel="noreferrer">{p.name}</a>
-                  </label>))}</div>}
-              </article>))}</div>}
-        </div>
-        <label className="block text-sm space-y-1"><span className="font-semibold">{t.extra}</span>
-          <input className={input} dir="ltr" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="ACTB, GAPDH, LDLR" /></label>
-        {badExtra.length > 0 && <p className="text-xs text-red-700">Invalid: {badExtra.join(", ")}</p>}
-        {source && <p className="text-xs text-slate-500">{t.source}: <a className="hover:underline" href={source.url} target="_blank" rel="noreferrer">{source.provider}</a> ({source.license}; {(source.upstream || []).map((u: any) => `${u.name}: ${u.license}`).join("; ")}) · {t.retrieved}: {retrieved ? new Date(retrieved).toLocaleString() : "-"}</p>}
-      </section>}
+          <div>
+            <p className="font-semibold text-sm mb-2">{t.targets}</p>
+            {!drug.targets.length ? <p className="text-sm text-slate-600">{t.noTargets}</p> :
+              <div className="grid gap-3 md:grid-cols-2">{drug.targets.map((x) => (
+                <article key={x.ensembl_id} className={`rounded-xl border p-3 space-y-2 ${picked[x.symbol] ? "border-emerald-500 bg-emerald-50/40" : "border-slate-200"}`}>
+                  <label className="flex items-center gap-2 font-semibold">
+                    <input type="checkbox" checked={!!picked[x.symbol]} onChange={(e) => setPicked((p) => ({ ...p, [x.symbol]: e.target.checked }))} />
+                    <span dir="ltr">{x.symbol}</span>
+                    <a className="ms-auto text-xs font-mono text-slate-500 hover:underline" href={x.url} target="_blank" rel="noreferrer">{x.ensembl_id}</a>
+                  </label>
+                  <p className="text-xs text-slate-600">{x.mechanisms.join(" · ")}</p>
+                  {x.references.length > 0 && <p className="text-xs">{t.refs}: {x.references.slice(0, 4).map((r, i) =>
+                    <a key={i} className="me-2 text-emerald-700 hover:underline" href={r.url} target="_blank" rel="noreferrer">{r.source || "link"}</a>)}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    {onDesignGene && <button type="button" className={ghost} onClick={() => onDesignGene(x.symbol)}>{t.design}</button>}
+                    {!pw[x.symbol] && <button type="button" className={ghost} disabled={busy} onClick={() => loadPathways(x)}>{t.loadPw}</button>}
+                  </div>
+                  <TargetStructureSearch targetId={x.ensembl_id} call={call} lang={lang} onChoose={(id) => {
+                    setSuggestedPdb({ id });
+                    document.getElementById("pharma-structure-viewer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }} />
+                  {pw[x.symbol] && <div className="max-h-40 overflow-y-auto space-y-1 text-xs">{pw[x.symbol].map((p) => (
+                    <label key={p.id} className="flex items-start gap-2">
+                      <input type="checkbox" checked={!!pickedPw[p.id]} onChange={(e) => setPickedPw((s) => {
+                        const n = { ...s }; if (e.target.checked) n[p.id] = { id: p.id, name: p.name }; else delete n[p.id]; return n; })} />
+                      <a className="hover:underline" href={p.url} target="_blank" rel="noreferrer">{p.name}</a>
+                    </label>))}</div>}
+                </article>))}</div>}
+          </div>
+          <label className="block text-sm space-y-1"><span className="font-semibold">{t.extra}</span>
+            <input className={input} dir="ltr" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="ACTB, GAPDH, LDLR" /></label>
+          {badExtra.length > 0 && <p className="text-xs text-red-700">Invalid: {badExtra.join(", ")}</p>}
+          {source && <p className="text-xs text-slate-500">{t.source}: <a className="hover:underline" href={source.url} target="_blank" rel="noreferrer">{source.provider}</a> ({source.license}; {(source.upstream || []).map((u: any) => `${u.name}: ${u.license}`).join("; ")}) · {t.retrieved}: {retrieved ? new Date(retrieved).toLocaleString() : "-"}</p>}
+        </section>
+      )}
 
       {drug && <DrugResearchPanel drug={drug} call={call} lang={lang} />}
       {drug && <div key={drug.id}><PharmaCompoundProfile drugId={drug.id} call={call} lang={lang} /></div>}
       {drug && <div key={drug.id}><PharmaEvidencePanel drugId={drug.id} call={call} lang={lang} /></div>}
 
-      {/* 3. Organization */}
       <section className="rounded-2xl border p-4 space-y-3">
         <h3 className="font-semibold">{t.org}</h3>
         {orgs.length > 0 && <select className={input} value={orgId} onChange={(e) => setOrgId(e.target.value)}>
@@ -506,7 +469,6 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
         )}
       </section>}
 
-      {/* 4. Save project */}
       {drug && canWrite && <section className="rounded-2xl border bg-slate-50 p-4 space-y-3">
         <h3 className="font-semibold">{t.project}</h3>
         <p className="text-xs text-slate-600">{selectedGenes.map((g) => g.symbol).join(", ") || "-"} · {Object.keys(pickedPw).length} {t.pathways}</p>
@@ -521,7 +483,6 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
         <button type="button" className={primary} disabled={busy || !orgId || form.name.trim().length < 2 || !selectedGenes.length || badExtra.length > 0} onClick={saveProject}>{t.save}</button>
       </section>}
 
-      {/* 5. Projects */}
       {orgId && <section className="space-y-2">
         <h3 className="font-semibold">{t.projects}</h3>
         {!projects.length ? (
@@ -553,9 +514,6 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   );
 }
 
-
-// The workspace is mounted only after a server-side authorization check.
-// The API independently checks access on every protected route.
 export default function PharmaResearchTab(props: Props) {
   const { call, notify } = props;
   const fa = props.lang === "fa";
@@ -568,10 +526,10 @@ export default function PharmaResearchTab(props: Props) {
   const [error, setError] = useState("");
   const refresh = useCallback(async () => {
     try {
-      const info = await call("/pharma/access/status");
+      const info = await call("/pharma/access/status") as any;
       setStatus(info.status); setAdmin(!!info.is_admin); setError("");
       if (info.is_admin) {
-        const r = await call("/pharma/access/admin/requests");
+        const r = await call("/pharma/access/admin/requests") as any;
         setRequests(r.items || []);
       }
     } catch (e: any) {
@@ -583,7 +541,7 @@ export default function PharmaResearchTab(props: Props) {
   const requestAccess = async () => {
     setWorking(true); setError("");
     try {
-      const r = await call("/pharma/access/request", { method: "POST", body: JSON.stringify({ organization_name: org, purpose }) });
+      const r = await call("/pharma/access/request", { method: "POST", body: JSON.stringify({ organization_name: org, purpose }) }) as any;
       setStatus(r.status);
     } catch (e: any) { setError(String(e?.message || e)); }
     finally { setWorking(false); }
