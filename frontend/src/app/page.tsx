@@ -1735,6 +1735,9 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
             <a href="#tools" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_tools}</a>
             <a href="#classroom" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_classroom}</a>
             <a href="#services" className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{t.nav_services}</a>
+            <a href="/about" className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">
+              {lang === "fa" ? "درباره ما" : "About us"}
+            </a>
             <LangSelect lang={lang} setLang={setLang} label={t.language} />
             <button type="button" onClick={onStart} className="rounded-full bg-white px-4 py-1.5 font-bold text-[#101a30] hover:bg-emerald-50">{token ? L.open : t.login}</button>
           </nav>
@@ -1835,7 +1838,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
 
       <footer className="flex flex-wrap items-center justify-between gap-3 px-2 pb-10 text-sm text-slate-500">
         <span className="inline-flex items-center gap-2 font-extrabold text-[#16233f]">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 rounded-lg" /><span>Primer<span className="text-emerald-600"> AI</span></span></span>
-        <nav className="flex flex-wrap gap-4"><a href="#services" className="hover:text-[#16233f]">{t.nav_services}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
+        <nav className="flex flex-wrap gap-4"><a href="#services" className="hover:text-[#16233f]">{t.nav_services}</a><a href="/about" className="hover:text-[#16233f]">{lang === "fa" ? "درباره ما" : "About us"}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
         <p className="w-full font-mono text-[11px] text-slate-400">{t.footer}</p>
         <p className="w-full font-mono text-[11px] text-slate-400" dir="ltr">Funder: Fatemeh Naghizadeh</p>
       </footer>
@@ -1943,6 +1946,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <button type="button" onClick={goHome} className="rounded-lg px-2.5 py-1.5 font-semibold text-slate-200 hover:bg-white/10">{t.home}</button>
               <button type="button" onClick={goServices} className="rounded-lg px-2.5 py-1.5 font-semibold text-emerald-200 hover:bg-white/10">{t.nav_services}</button>
+              <a href="/about" className="rounded-lg px-2.5 py-1.5 text-slate-300 hover:bg-white/10">{lang === "fa" ? "درباره ما" : "About us"}</a>
               <a href="/privacy" className="rounded-lg px-2.5 py-1.5 text-slate-300 hover:bg-white/10">{t.privacy}</a>
               <LangSelect lang={lang} setLang={setLang} label={t.language} />
               {token ? (<>
