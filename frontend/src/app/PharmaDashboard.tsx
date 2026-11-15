@@ -1,3 +1,4 @@
+import PharmaResearchNote from "./PharmaResearchNote";
 "use client";
 
 type Project = { id: string; name: string; drug_name?: string; drug_chembl_id?: string; created_at?: string };
@@ -42,6 +43,14 @@ export default function PharmaDashboard({ lang, organizationName, state, project
       : state === "loading" ? (fa ? "در حال دریافت اطلاعات سازمان…" : "Loading organization data…")
       : state === "error" ? (fa ? "داده‌های سازمان بارگذاری نشدند؛ عددی نمایش داده نمی‌شود." : "Organization data could not be loaded; counts are unavailable.")
       : (fa ? "بانک حداکثر ۵۰۰ رکورد اخیر را نمایش می‌دهد. تعداد بیماران یا ثبت‌نام از این داده‌ها قابل محاسبه نیست." : "The bank loads up to 500 recent records. These data cannot determine patient enrollment.")}</p>
+    {ready && projects.length === 0 && (
+      <div className="rounded-xl border border-dashed border-slate-500 bg-[#0c182a] px-4 py-4 text-sm text-slate-300">
+        <p className="font-medium text-slate-100">{fa ? "هنوز پروژه‌ای در این سازمان نیست." : "No projects in this organization yet."}</p>
+        <p className="mt-1 text-xs text-slate-400">{fa
+          ? "یک دارو را باز کنید، ژن‌ها را انتخاب و در بخش ذخیره پروژه ثبت کنید."
+          : "Open a drug, select genes, then save a project in the form below."}</p>
+      </div>
+    )}
     {ready && projects.length > 0 && <div className="overflow-x-auto rounded-xl border border-slate-600">
       <table className="w-full text-start text-sm">
         <caption className="px-3 py-2 text-start font-semibold text-emerald-200">{fa ? "پروژه‌های اخیر" : "Recent projects"}</caption>
@@ -57,5 +66,7 @@ export default function PharmaDashboard({ lang, organizationName, state, project
         </tr>)}</tbody>
       </table>
     </div>}
+
+      <PharmaResearchNote lang={lang} />
   </section>;
 }

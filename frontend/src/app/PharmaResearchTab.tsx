@@ -10,6 +10,7 @@ import PharmaCompoundProfile from "./PharmaCompoundProfile";
 import TargetStructureSearch from "./TargetStructureSearch";
 import PharmaDockingPanel from "./PharmaDockingPanel";
 import type {
+import PharmaResearchNote from "./PharmaResearchNote";
   PharmaDrug as Drug,
   PharmaOrg as Org,
   PharmaTarget as Target,
@@ -49,7 +50,7 @@ const L: Record<"en" | "fa", Record<string, string>> = {
     memberEmail: "Registered member email", remove: "Remove",
     project: "Save as research project", pname: "Project name", organism: "Organism", model: "Model system (cell line, tissue, animal)",
     dose: "Dose / concentration", duration: "Treatment duration", hypothesis: "Hypothesis and notes (no patient-identifiable data)",
-    save: "Save project", projects: "Organization projects", noProjects: "No projects yet.", design: "Design primers", qpcr: "Analyze qPCR",
+    save: "Save project", projects: "Organization projects", noProjects: "No projects yet. Open a drug record, select genes, and save a project to this organization.", design: "Design primers", qpcr: "Analyze qPCR",
     del: "Delete", needOrg: "Create or select an organization first.", needGene: "Select at least one gene.",
     saved: "Project saved", source: "Source", retrieved: "Retrieved", userGene: "added by user", otGene: "Open Targets",
     selected: "selected", open: "Open", refs: "References", login: "Log in to use the Research Data Bank.",
@@ -78,7 +79,7 @@ const L: Record<"en" | "fa", Record<string, string>> = {
     memberEmail: "ایمیل حساب ثبت‌شده", remove: "حذف",
     project: "ذخیره به‌عنوان پروژه‌ی پژوهشی", pname: "نام پروژه", organism: "گونه", model: "مدل آزمایشی (رده‌ی سلولی، بافت، حیوان)",
     dose: "دوز / غلظت", duration: "مدت تیمار", hypothesis: "فرضیه و یادداشت (بدون اطلاعات قابل‌شناسایی بیمار)",
-    save: "ذخیره‌ی پروژه", projects: "پروژه‌های سازمان", noProjects: "هنوز پروژه‌ای نیست.", design: "طراحی پرایمر", qpcr: "تحلیل qPCR",
+    save: "ذخیره‌ی پروژه", projects: "پروژه‌های سازمان", noProjects: "هنوز پروژه‌ای نیست. یک رکورد دارو را باز کنید، ژن‌ها را انتخاب و پروژه را برای این سازمان ذخیره کنید.", design: "طراحی پرایمر", qpcr: "تحلیل qPCR",
     del: "حذف", needOrg: "اول یک سازمان بسازید یا انتخاب کنید.", needGene: "حداقل یک ژن انتخاب کنید.",
     saved: "پروژه ذخیره شد", source: "منبع", retrieved: "زمان دریافت", userGene: "افزوده‌ی کاربر", otGene: "Open Targets",
     selected: "انتخاب‌شده", open: "باز کردن", refs: "منابع", login: "برای استفاده از بانک داده پژوهشی وارد شوید.",
@@ -287,6 +288,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
           ? "رکوردها از منابع عمومی می‌آیند و با منبع، پیوند و زمان دریافت نگه داشته می‌شوند. امتیاز ساختگی تولید نمی‌شود."
           : "Records come from public sources and keep provider, link and retrieval time. No scores are invented."}
       </p>
+      <PharmaResearchNote lang={lang} />
       <PharmaDashboard lang={lang} organizationName={orgs.find((org) => org.id === orgId)?.name || ""}
         state={orgDataState === "ready" && loadedOrgId !== orgId ? "loading" : orgDataState} projects={projects} records={libraryItems}
         onTrials={() => {
@@ -472,7 +474,14 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
           <h3 className="font-semibold">{t.catalogBank} ({libraryItems.length})</h3>
           <p className="text-xs text-slate-500">{t.catalogBankHint}</p>
         </div>
-        {!libraryItems.length ? <p className="text-sm text-slate-500">{t.catalogBankEmpty}</p> :
+        {!libraryItems.length ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-5 text-sm text-slate-600">
+            <p className="font-medium text-slate-800">{t.catalogBankEmpty}</p>
+            <p className="mt-1 text-xs text-slate-500">{lang === "fa"
+              ? "از نتایج جست‌وجوی یکپارچه، موارد مفید را با «ذخیره در بانک سازمان» نگه دارید."
+              : "From unified search results, keep useful items with “Save to organization bank”."}</p>
+          </div>
+        ) : (
           <div className="grid gap-2 md:grid-cols-2">{libraryItems.map((item: any) => (
             <article key={item.id} className="rounded-xl border p-3 space-y-2 text-sm">
               <div className="flex items-start gap-2">
@@ -487,7 +496,8 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
                 {item.license}{item.created_at ? ` · ${new Date(item.created_at).toLocaleDateString()}` : ""}
               </p>
             </article>
-          ))}</div>}
+          ))}</div>
+        )}
       </section>}
 
       {/* 4. Save project */}
@@ -508,7 +518,14 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
       {/* 5. Projects */}
       {orgId && <section className="space-y-2">
         <h3 className="font-semibold">{t.projects}</h3>
-        {!projects.length ? <p className="text-sm text-slate-500">{t.noProjects}</p> : projects.map((p) => (
+        {!projects.length ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-5 text-sm text-slate-600">
+            <p className="font-medium text-slate-800">{t.noProjects}</p>
+            <p className="mt-1 text-xs text-slate-500">{lang === "fa"
+              ? "پروژه، دارو + ژن‌های انتخابی + فرضیه را برای سازمان نگه می‌دارد."
+              : "A project stores the drug, selected genes and hypothesis for this organization."}</p>
+          </div>
+        ) : projects.map((p) => (
           <article key={p.id} className="rounded-xl border p-3 space-y-2 text-sm">
             <div className="flex flex-wrap items-baseline gap-2"><b>{p.name}</b>
               <span className="text-slate-600">{p.drug_name} ({p.drug_chembl_id}) · {p.organism}{p.model_system ? ` · ${p.model_system}` : ""}</span>

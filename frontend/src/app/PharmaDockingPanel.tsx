@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from "react";
+import PharmaResearchNote from "./PharmaResearchNote";
 
 type Status = { enabled: boolean; engine_available: boolean; ready: boolean; timeout_seconds: number };
 type Result = {
@@ -159,6 +160,14 @@ export default function PharmaDockingPanel({ call, lang }: Props) {
     <p className="text-xs text-slate-300">{fa
       ? "فایل‌ها برای محاسبه به سرور سایت ارسال و موقتاً روی سرور نوشته می‌شوند. نتیجه در بانک ذخیره نمی‌شود؛ فایل‌های خودتان را نگه دارید."
       : "Files are sent to the site server and written temporarily for computation. Results are not saved to the bank; retain your inputs."}</p>
+    {status?.ready && (!receptor || !ligand) && (
+      <div className="rounded-xl border border-dashed border-slate-500 bg-[#0c182a] px-3 py-3 text-xs text-slate-300">
+        <p className="font-medium text-slate-100">{fa ? "هنوز فایل ورودی انتخاب نشده." : "No input files selected yet."}</p>
+        <p className="mt-1">{fa
+          ? "هر دو PDBQT باید از قبل آماده شده باشند. نمایشگر سه‌بعدی این فایل‌ها را نمی‌سازد. برای تست سبک: exhaustiveness=2 و جعبه کوچک."
+          : "Both PDBQT files must be prepared ahead of time. The 3D viewer does not create them. For a light test: exhaustiveness 2 and a small box."}</p>
+      </div>
+    )}
     <div className="grid gap-3 md:grid-cols-2">
       <label className="space-y-1 text-sm"><span className="block">{fa ? "گیرنده آماده‌شده PDBQT" : "Prepared receptor PDBQT"}</span>
         <input type="file" accept=".pdbqt,text/plain" disabled={busy} onChange={(e) => { setReceptor(e.target.files?.[0] || null); setResult(null); }} className={input} />
@@ -240,5 +249,7 @@ export default function PharmaDockingPanel({ call, lang }: Props) {
       </div>
       <p className="text-xs text-slate-300">{fa ? "نتیجه موقتی است؛ پیش از خروج آن را دریافت کنید." : "The result is temporary; download it before leaving."}</p>
     </div>}
+
+      <PharmaResearchNote lang={lang} tone="dark" />
   </section>;
 }
