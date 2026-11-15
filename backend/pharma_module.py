@@ -81,6 +81,7 @@ from pharma_constants import (
 from pharma_helpers import _uid, _row, _iso
 from pharma_db import define_pharma_tables
 from pharma_access import build_access_layer
+from pharma_runtime import build_runtime
 
 from pharma_structures import load_experimental_structure
 from pharma_evidence import load_chembl_activities, load_clinical_study
@@ -114,58 +115,13 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
     router = APIRouter(dependencies=[Depends(require_pharma_access)])
     access_layer["register"](root)
 
-    # ------------------------------------------------------------- caching
-    async def cached(key: str, loader, ttl: timedelta = CACHE_TTL):
-        """Return (payload, fetched_at). Serves stale cache if upstream fails."""
-        row = await database.fetch_one(sqlalchemy.select(cache).where(cache.c.key == key))
-        stale = None
-        if row:
-            r = _row(row)
-            fetched = r["fetched_at"]
-            if fetched is not None and fetched.tzinfo is None:
-                fetched = fetched.replace(tzinfo=timezone.utc)
-            stale = (json.loads(r["payload"]), fetched)
-            if fetched and datetime.now(timezone.utc) - fetched < ttl:
-                return stale
-        try:
-            payload = await run_in_threadpool(loader)
-        except UpstreamError as e:
-            if stale:
-                log.warning("Serving stale cache for %s: %s", key, e)
-                return stale
-            raise HTTPException(502, str(e))
-        ts = datetime.now(timezone.utc)
-        body = json.dumps(payload, ensure_ascii=False)
-        async with database.transaction():
-            await database.execute(cache.delete().where(cache.c.key == key))
-            await database.execute(cache.insert().values(key=key, payload=body, fetched_at=ts))
-        return payload, ts
-
-    async def load_drug(chembl_id: str) -> tuple[dict, datetime]:
-        cid = chembl_id.strip().upper()
-        if not CHEMBL_RE.match(cid):
-            raise HTTPException(422, "Drug ID must be a ChEMBL ID such as CHEMBL1487")
-        drug, ts = await cached(f"drug-v3:{cid}", lambda: normalize_drug(_ot_query(Q_DRUG, {"id": cid})))
-        if not drug:
-            raise HTTPException(404, "Drug not found in Open Targets")
-        return drug, ts
-
-    # -------------------------------------------------------- permissions
-    async def membership(organization_id: str, user: Any) -> str:
-        row = await database.fetch_one(sqlalchemy.select(members.c.role).where(
-            members.c.organization_id == organization_id, members.c.user_id == _uid(user)))
-        if not row:
-            raise HTTPException(404, "Organization not found")  # no enumeration
-        return _row(row)["role"]
-
-    async def require(organization_id: str, user: Any, *roles: str) -> str:
-        role = await membership(organization_id, user)
-        if roles and role not in roles:
-            raise HTTPException(403, "Your role in this organization does not allow this action")
-        return role
-
-    WRITERS = ("owner", "admin", "researcher")
-    MANAGERS = ("owner", "admin")
+    runtime = build_runtime(database=database, cache=cache, members=members)
+    cached = runtime["cached"]
+    load_drug = runtime["load_drug"]
+    membership = runtime["membership"]
+    require = runtime["require"]
+    WRITERS = runtime["WRITERS"]
+    MANAGERS = runtime["MANAGERS"]
 
     # ------------------------------------------------------- source data
     @router.get("/sources")
