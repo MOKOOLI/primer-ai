@@ -1840,7 +1840,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         <span className="inline-flex items-center gap-2 font-extrabold text-[#16233f]">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 rounded-lg" /><span>Primer<span className="text-emerald-600"> AI</span></span></span>
         <nav className="flex flex-wrap gap-4"><a href="#services" className="hover:text-[#16233f]">{t.nav_services}</a><a href="/about" className="hover:text-[#16233f]">{lang === "fa" ? "درباره ما" : "About us"}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
         <p className="w-full font-mono text-[11px] text-slate-400">{t.footer}</p>
-        <p className="w-full font-mono text-[11px] text-slate-400" dir="ltr">Funder: Fatemeh Naghizadeh</p>
+        <p className="w-full font-mono text-[11px] text-slate-400" dir="ltr">Founder: Fatemeh Naghizadeh</p>
       </footer>
     </div>
   );
@@ -1999,7 +1999,7 @@ export default function Home() {
 
         </section>
 
-        <footer className="space-y-1.5 px-2 pb-24 text-xs leading-relaxed text-slate-500"><p>{t.privacyNotice}</p><p className="font-mono text-[11px] text-slate-400">{t.footer}</p><p className="font-mono text-[11px] text-slate-400" dir="ltr">Funder: Fatemeh Naghizadeh</p></footer>
+        <footer className="space-y-1.5 px-2 pb-24 text-xs leading-relaxed text-slate-500"><p>{t.privacyNotice}</p><p className="font-mono text-[11px] text-slate-400">{t.footer}</p><p className="font-mono text-[11px] text-slate-400" dir="ltr">Founder: Fatemeh Naghizadeh</p></footer>
         <ChatBox {...ctx} llm={!!config.llm} context={aiContext} />
       </div>)}
     </main>
