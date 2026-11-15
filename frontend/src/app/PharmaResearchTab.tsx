@@ -374,8 +374,8 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
           <div className="flex flex-wrap items-baseline gap-2">
             <h3 className="text-lg font-bold">{drug.name}</h3>
             <span className="text-xs font-mono text-slate-500">{drug.id}</span>
-            {drug.max_phase && <span className={`${chip} bg-sky-50 border-sky-300`}>{t.phase}: {drug.max_phase}</span>}
-            {drug.withdrawn && <span className={`${chip} bg-red-50 border-red-300`}>{t.withdrawn}</span>}
+            {(drug as any).max_phase && <span className={`${chip} bg-sky-50 border-sky-300`}>{t.phase}: {(drug as any).max_phase}</span>}
+            {(drug as any).withdrawn && <span className={`${chip} bg-red-50 border-red-300`}>{t.withdrawn}</span>}
           </div>
           {drug.description && <p className="text-sm text-slate-700">{drug.description}</p>}
 
