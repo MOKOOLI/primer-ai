@@ -27,8 +27,8 @@ export default function PharmaDockingPanel({ call, lang }: Props) {
   const [center, setCenter] = useState(["", "", ""]);
   const [size, setSize] = useState(["", "", ""]);
   const [seed, setSeed] = useState("42");
-  const [exhaustiveness, setExhaustiveness] = useState("4");
-  const [numPoses, setNumPoses] = useState("3");
+  const [exhaustiveness, setExhaustiveness] = useState("2");
+  const [numPoses, setNumPoses] = useState("2");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
@@ -36,14 +36,28 @@ export default function PharmaDockingPanel({ call, lang }: Props) {
 
   useEffect(() => {
     let active = true;
-    void (async () => {
+    const pull = async () => {
       try {
-        const response = await call("/pharma/docking/status");
+        const response = await call("/pharma/docking/status") as Status;
         if (active) { setStatus(response); setStatusError(""); }
-      } catch { if (active) setStatusError(fa ? "وضعیت موتور قابل دریافت نیست." : "Could not check the engine status."); }
-    })();
-    return () => { active = false; request.current += 1; };
+      } catch {
+        if (active) setStatusError(fa ? "وضعیت موتور قابل دریافت نیست." : "Could not check the engine status.");
+      }
+    };
+    void pull();
+    const timer = window.setInterval(() => { void pull(); }, 60_000);
+    return () => { active = false; window.clearInterval(timer); request.current += 1; };
   }, [call, fa]);
+
+  const refreshStatus = async () => {
+    try {
+      const response = await call("/pharma/docking/status") as Status;
+      setStatus(response);
+      setStatusError("");
+    } catch {
+      setStatusError(fa ? "وضعیت موتور قابل دریافت نیست." : "Could not check the engine status.");
+    }
+  };
 
   const submit = async () => {
     setError(""); setResult(null);
@@ -75,9 +89,29 @@ export default function PharmaDockingPanel({ call, lang }: Props) {
       }) });
       if (n === request.current) setResult(res);
     } catch (err: any) {
-      if (n === request.current) setError(fa
-        ? `داکینگ اجرا نشد. آماده‌سازی فایل‌ها، جعبه و وضعیت سرور را بررسی کنید. ${String(err?.message || "")}`
-        : `Docking failed. Check prepared files, box and server status. ${String(err?.message || "")}`);
+      if (n !== request.current) return;
+      const code = Number(err?.status || err?.code || 0);
+      const msg = String(err?.message || err || "");
+      if (code === 503 || /disabled|unavailable|not ready/i.test(msg)) {
+        setError(fa
+          ? "موتور الان آماده نیست. وضعیت را تازه کنید یا چند دقیقه بعد دوباره تلاش کنید."
+          : "The docking engine is not ready. Refresh status or try again in a few minutes.");
+        void refreshStatus();
+      } else if (code === 504 || /timed out|timeout/i.test(msg)) {
+        setError(fa
+          ? "زمان محاسبه تمام شد. جعبه را کوچک‌تر کنید، exhaustiveness را روی ۲ بگذارید و تعداد حالت را کم کنید."
+          : "Docking timed out. Use a smaller box, exhaustiveness 2, and fewer poses.");
+      } else if (code === 429 || /busy|rate/i.test(msg)) {
+        setError(fa
+          ? "سرور مشغول است. یک دقیقه صبر کنید و دوباره بفرستید."
+          : "The server is busy. Wait a minute and submit again.");
+      } else if (code === 413 || /size limit|too large/i.test(msg)) {
+        setError(fa ? "حجم فایل از حد مجاز بیشتر است." : "A file exceeds the allowed size limit.");
+      } else {
+        setError(fa
+          ? `داکینگ اجرا نشد. فایل‌های PDBQT، جعبه و وضعیت سرور را بررسی کنید. ${msg}`
+          : `Docking failed. Check prepared PDBQT files, box and server status. ${msg}`);
+      }
     } finally { if (n === request.current) setBusy(false); }
   };
   const input = "w-full rounded-lg border border-slate-500 bg-[#0c182a] px-3 py-2 text-sm text-white placeholder:text-slate-400";
@@ -93,11 +127,35 @@ export default function PharmaDockingPanel({ call, lang }: Props) {
     </div>
     {statusError && <p role="alert" className="text-sm text-amber-200">{statusError}</p>}
     {!status && !statusError && <p role="status" className="text-sm text-slate-300">{fa ? "بررسی وضعیت موتور…" : "Checking engine status…"}</p>}
-    {status && <p className={`text-sm ${status.ready ? "text-emerald-200" : "text-amber-200"}`}>
-      {status.ready ? (fa ? "موتور در سرور فعال است." : "Engine enabled on the server.")
-        : !status.enabled ? (fa ? "داکینگ در سرور غیرفعال است." : "Docking is disabled on the server.")
-        : (fa ? "بسته Vina یا موتور در سرور در دسترس نیست." : "The Vina package or engine is unavailable on the server.")}
-    </p>}
+    {status && (
+      <div className={`space-y-2 rounded-xl border px-3 py-3 text-sm ${status.ready ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-100" : "border-amber-700/60 bg-amber-950/20 text-amber-100"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-semibold">
+            {status.ready
+              ? (fa ? "موتور آماده است." : "Engine ready.")
+              : !status.enabled
+                ? (fa ? "داکینگ در سرور خاموش است (PHARMA_DOCKING_ENABLED)." : "Docking is disabled on the server (PHARMA_DOCKING_ENABLED).")
+                : (fa ? "موتور هنوز آماده نیست." : "Engine is not ready yet.")}
+          </p>
+          <button type="button" className={button} disabled={busy} onClick={() => void refreshStatus()}>
+            {fa ? "تازه‌سازی وضعیت" : "Refresh status"}
+          </button>
+        </div>
+        <ul className="grid gap-1 text-xs text-slate-300 sm:grid-cols-2" dir="ltr">
+          <li>enabled: {String(status.enabled)}</li>
+          <li>engine_available: {String(status.engine_available)}</li>
+          <li>ready: {String(status.ready)}</li>
+          <li>timeout_seconds: {status.timeout_seconds}</li>
+        </ul>
+        {!status.ready && (
+          <p className="text-xs text-slate-300">
+            {fa
+              ? "اگر enabled=false است env را چک کنید. اگر engine_available=false است نصب Vina/Docker را بررسی کنید."
+              : "If enabled is false, check env. If engine_available is false, check the Vina/Docker install."}
+          </p>
+        )}
+      </div>
+    )}
     <p className="text-xs text-slate-300">{fa
       ? "فایل‌ها برای محاسبه به سرور سایت ارسال و موقتاً روی سرور نوشته می‌شوند. نتیجه در بانک ذخیره نمی‌شود؛ فایل‌های خودتان را نگه دارید."
       : "Files are sent to the site server and written temporarily for computation. Results are not saved to the bank; retain your inputs."}</p>
@@ -142,7 +200,21 @@ export default function PharmaDockingPanel({ call, lang }: Props) {
         {fa ? "راهنمای آماده‌سازی ورودی ↗" : "Input preparation guide ↗"}
       </a>
     </div>
-    {busy && <p role="status" className="text-sm text-slate-300">{fa ? "محاسبه ممکن است تا ۹۰ ثانیه طول بکشد." : "The calculation may take up to 90 seconds."}</p>}
+    {busy && (
+      <div role="status" className="space-y-1 rounded-xl border border-slate-600 bg-[#0c182a] px-3 py-3 text-sm text-slate-200">
+        <p className="font-semibold text-emerald-200">{fa ? "در حال اجرای داکینگ…" : "Docking in progress…"}</p>
+        <p className="text-xs text-slate-300">
+          {fa
+            ? `ممکن است تا ${status?.timeout_seconds ?? 90} ثانیه طول بکشد. این تب را باز بگذارید؛ بستن صفحه نتیجه را از بین می‌برد.`
+            : `This may take up to ${status?.timeout_seconds ?? 90} seconds. Keep this tab open; leaving discards the temporary result.`}
+        </p>
+        <p className="text-xs text-slate-400">
+          {fa
+            ? "برای سرور رایگان: exhaustiveness=2، تعداد حالت کم، جعبه کوچک‌تر از حدود ۲۰ Å پایدارتر است."
+            : "On free-tier hosts: exhaustiveness 2, few poses, and a box near 20 Å or smaller is more reliable."}
+        </p>
+      </div>
+    )}
     {error && <p role="alert" className="text-sm text-amber-200">{error}</p>}
     {result && <div className="space-y-3 rounded-xl border border-slate-600 bg-[#172743] p-4">
       <div>
