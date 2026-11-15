@@ -1731,6 +1731,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         <div className="relative flex flex-wrap items-center justify-between gap-3 px-6 pt-6 md:px-10">
           <span className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-tight">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={36} height={36} className="h-9 w-9 rounded-xl" /><span>Primer<span className="text-[#5ef0a8]"> AI</span></span></span>
           <nav className="flex flex-wrap items-center gap-1 text-sm">
+            <a href="#product-paths" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{lang === "fa" ? "مسیرها" : "Paths"}</a>
             <a href="#tools" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_tools}</a>
             <a href="#classroom" className="hidden md:inline rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{L.nav_classroom}</a>
             <a href="#services" className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10">{t.nav_services}</a>
@@ -1745,7 +1746,8 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
             <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300 md:text-lg">{L.sub}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 text-base font-bold text-[#06231a] shadow-[0_0_28px_rgba(94,240,168,.35)] transition hover:bg-[#7bf5b9] active:scale-[0.98]">{product.openMolecular}</button>
-              {!token && <button type="button" onClick={onStart} className="rounded-2xl bg-white/10 px-6 py-3.5 text-base font-semibold ring-1 ring-white/20 transition hover:bg-white/15">{t.login}</button>}
+              <button type="button" onClick={() => onEnter("pharma")} className="rounded-2xl bg-white/10 px-6 py-3.5 text-base font-semibold text-white ring-1 ring-white/25 transition hover:bg-white/15">{product.openPharma}</button>
+              {!token && <button type="button" onClick={onStart} className="rounded-2xl bg-white/5 px-6 py-3.5 text-base font-semibold text-slate-200 ring-1 ring-white/15 transition hover:bg-white/10">{t.login}</button>}
             </div>
             {!token && <p className="mt-4 max-w-md text-sm text-slate-400">{L.cta_note}</p>}
           </div>
@@ -1753,7 +1755,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         </div>
       </section>
 
-      <section aria-label={product.headline} className="grid gap-4 md:grid-cols-2">
+      <section id="product-paths" aria-label={product.headline} className="scroll-mt-6 grid gap-4 md:grid-cols-2">
         <article className="flex flex-col items-start rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <h2 className="text-xl font-extrabold text-[#16233f]">{product.molecular}</h2>
           <p className="mt-2 flex-1 leading-relaxed text-slate-600">{product.molecularDesc}</p>
@@ -1825,7 +1827,10 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         <div><h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">{L.final_title}</h2>
           <p className="mt-2 max-w-2xl text-slate-300"><b className="text-[#5ef0a8]">{L.privacy_title}</b> {L.privacy_body}</p>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">{lang === "fa" ? "خروجی‌ها برای پژوهش و آموزش‌اند؛ جایگزین قضاوت بالینی یا تصمیم دوز نیستند." : "Outputs are for research and teaching; they are not a substitute for clinical judgement or dosing decisions."}</p></div>
-        <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{product.openMolecular}</button>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{product.openMolecular}</button>
+          <button type="button" onClick={() => onEnter("pharma")} className="rounded-2xl bg-white/10 px-6 py-3.5 font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/15">{product.openPharma}</button>
+        </div>
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 px-2 pb-10 text-sm text-slate-500">
