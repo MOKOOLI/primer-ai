@@ -1668,8 +1668,10 @@ const LANDING = {
 } as Record<Lang, any>;
 
 const SERVICES_EMAIL = (process.env.NEXT_PUBLIC_SERVICES_EMAIL || "mkoolivand14@gmail.com").trim();
+const SERVICES_EMAIL2 = "fatemengh79@gmail.com";
 const SERVICES_TELEGRAM = (process.env.NEXT_PUBLIC_SERVICES_TELEGRAM || "https://t.me/moh3nko").trim();
 const servicesMailto = (subject: string) => (SERVICES_EMAIL ? `mailto:${SERVICES_EMAIL}?subject=${encodeURIComponent(subject)}` : "");
+const servicesMailto2 = (subject: string) => `mailto:${SERVICES_EMAIL2}?subject=${encodeURIComponent(subject)}`;
 
 function LangSelect({ lang, setLang, label }: { lang: Lang; setLang: (l: Lang) => void; label: string }) {
   return (
@@ -1813,6 +1815,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
           <p className="max-w-xl text-sm text-slate-400">{L.svc_note}</p>
         </div>
         {SERVICES_EMAIL && <p className="mt-3 text-sm text-slate-400" dir="ltr">{SERVICES_EMAIL}</p>}
+        <p className="mt-1 text-sm text-slate-400" dir="ltr">{SERVICES_EMAIL2}</p>
       </section>
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-sm md:p-8">
@@ -1840,7 +1843,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         <span className="inline-flex items-center gap-2 font-extrabold text-[#16233f]">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/logo.png" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 rounded-lg" /><span>Primer<span className="text-emerald-600"> AI</span></span></span>
         <nav className="flex flex-wrap gap-4"><a href="#services" className="hover:text-[#16233f]">{t.nav_services}</a><a href="/about" className="hover:text-[#16233f]">{lang === "fa" ? "درباره ما" : "About us"}</a><a href="/privacy" className="hover:text-[#16233f]">{t.privacy}</a></nav>
         <p className="w-full font-mono text-[11px] text-slate-400">{t.footer}</p>
-        <p className="w-full font-mono text-[11px] text-slate-400" dir="ltr">Founder: Fatemeh Naghizadeh</p>
+        <p className="w-full font-mono text-[11px] text-slate-400" dir="ltr">Funder: Fatemeh Naghizadeh</p>
       </footer>
     </div>
   );
@@ -1999,7 +2002,7 @@ export default function Home() {
 
         </section>
 
-        <footer className="space-y-1.5 px-2 pb-24 text-xs leading-relaxed text-slate-500"><p>{t.privacyNotice}</p><p className="font-mono text-[11px] text-slate-400">{t.footer}</p><p className="font-mono text-[11px] text-slate-400" dir="ltr">Founder: Fatemeh Naghizadeh</p></footer>
+        <footer className="space-y-1.5 px-2 pb-24 text-xs leading-relaxed text-slate-500"><p>{t.privacyNotice}</p><p className="font-mono text-[11px] text-slate-400">{t.footer}</p><p className="font-mono text-[11px] text-slate-400" dir="ltr">Funder: Fatemeh Naghizadeh</p></footer>
         <ChatBox {...ctx} llm={!!config.llm} context={aiContext} />
       </div>)}
     </main>
