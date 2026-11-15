@@ -283,6 +283,11 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
 
   return (
     <div className="space-y-6">
+      <p className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2.5 text-xs leading-relaxed text-emerald-950">
+        {lang === "fa"
+          ? "رکوردها از منابع عمومی می‌آیند و با منبع، پیوند و زمان دریافت نگه داشته می‌شوند. امتیاز ساختگی تولید نمی‌شود."
+          : "Records come from public sources and keep provider, link and retrieval time. No scores are invented."}
+      </p>
       <PharmaDashboard lang={lang} organizationName={orgs.find((org) => org.id === orgId)?.name || ""}
         state={orgDataState === "ready" && loadedOrgId !== orgId ? "loading" : orgDataState} projects={projects} records={libraryItems}
         onTrials={() => {
@@ -321,7 +326,15 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
         {catalogErrors.length > 0 && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
           {t.catalogSourceIssue} <span className="text-xs">{catalogErrors.map((x: any) => x.provider).join(", ")}</span>
         </p>}
-        {catalogItems && !catalogItems.length && <p className="text-sm text-slate-600">{t.catalogNoResults}</p>}
+        {catalogBusy && <p role="status" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">{t.catalogWait}</p>}
+        {catalogItems && !catalogBusy && !catalogItems.length && (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-600">
+            <p className="font-medium text-slate-800">{t.catalogNoResults}</p>
+            <p className="mt-1 text-xs text-slate-500">{lang === "fa"
+              ? "نام دارو، شناسه ChEMBL، ژن، بیماری، مسیر، NCT یا کلیدواژه مقاله را امتحان کنید."
+              : "Try a drug name, ChEMBL ID, gene, disease, pathway, NCT ID, or paper keyword."}</p>
+          </div>
+        )}
         {catalogItems && catalogItems.length > 0 && <div className="grid gap-3 md:grid-cols-2">
           {catalogItems.map((item: any) => {
             const typeLabel = item.type === "drug" ? t.catalogDrug
@@ -565,18 +578,28 @@ export default function PharmaResearchTab(props: Props) {
     finally { setWorking(false); }
   };
   return <div className="space-y-4">
-    {status !== "approved" && <section className="rounded-2xl border border-slate-200 p-5 space-y-3">
-      <h2 className="text-xl font-bold text-[#16233f]">{fa ? "دسترسی به بانک داده پژوهشی" : "Research Data Bank access"}</h2>
-      {status === "loading" && <p>{fa ? "در حال بررسی دسترسی…" : "Checking access…"}</p>}
-      {status === "login" && <p>{fa ? "ابتدا وارد حساب Primer AI شوید." : "Please sign in to Primer AI first."}</p>}
-      {status === "pending" && <p>{fa ? "درخواست شما ثبت شده و منتظر بررسی مدیر است." : "Your request is pending administrator review."}</p>}
-      {status === "revoked" && <p>{fa ? "مجوز شما لغو شده است. با مدیر تماس بگیرید." : "Your access was revoked. Contact the administrator."}</p>}
-      {status === "rejected" && <p>{fa ? "درخواست قبلی رد شد. می‌توانید درخواست تازه ثبت کنید." : "Your previous request was rejected. You can submit a new one."}</p>}
-      {(status === "not_requested" || status === "rejected") && <div className="space-y-3">
+    {status !== "approved" && <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm">
+      <div>
+        <h2 className="text-xl font-bold text-[#16233f]">{fa ? "دسترسی به بانک داده پژوهشی" : "Research Data Bank access"}</h2>
+        <p className="mt-1 text-sm text-slate-600">{fa
+          ? "این بخش فقط برای پژوهش است؛ تشخیص یا تصمیم درمان ارائه نمی‌دهد. دسترسی پس از بررسی مدیر فعال می‌شود."
+          : "Research use only — not for diagnosis or treatment decisions. Access is enabled after administrator review."}</p>
+      </div>
+      {status === "loading" && <p role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">{fa ? "در حال بررسی دسترسی…" : "Checking access…"}</p>}
+      {status === "login" && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{fa ? "ابتدا وارد حساب Primer AI شوید." : "Please sign in to Primer AI first."}</p>}
+      {status === "pending" && <p role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">{fa ? "درخواست شما ثبت شده و منتظر بررسی مدیر است. می‌توانید بعداً وضعیت را تازه کنید." : "Your request is registered and waiting for administrator review. You can refresh status later."}</p>}
+      {status === "revoked" && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{fa ? "مجوز شما لغو شده است. با مدیر تماس بگیرید." : "Your access was revoked. Contact the administrator."}</p>}
+      {status === "rejected" && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{fa ? "درخواست قبلی رد شد. می‌توانید درخواست تازه ثبت کنید." : "Your previous request was rejected. You can submit a new one."}</p>}
+      {status === "error" && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{fa ? "وضعیت دسترسی دریافت نشد. اتصال را بررسی کنید و دوباره تلاش کنید." : "Could not load access status. Check connectivity and try again."}</p>}
+      {(status === "not_requested" || status === "rejected") && <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
         <p className="text-sm text-slate-600">{fa ? "برای ادامه، مشخصات سازمان و هدف پژوهش را بفرستید. مدیر دسترسی را بررسی می‌کند." : "To continue, submit your organization and research purpose for review."}</p>
-        <label className="block text-sm">{fa ? "نام شرکت یا سازمان" : "Company or organization"}<input className={input} value={org} maxLength={160} onChange={(e) => setOrg(e.target.value)} /></label>
-        <label className="block text-sm">{fa ? "هدف پژوهشی" : "Research purpose"}<textarea className={input} value={purpose} maxLength={1000} rows={3} onChange={(e) => setPurpose(e.target.value)} /></label>
-        <button type="button" className={primary} disabled={working || org.trim().length < 2 || purpose.trim().length < 5} onClick={() => void requestAccess()}>{fa ? "ثبت درخواست" : "Request access"}</button>
+        <label className="block text-sm font-medium text-slate-800">{fa ? "نام شرکت یا سازمان" : "Company or organization"}
+          <input className={`${input} mt-1`} value={org} maxLength={160} onChange={(e) => setOrg(e.target.value)} autoComplete="organization" />
+        </label>
+        <label className="block text-sm font-medium text-slate-800">{fa ? "هدف پژوهشی" : "Research purpose"}
+          <textarea className={`${input} mt-1`} value={purpose} maxLength={1000} rows={3} onChange={(e) => setPurpose(e.target.value)} />
+        </label>
+        <button type="button" className={primary} disabled={working || org.trim().length < 2 || purpose.trim().length < 5} onClick={() => void requestAccess()}>{working ? (fa ? "در حال ارسال…" : "Submitting…") : (fa ? "ثبت درخواست" : "Request access")}</button>
       </div>}
       <button type="button" className={ghost} disabled={working} onClick={() => void refresh()}>{fa ? "بررسی دوباره وضعیت" : "Refresh status"}</button>
     </section>}
