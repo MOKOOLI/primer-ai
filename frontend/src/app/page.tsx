@@ -1627,7 +1627,7 @@ const LANDING_CORE: Record<"en" | "fa", any> = {
       toolbox: ["Tm", "Toolbox", "Tm calculator and vendor order formats."], library: ["LIB", "My library", "Save pairs and export order sheets."] },
     class_kicker: "For instructors", class_title: "Run a lab course from one link.", class_body: "Create a class, share a join code, publish assignments and review each student's submitted design or qPCR result with feedback and a grade.",
     class_points: ["Join codes, not spreadsheets", "Submissions keep the exact inputs", "Available in 7 languages"], class_cta: "Open classroom",
-    trust_title: "Built on the references you would cite", trust_sub: "Results show their method and source so they can go into a report.",
+    trust_title: "Built on the references you would cite", trust_sub: "Methods, sources and retrieval time stay with the result so you can cite them. Research use only — not for diagnosis or treatment decisions.",
     privacy_title: "Your sequences, your call.", privacy_body: "BLAST, ESMFold and AI features ask before sending data to an outside service. Export or delete your data anytime.",
     final_title: "Design your next primer pair now.", contact: "Contact",
     svc_kicker: "Molecular biology services", svc_title: "We run the analysis for you.", svc_sub: "From raw files to the final figure for your thesis or paper.",
@@ -1652,7 +1652,7 @@ const LANDING_CORE: Record<"en" | "fa", any> = {
       toolbox: ["Tm", "ابزارها", "محاسبه‌گر Tm و فرمت سفارش شرکت‌ها."], library: ["LIB", "کتابخانه‌ی من", "ذخیره‌ی جفت‌ها و خروجی فرم سفارش."] },
     class_kicker: "برای استادها", class_title: "یک درس عملی را با یک لینک اداره کنید.", class_body: "کلاس بسازید، کد عضویت را به دانشجوها بدهید، تکلیف منتشر کنید و نتیجه‌ی طراحی یا qPCR هر دانشجو را با بازخورد و نمره بررسی کنید.",
     class_points: ["کد عضویت به‌جای فایل اکسل", "تحویل‌ها ورودی دقیق را نگه می‌دارند", "در دسترس به ۷ زبان"], class_cta: "ورود به کلاس",
-    trust_title: "ساخته‌شده روی منابعی که در مقاله ارجاع می‌دهید", trust_sub: "هر نتیجه روش و منبعش را نشان می‌دهد تا در گزارش قابل استفاده باشد.",
+    trust_title: "ساخته‌شده روی منابعی که در مقاله ارجاع می‌دهید", trust_sub: "روش، منبع و زمان دریافت کنار نتیجه می‌مانند تا قابل ارجاع باشند. فقط برای پژوهش — نه تشخیص و نه تصمیم درمان.",
     privacy_title: "توالی شما، تصمیم شما.", privacy_body: "BLAST، ESMFold و قابلیت‌های هوش مصنوعی پیش از ارسال داده به سرویس بیرونی از شما اجازه می‌گیرند. هر زمان بخواهید داده‌هایتان را خروجی بگیرید یا حذف کنید.",
     final_title: "جفت پرایمر بعدی‌تان را همین حالا طراحی کنید.", contact: "تماس",
     svc_kicker: "خدمات زیست‌شناسی مولکولی", svc_title: "تحلیل‌تان را ما انجام می‌دهیم.", svc_sub: "از فایل خام تا شکل نهایی برای پایان‌نامه یا مقاله.",
@@ -1680,7 +1680,7 @@ function LangSelect({ lang, setLang, label }: { lang: Lang; setLang: (l: Lang) =
   );
 }
 
-const SOURCES = ["Primer3", "NCBI RefSeq", "BLAST", "UniProt", "AlphaFold DB", "Europe PMC", "ESMFold"];
+const SOURCES = ["Primer3", "NCBI RefSeq", "BLAST", "UniProt", "AlphaFold DB", "Europe PMC", "ESMFold", "Open Targets", "ChEMBL", "RCSB PDB", "ClinicalTrials.gov"];
 
 function DemoCard({ L }: { L: any }) {
   return (
@@ -1811,13 +1811,20 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
       </section>
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-sm md:p-8">
-        <h2 className="text-xl font-extrabold text-[#16233f] md:text-2xl">{L.trust_title}</h2><p className="mt-1 text-sm text-slate-500">{L.trust_sub}</p>
-        <div className="mt-6 flex flex-wrap justify-center gap-x-8 gap-y-3" dir="ltr">{SOURCES.map((s) => <span key={s} className="font-mono text-base font-semibold text-slate-400 transition hover:text-[#16233f]">{s}</span>)}</div>
+        <h2 className="text-xl font-extrabold text-[#16233f] md:text-2xl">{L.trust_title}</h2>
+        <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">{L.trust_sub}</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2" dir="ltr">
+          {SOURCES.map((s) => (
+            <span key={s} className="rounded-full bg-slate-50 px-3 py-1 font-mono text-sm font-semibold text-slate-500 ring-1 ring-slate-200/80 transition hover:text-[#16233f] hover:ring-slate-300">{s}</span>
+          ))}
+        </div>
+        <p className="mt-5 text-xs text-slate-400" dir="ltr">Provenance kept per result · public sources only · no invented scores</p>
       </section>
 
       <section className="grid gap-6 rounded-3xl bg-[#101a30] p-6 text-white md:grid-cols-[1fr_auto] md:items-center md:p-10">
         <div><h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">{L.final_title}</h2>
-          <p className="mt-2 max-w-2xl text-slate-300"><b className="text-[#5ef0a8]">{L.privacy_title}</b> {L.privacy_body}</p></div>
+          <p className="mt-2 max-w-2xl text-slate-300"><b className="text-[#5ef0a8]">{L.privacy_title}</b> {L.privacy_body}</p>
+          <p className="mt-2 max-w-2xl text-sm text-slate-400">{lang === "fa" ? "خروجی‌ها برای پژوهش و آموزش‌اند؛ جایگزین قضاوت بالینی یا تصمیم دوز نیستند." : "Outputs are for research and teaching; they are not a substitute for clinical judgement or dosing decisions."}</p></div>
         <button type="button" onClick={() => onEnter("design")} className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{product.openMolecular}</button>
       </section>
 
