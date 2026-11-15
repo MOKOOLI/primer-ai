@@ -9,21 +9,20 @@ import ClinicalStudyDetail from "./ClinicalStudyDetail";
 import PharmaCompoundProfile from "./PharmaCompoundProfile";
 import TargetStructureSearch from "./TargetStructureSearch";
 import PharmaDockingPanel from "./PharmaDockingPanel";
+import type {
+  PharmaDrug as Drug,
+  PharmaOrg as Org,
+  PharmaTarget as Target,
+  PharmaResearchTabProps as Props,
+  CatalogItem,
+  CatalogKind,
+  CatalogSourceError,
+  CatalogSourceMeta,
+  LibraryItem,
+  PharmaProject,
+  AccessRequestRow,
+} from "./types/pharma";
 
-type Target = { ensembl_id: string; symbol: string; mechanisms: string[]; references: { source: string; url: string }[]; url: string };
-type Drug = {
-  id: string; name: string; drug_type: string; max_clinical_phase: number | null; clinical_stage?: string | null; withdrawn: boolean | null; description: string;
-  action_types: string[]; mechanisms: { mechanism: string; target_name: string; targets: { symbol: string }[]; references: { source: string; url: string }[] }[];
-  targets: Target[]; url: string;
-};
-type Org = { id: string; name: string; role: string };
-type Props = {
-  call: (path: string, init?: RequestInit) => Promise<any>;
-  notify: (m: string, k?: "error" | "ok") => void;
-  lang?: string;
-  onDesignGene?: (symbol: string) => void;
-  onOpenQpcr?: () => void;
-};
 
 const L: Record<"en" | "fa", Record<string, string>> = {
   en: {
@@ -97,7 +96,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
   const t = L[lang === "fa" ? "fa" : "en"];
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
-  const [hits, setHits] = useState<any[] | null>(null);
+  const [hits, setHits] = useState<CatalogItem[] | null>(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [catalogKind, setCatalogKind] = useState("all");
   const [catalogItems, setCatalogItems] = useState<any[] | null>(null);
