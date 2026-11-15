@@ -1,15 +1,21 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import DrugResearchPanel from "./DrugResearchPanel";
-import PharmaDashboard from "./PharmaDashboard";
-import PharmaStructureViewer from "./PharmaStructureViewer";
-import PharmaEvidencePanel from "./PharmaEvidencePanel";
+import dynamic from "next/dynamic"; // <--- این خط را اضافه کنید
+
+// کامپوننت‌های ساده و بدون وابستگی به مرورگر را به صورت عادی ایمپورت کنید
 import ClinicalStudyDetail from "./ClinicalStudyDetail";
-import PharmaCompoundProfile from "./PharmaCompoundProfile";
 import TargetStructureSearch from "./TargetStructureSearch";
-import PharmaDockingPanel from "./PharmaDockingPanel";
-import PharmaResearchNote from "./PharmaResearchNote"; // <--- این خط باید بیرون از بلوک type باشد
+import PharmaResearchNote from "./PharmaResearchNote";
+
+// کامپوننت‌هایی که خطای SSR می‌دهند را به صورت Dynamic ایمپورت کنید (بدون SSR)
+const PharmaDashboard = dynamic(() => import("./PharmaDashboard"), { ssr: false });
+const PharmaStructureViewer = dynamic(() => import("./PharmaStructureViewer"), { ssr: false });
+const PharmaDockingPanel = dynamic(() => import("./PharmaDockingPanel"), { ssr: false });
+const DrugResearchPanel = dynamic(() => import("./DrugResearchPanel"), { ssr: false });
+const PharmaCompoundProfile = dynamic(() => import("./PharmaCompoundProfile"), { ssr: false });
+const PharmaEvidencePanel = dynamic(() => import("./PharmaEvidencePanel"), { ssr: false });
+
 import type {
   PharmaDrug as Drug,
   PharmaOrg as Org,
