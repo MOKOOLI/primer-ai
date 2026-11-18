@@ -1719,6 +1719,170 @@ const PRODUCT_PATHS: Record<Lang, { headline: string; molecular: string; molecul
   zh: { headline: "分子生物学与药物研究，一个工作台。", molecular: "分子生物学工作台", molecularDesc: "引物设计、qPCR、CRISPR 与蛋白质探索。", pharma: "药物研究", pharmaDesc: "探索药物、分子靶点、作用机制、通路及临床研究。", openMolecular: "打开分子工具", openPharma: "进入药物研究", pharmaNote: "需要登录并获得研究访问权限。仅供研究使用。" },
 };
 
+/* ------------------------------------------------------------------ */
+/* Services demo + sample work (illustrative data)                     */
+/* ------------------------------------------------------------------ */
+const DEMO_T = {
+  en: {
+    title: "See the analysis before you hire us",
+    lead: "Drag the threshold on an amplification plot. Ct values and fold change update live, which is what we check in your data.",
+    demoTitle: "qPCR demo: ΔΔCt from amplification curves",
+    illus: "Illustrative data", threshold: "Fluorescence threshold", cycle: "Cycle", fluo: "Fluorescence (norm.)",
+    ctTable: "Ct values", ctrl: "Control", trt: "Treated", target: "Target", ref: "Reference gene", ddct: "ΔΔCt", fold: "Fold change (2^−ΔΔCt)",
+    note: "The fold change stays stable while the threshold sits in the exponential phase. If it drifts, the data needs QC.",
+    samples: "Sample work",
+    s1: "qPCR results", s1d: "Normalized expression, mean ± SD (n = 3), Welch t-test.",
+    s2: "Primer design", s2d: "Exon-junction pair with dimer and specificity check.",
+    s3: "RNA-seq / GEO", s3d: "Differential expression volcano plot, then enrichment.",
+    fwd: "Forward", rev: "Reverse", prod: "Product", up: "Up", down: "Down",
+  },
+  fa: {
+    title: "پیش از سفارش، نتیجه کار را ببینید",
+    lead: "روی نمودار تکثیر، آستانه را جابه‌جا کنید. مقدار Ct و تغییر بیان همان لحظه به‌روز می‌شود. دقیقاً همین موارد را در داده‌های شما بررسی می‌کنیم.",
+    demoTitle: "دمو qPCR: محاسبه ΔΔCt از منحنی‌های تکثیر",
+    illus: "داده نمونه", threshold: "آستانه فلورسانس", cycle: "چرخه", fluo: "فلورسانس (نرمال)",
+    ctTable: "مقادیر Ct", ctrl: "کنترل", trt: "تیمار", target: "ژن هدف", ref: "ژن مرجع", ddct: "ΔΔCt", fold: "تغییر بیان (2^−ΔΔCt)",
+    note: "تا وقتی آستانه داخل فاز نمایی باشد، تغییر بیان ثابت می‌ماند. اگر عدد جابه‌جا شود، داده نیاز به کنترل کیفیت دارد.",
+    samples: "نمونه کار",
+    s1: "نتایج qPCR", s1d: "بیان نرمال‌شده، میانگین ± انحراف معیار (n = 3)، آزمون Welch.",
+    s2: "طراحی پرایمر", s2d: "جفت پرایمر عبوردهنده از اتصال اگزون‌ها، با بررسی دایمر و اختصاصیت.",
+    s3: "RNA-seq / GEO", s3d: "نمودار آتشفشانی بیان افتراقی و سپس آنالیز غنی‌سازی.",
+    fwd: "رفت", rev: "برگشت", prod: "محصول", up: "افزایش", down: "کاهش",
+  },
+} as const;
+
+const SD_K = 1.4;
+const SD_CURVES = [
+  { id: "tc", c0: 24.1, color: "#94A3B8", dash: undefined },
+  { id: "tt", c0: 21.9, color: "#5ef0a8", dash: undefined },
+  { id: "rc", c0: 18.0, color: "#94A3B8", dash: "5 4" },
+  { id: "rt", c0: 18.1, color: "#5ef0a8", dash: "5 4" },
+] as const;
+const sdFl = (c: number, c0: number) => 1 / (1 + Math.exp(-(c - c0) / SD_K));
+const sdCt = (c0: number, th: number) => c0 - SD_K * Math.log(1 / th - 1);
+const SD_W = 600, SD_H = 300, SD_PL = 44, SD_PR = 14, SD_PT = 14, SD_PB = 38;
+const sdX = (c: number) => SD_PL + (c / 40) * (SD_W - SD_PL - SD_PR);
+const sdY = (v: number) => SD_PT + (1 - v) * (SD_H - SD_PT - SD_PB);
+const SD_VOLCANO = (() => {
+  let seed = 7;
+  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  return Array.from({ length: 150 }, () => {
+    const x = (r() + r() + r() - 1.5) * 3.2;
+    const y = Math.abs(x) * (0.8 + r() * 1.6) + r() * 0.7;
+    return { x, y: Math.min(y, 6.2) };
+  });
+})();
+
+function ServicesDemo({ lang }: { lang: Lang }) {
+  const d = DEMO_T[lang === "fa" ? "fa" : "en"];
+  const fa = lang === "fa";
+  const [thr, setThr] = useState(0.2);
+  const cts = useMemo(() => Object.fromEntries(SD_CURVES.map((c) => [c.id, sdCt(c.c0, thr)])) as Record<string, number>, [thr]);
+  const ddct = cts.tt - cts.rt - (cts.tc - cts.rc);
+  const fold = Math.pow(2, -ddct);
+  const curvePath = (c0: number) => Array.from({ length: 81 }, (_, i) => { const c = i / 2; return `${i ? "L" : "M"}${sdX(c).toFixed(1)} ${sdY(sdFl(c, c0)).toFixed(1)}`; }).join("");
+  const tag = "ms-2 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium text-slate-400 ring-1 ring-white/15";
+  return (
+    <div className="mt-8">
+      <h3 className="text-lg font-bold text-white">{d.title}</h3>
+      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-300">{d.lead}</p>
+
+      <div className="mt-4 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10 md:p-5">
+        <div className="mb-3 flex flex-wrap items-center gap-1.5"><h4 className="font-bold text-white">{d.demoTitle}</h4><span className={tag}>{d.illus}</span></div>
+        <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
+          <div className="min-w-0">
+            <svg viewBox={`0 0 ${SD_W} ${SD_H}`} role="img" aria-label={d.demoTitle} dir="ltr" className="block h-auto w-full">
+              {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+                <g key={v}><line x1={SD_PL} x2={SD_W - SD_PR} y1={sdY(v)} y2={sdY(v)} stroke="rgba(255,255,255,.12)" />
+                  <text x={SD_PL - 8} y={sdY(v) + 4} textAnchor="end" fontSize="11" className="fill-slate-400">{v}</text></g>
+              ))}
+              {[0, 10, 20, 30, 40].map((c) => <text key={c} x={sdX(c)} y={SD_H - SD_PB + 18} textAnchor="middle" fontSize="11" className="fill-slate-400">{c}</text>)}
+              <text x={(SD_PL + SD_W - SD_PR) / 2} y={SD_H - 4} textAnchor="middle" fontSize="11" className="fill-slate-400">{d.cycle}</text>
+              <text transform={`translate(11 ${(SD_PT + SD_H - SD_PB) / 2}) rotate(-90)`} textAnchor="middle" fontSize="11" className="fill-slate-400">{d.fluo}</text>
+              {SD_CURVES.map((c) => <path key={c.id} d={curvePath(c.c0)} fill="none" stroke={c.color} strokeWidth="2.4" strokeDasharray={c.dash} />)}
+              <line x1={SD_PL} x2={SD_W - SD_PR} y1={sdY(thr)} y2={sdY(thr)} stroke="#fbbf24" strokeWidth="1.6" strokeDasharray="6 4" />
+              {SD_CURVES.map((c) => <circle key={c.id} cx={sdX(cts[c.id])} cy={sdY(thr)} r="4.5" fill={c.color} stroke="#101a30" strokeWidth="1.5" />)}
+            </svg>
+            <div className="my-2 flex flex-wrap gap-4 text-xs text-slate-400" aria-hidden="true">
+              <span className="inline-flex items-center gap-1.5"><i className="h-[3px] w-3.5 rounded bg-slate-400" />{d.ctrl}</span>
+              <span className="inline-flex items-center gap-1.5"><i className="h-[3px] w-3.5 rounded bg-[#5ef0a8]" />{d.trt}</span>
+              <span className="inline-flex items-center gap-1.5"><i className="h-0 w-3.5 border-t-2 border-dashed border-slate-400" />{d.ref}</span>
+            </div>
+            <label className="block text-sm text-slate-200">
+              <span>{d.threshold}: <b className="tabular-nums text-amber-300" dir="ltr">{thr.toFixed(2)}</b></span>
+              <input type="range" min={0.05} max={0.5} step={0.01} value={thr} onChange={(e) => setThr(parseFloat(e.target.value))}
+                className="mt-2 block h-7 w-full accent-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5ef0a8]" />
+            </label>
+          </div>
+          <div className="min-w-0">
+            <table className="w-full border-collapse text-sm tabular-nums">
+              <caption className="pb-1.5 text-start font-semibold text-white">{d.ctTable}</caption>
+              <thead><tr className="text-xs text-slate-400"><th className="p-2 text-start font-normal" /><th className="p-2 text-start font-normal">{d.ctrl}</th><th className="p-2 text-start font-normal">{d.trt}</th></tr></thead>
+              <tbody className="text-slate-200">
+                <tr className="border-t border-white/10"><th scope="row" className="p-2 text-start font-normal text-slate-300">{d.target}</th><td className="p-2" dir="ltr">{cts.tc.toFixed(2)}</td><td className="p-2" dir="ltr">{cts.tt.toFixed(2)}</td></tr>
+                <tr className="border-t border-white/10"><th scope="row" className="p-2 text-start font-normal text-slate-300">{d.ref}</th><td className="p-2" dir="ltr">{cts.rc.toFixed(2)}</td><td className="p-2" dir="ltr">{cts.rt.toFixed(2)}</td></tr>
+              </tbody>
+            </table>
+            <dl className="mt-4 space-y-1">
+              <div className="flex items-baseline justify-between gap-3"><dt className="text-sm text-slate-400">{d.ddct}</dt><dd className="font-semibold tabular-nums text-white" dir="ltr">{ddct.toFixed(2)}</dd></div>
+              <div className="flex items-baseline justify-between gap-3"><dt className="text-sm text-slate-400">{d.fold}</dt><dd className="text-3xl font-extrabold tabular-nums text-[#5ef0a8]" dir="ltr">{fold.toFixed(2)}×</dd></div>
+            </dl>
+            <p className="mt-3 text-xs leading-relaxed text-slate-400">{d.note}</p>
+          </div>
+        </div>
+      </div>
+
+      <h3 className="mb-3 mt-8 flex flex-wrap items-center gap-1.5 text-lg font-bold text-white">{d.samples}<span className={tag}>{d.illus}</span></h3>
+      <div className="grid gap-4 md:grid-cols-3">
+        <article className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
+          <svg viewBox="0 0 260 150" role="img" aria-label={d.s1} dir="ltr" className="block h-auto w-full">
+            <line x1="28" x2="250" y1="124" y2="124" stroke="rgba(255,255,255,.2)" />
+            {[{ g: "IL6", tr: 4.2, e: 0.6 }, { g: "TNF", tr: 2.9, e: 0.4 }, { g: "IL10", tr: 0.45, e: 0.1 }].map((b, i) => {
+              const x = 44 + i * 70, u = 20;
+              return (<g key={b.g}>
+                <rect x={x} y={124 - u} width="20" height={u} fill="#94A3B8" />
+                <rect x={x + 22} y={124 - b.tr * u} width="20" height={b.tr * u} fill="#5ef0a8" />
+                <line x1={x + 32} x2={x + 32} y1={124 - (b.tr + b.e) * u} y2={124 - (b.tr - b.e) * u} stroke="#fff" strokeWidth="1.5" />
+                <text x={x + 21} y="140" textAnchor="middle" fontSize="11" className="fill-slate-400">{b.g}</text></g>);
+            })}
+            <text x="26" y="127" textAnchor="end" fontSize="11" className="fill-slate-400">0</text>
+            <text x="26" y="48" textAnchor="end" fontSize="11" className="fill-slate-400">4×</text>
+            <text x="148" y="20" textAnchor="middle" fontSize="11" className="fill-slate-400">** p &lt; 0.01</text>
+          </svg>
+          <h4 className="mt-3 font-bold text-white">{d.s1}</h4><p className="mt-1 text-sm leading-relaxed text-slate-300">{d.s1d}</p>
+        </article>
+
+        <article className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
+          <div className="grid min-h-[150px] content-center gap-2.5" dir="ltr">
+            <div><small className="mb-0.5 block text-xs text-slate-400">{d.fwd} · Tm 60.1 °C</small><code className="block overflow-x-auto rounded-md bg-black/25 px-2 py-1.5 font-mono text-[13px] text-slate-100">GAGCCCACAGATACCTGGAAG</code></div>
+            <div><small className="mb-0.5 block text-xs text-slate-400">{d.rev} · Tm 60.4 °C</small><code className="block overflow-x-auto rounded-md bg-black/25 px-2 py-1.5 font-mono text-[13px] text-slate-100">TCCTCTGCATCCTCTTGGTCA</code></div>
+            <div className="flex justify-between gap-2 text-xs text-slate-400"><span>{d.prod}: 118 bp</span><span>✓ exon–exon junction</span></div>
+            <div className="flex justify-between gap-2 text-xs text-slate-400"><span>Dimer: low</span><span>Primer-BLAST: 1 target</span></div>
+          </div>
+          <h4 className="mt-3 font-bold text-white">{d.s2}</h4><p className="mt-1 text-sm leading-relaxed text-slate-300">{d.s2d}</p>
+        </article>
+
+        <article className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
+          <svg viewBox="0 0 260 150" role="img" aria-label={d.s3} dir="ltr" className="block h-auto w-full">
+            <line x1="130" x2="130" y1="8" y2="128" stroke="rgba(255,255,255,.15)" />
+            <line x1="14" x2="250" y1={128 - 1.3 * 18} y2={128 - 1.3 * 18} stroke="rgba(255,255,255,.15)" strokeDasharray="3 3" />
+            <line x1="14" x2="250" y1="128" y2="128" stroke="rgba(255,255,255,.2)" />
+            {SD_VOLCANO.map((p, i) => {
+              const sig = p.y > 1.3 && Math.abs(p.x) > 1;
+              return <circle key={i} cx={130 + p.x * 36} cy={128 - p.y * 18} r="2.4" fill={!sig ? "#94A3B8" : p.x > 0 ? "#5ef0a8" : "#fb923c"} opacity={sig ? 1 : 0.5} />;
+            })}
+            <text x="132" y="146" fontSize="11" className="fill-slate-400">log2 FC</text>
+            <text x="250" y="22" textAnchor="end" fontSize="11" fill="#5ef0a8">{d.up}</text>
+            <text x="14" y="22" fontSize="11" fill="#fb923c">{d.down}</text>
+          </svg>
+          <h4 className="mt-3 font-bold text-white">{d.s3}</h4><p className="mt-1 text-sm leading-relaxed text-slate-300">{d.s3d}</p>
+        </article>
+      </div>
+      <p className="sr-only">{fa ? "همه داده‌های این بخش نمونه هستند." : "All data in this section is illustrative."}</p>
+    </div>
+  );
+}
+
 function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<string, string>; lang: Lang; setLang: (l: Lang) => void; onEnter: (tab?: TabId) => void; onStart: () => void; token: string | null }) {
   const L = LANDING[lang];
   const product = PRODUCT_PATHS[lang];
@@ -1807,6 +1971,7 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
         <div className="mt-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3">{L.svc_items.map(([h, p]: string[]) => (
           <div key={h} className="rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/10 transition hover:bg-white/[0.09]">
             <p className="font-bold text-white">{h}</p><p className="mt-1 text-sm leading-relaxed text-slate-300">{p}</p></div>))}</div>
+        <ServicesDemo lang={lang} />
         <div className="mt-6 flex flex-wrap items-center gap-4">
           {SERVICES_EMAIL && <a href={servicesMailto(`Primer AI · ${L.svc_cta}`)}
             className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{L.svc_cta}</a>}
