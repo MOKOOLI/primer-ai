@@ -433,7 +433,7 @@ function Gel({ sizes, t }: { sizes: number[]; t: Record<string, string> }) {
   const lanes = sizes.slice(0, 3);
   const W = 70 + lanes.length * 60;
   return (
-    <svg viewBox={`0 0 ${W} ${H + 24}`} className="w-full max-w-xs mx-auto" role="img" aria-label={t.gel} direction="ltr">
+    <svg viewBox={`0 0 ${W} ${H + 24}`} className="w-full max-w-xs mx-auto" role="img" aria-label={t.gel}>
       <rect x="0" y="0" width={W} height={H} rx="6" fill="#0f172a" />
       <text x="30" y={H + 14} fontSize="9" textAnchor="middle" fill="#64748b">{t.ladder}</text>
       {ladder.map((s) => (<g key={s}><rect x="12" y={y(s) - 1.5} width="36" height="3" fill="#cbd5e1" /><text x="52" y={y(s) + 3} fontSize="8" fill="#94a3b8">{s}</text></g>))}
@@ -1333,7 +1333,7 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
         <section className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm" aria-label={t.mapTitle}>
           <h4 className="font-bold text-sm mb-1">{t.mapTitle} — {gene!.symbol} {gene!.accession}</h4>
           <p className="text-xs text-slate-500 mb-2">{t.mapHint}</p>
-          <svg viewBox="0 0 1000 110" className="w-full" direction="ltr">
+          <svg viewBox="0 0 1000 110" className="w-full">
             {gene!.annotation.exons.map((e: number[], i: number) => (<rect key={i} x={(e[0] / L) * 1000} y="40" width={Math.max(1, ((e[1] - e[0] + 1) / L) * 1000)} height="26" fill={i % 2 ? "#93c5fd" : "#3b82f6"}><title>{t.exon} {i + 1}: {e[0]}–{e[1]}</title></rect>))}
             {gene!.annotation.exons.slice(0, -1).map((e: number[], i: number) => {
               const x = (e[1] / L) * 1000;
@@ -1791,7 +1791,7 @@ function ServicesDemo({ lang }: { lang: Lang }) {
         <div className="mb-3 flex flex-wrap items-center gap-1.5"><h4 className="font-bold text-white">{d.demoTitle}</h4><span className={tag}>{d.illus}</span></div>
         <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
           <div className="min-w-0">
-            <svg viewBox={`0 0 ${SD_W} ${SD_H}`} role="img" aria-label={d.demoTitle} dir="ltr" className="block h-auto w-full">
+            <svg viewBox={`0 0 ${SD_W} ${SD_H}`} role="img" aria-label={d.demoTitle} className="block h-auto w-full">
               {[0, 0.25, 0.5, 0.75, 1].map((v) => (
                 <g key={v}><line x1={SD_PL} x2={SD_W - SD_PR} y1={sdY(v)} y2={sdY(v)} stroke="rgba(255,255,255,.12)" />
                   <text x={SD_PL - 8} y={sdY(v) + 4} textAnchor="end" fontSize="11" className="fill-slate-400">{v}</text></g>
@@ -1835,7 +1835,7 @@ function ServicesDemo({ lang }: { lang: Lang }) {
       <h3 className="mb-3 mt-8 flex flex-wrap items-center gap-1.5 text-lg font-bold text-white">{d.samples}<span className={tag}>{d.illus}</span></h3>
       <div className="grid gap-4 md:grid-cols-3">
         <article className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
-          <svg viewBox="0 0 260 150" role="img" aria-label={d.s1} dir="ltr" className="block h-auto w-full">
+          <svg viewBox="0 0 260 150" role="img" aria-label={d.s1} className="block h-auto w-full">
             <line x1="28" x2="250" y1="124" y2="124" stroke="rgba(255,255,255,.2)" />
             {[{ g: "IL6", tr: 4.2, e: 0.6 }, { g: "TNF", tr: 2.9, e: 0.4 }, { g: "IL10", tr: 0.45, e: 0.1 }].map((b, i) => {
               const x = 44 + i * 70, u = 20;
@@ -1863,7 +1863,7 @@ function ServicesDemo({ lang }: { lang: Lang }) {
         </article>
 
         <article className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
-          <svg viewBox="0 0 260 150" role="img" aria-label={d.s3} dir="ltr" className="block h-auto w-full">
+          <svg viewBox="0 0 260 150" role="img" aria-label={d.s3} className="block h-auto w-full">
             <line x1="130" x2="130" y1="8" y2="128" stroke="rgba(255,255,255,.15)" />
             <line x1="14" x2="250" y1={128 - 1.3 * 18} y2={128 - 1.3 * 18} stroke="rgba(255,255,255,.15)" strokeDasharray="3 3" />
             <line x1="14" x2="250" y1="128" y2="128" stroke="rgba(255,255,255,.2)" />
