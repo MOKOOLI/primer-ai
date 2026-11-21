@@ -84,6 +84,7 @@ from pharma_access import build_access_layer
 from pharma_runtime import build_runtime
 from pharma_routes_org import register_org_routes
 from pharma_routes_research import register_research_routes
+from pharma_vaccine import register_vaccine_routes
 
 from pharma_structures import load_experimental_structure
 from pharma_evidence import load_chembl_activities, load_clinical_study
@@ -131,6 +132,8 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         cached=cached,
         load_drug=load_drug,
     )
+
+    register_vaccine_routes(router, get_current_user=get_current_user)
 
     register_org_routes(
         router,
