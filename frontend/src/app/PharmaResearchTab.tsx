@@ -586,17 +586,22 @@ export default function PharmaResearchTab(props: Props) {
       <button type="button" className={ghost} disabled={working} onClick={() => void refresh()}>{fa ? "بررسی دوباره وضعیت" : "Refresh status"}</button>
     </section>}
     {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-    {admin && <details className="rounded-2xl border border-slate-200 p-4">
-      <summary className="cursor-pointer font-semibold">{fa ? "مدیریت درخواست‌های دسترسی" : "Manage access requests"} ({requests.length})</summary>
+    {admin && <details open={requests.some((r: any) => r.status === "pending" && !r.is_admin)} className="rounded-2xl border border-slate-200 p-4">
+      <summary className="cursor-pointer font-semibold">{fa ? "مدیریت درخواست‌های دسترسی" : "Manage access requests"} ({requests.length}){requests.filter((r: any) => r.status === "pending" && !r.is_admin).length > 0 && <span className="ms-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">{requests.filter((r: any) => r.status === "pending" && !r.is_admin).length} {fa ? "در انتظار" : "pending"}</span>}</summary>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <button type="button" className={ghost} disabled={working} onClick={() => void refresh()}>{fa ? "تازه‌سازی فهرست" : "Refresh list"}</button>
+        {requests.length === 0 && <p className="text-sm text-slate-500">{fa ? "هنوز درخواستی ثبت نشده است." : "No requests yet."}</p>}
+      </div>
       <p className="mt-2 text-sm text-slate-600">{fa ? "پیش از تأیید، هویت شرکت را جداگانه بررسی کنید." : "Verify the organization independently before approval."}</p>
       {requests.map((r: any) => <article key={r.user_id} className="mt-3 rounded-xl border p-3 space-y-2 text-sm">
         <p><b>{r.organization_name}</b> · <span dir="ltr">{r.email}</span> · {r.status}</p>
         <p className="whitespace-pre-wrap">{r.purpose}</p>
-        <div className="flex flex-wrap gap-2">
+        {r.is_admin && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900">{fa ? "مدیر پیکربندی‌شده است و نیازی به تأیید ندارد." : "Configured administrator: no approval needed."}</p>}
+        {!r.is_admin && <div className="flex flex-wrap gap-2">
           {r.status !== "approved" && <button type="button" className={primary} disabled={working} onClick={() => void decide(r.user_id, "approved")}>{fa ? "تأیید" : "Approve"}</button>}
           {r.status === "pending" && <button type="button" className={ghost} disabled={working} onClick={() => void decide(r.user_id, "rejected")}>{fa ? "رد" : "Reject"}</button>}
           {r.status === "approved" && <button type="button" className={ghost} disabled={working} onClick={() => void decide(r.user_id, "revoked")}>{fa ? "لغو مجوز" : "Revoke"}</button>}
-        </div>
+        </div>}
       </article>)}
     </details>}
     {status === "approved" && <PharmaWorkspace {...props} />}

@@ -119,12 +119,15 @@ def build_access_layer(*, database, access, users_table, get_current_user):
                 .order_by(access.c.updated_at.desc())
                 .limit(500)
             )
+            admins = configured_admin_ids()
             return {
                 "items": [
                     {
                         **_row(r),
                         "created_at": _iso(_row(r)["created_at"]),
                         "updated_at": _iso(_row(r)["updated_at"]),
+                        # Configured administrators never need approval and cannot be managed here.
+                        "is_admin": int(_row(r)["user_id"]) in admins,
                     }
                     for r in rows
                 ]
