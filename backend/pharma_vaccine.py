@@ -574,6 +574,251 @@ def interface_analysis(pdb: str, chains_a: list[str], chains_b: list[str], cutof
         "limits": "Geometry only: no binding energy, no hydrogen-bond angles, no solvent accessibility. Do not compare docking scores across different servers.",
     }
 
+
+# ------------------------------------------ codon optimization & cloning design
+import random  # noqa: E402
+from itertools import product  # noqa: E402
+
+_AA_STR = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODON_TO_AA = {a + b + c: _AA_STR[i] for i, (a, b, c) in enumerate(product("TCAG", repeat=3))}
+SENSE_CODONS = [c for c, a in CODON_TO_AA.items() if a != "*"]
+
+# Escherichia coli codon usage, frequency per thousand codons, as listed in GenScript's codon
+# frequency table (counts derived from GenBank CDS). Source: https://www.genscript.com/tools/codon-frequency-table
+ECOLI_FREQ = {
+    "TTT": 22.1, "TTC": 16.0, "TTA": 14.3, "TTG": 13.0, "TCT": 10.4, "TCC": 9.1, "TCA": 8.9, "TCG": 8.5,
+    "TAT": 17.5, "TAC": 12.2, "TAA": 2.0, "TAG": 0.3, "TGT": 5.2, "TGC": 6.1, "TGA": 1.0, "TGG": 13.9,
+    "CTT": 11.9, "CTC": 10.2, "CTA": 4.2, "CTG": 48.4, "CCT": 7.5, "CCC": 5.4, "CCA": 8.6, "CCG": 20.9,
+    "CAT": 12.5, "CAC": 9.3, "CAA": 14.6, "CAG": 28.4, "CGT": 20.0, "CGC": 19.7, "CGA": 3.8, "CGG": 5.9,
+    "ATT": 29.8, "ATC": 23.7, "ATA": 6.8, "ATG": 26.4, "ACT": 10.3, "ACC": 22.0, "ACA": 9.3, "ACG": 13.7,
+    "AAT": 20.6, "AAC": 21.4, "AAA": 35.3, "AAG": 12.4, "AGT": 9.9, "AGC": 15.2, "AGA": 3.6, "AGG": 2.1,
+    "GTT": 19.8, "GTC": 14.3, "GTA": 11.6, "GTG": 24.4, "GCT": 17.1, "GCC": 24.2, "GCA": 21.2, "GCG": 30.1,
+    "GAT": 32.7, "GAC": 19.2, "GAA": 39.1, "GAG": 18.7, "GGT": 25.5, "GGC": 27.1, "GGA": 9.5, "GGG": 11.3,
+}
+ENZYMES = {"NdeI": "CATATG", "NcoI": "CCATGG", "BamHI": "GGATCC", "EcoRI": "GAATTC", "HindIII": "AAGCTT",
+           "XhoI": "CTCGAG", "NotI": "GCGGCCGC", "XbaI": "TCTAGA", "SalI": "GTCGAC", "KpnI": "GGTACC",
+           "SacI": "GAGCTC", "NheI": "GCTAGC", "BglII": "AGATCT", "PstI": "CTGCAG", "SpeI": "ACTAGT"}
+_COMP = str.maketrans("ACGT", "TGCA")
+DNA_RE = re.compile(r"^[ACGT]+$")
+
+
+def revcomp(seq: str) -> str:
+    return seq.translate(_COMP)[::-1]
+
+
+def translate_dna(cds: str) -> str:
+    return "".join(CODON_TO_AA[cds[i:i + 3]] for i in range(0, len(cds) - len(cds) % 3, 3))
+
+
+def parse_codon_table(text: str) -> dict[str, float]:
+    """Custom host table: one 'CODON frequency' per line (DNA or RNA letters). All 61 sense codons required."""
+    table: dict[str, float] = {}
+    for ln in (text or "").splitlines():
+        parts = re.split(r"[\s,;]+", ln.strip())
+        if len(parts) < 2:
+            continue
+        codon = parts[0].upper().replace("U", "T")
+        if codon not in CODON_TO_AA:
+            continue
+        try:
+            val = float(parts[1])
+        except ValueError:
+            continue
+        if val < 0:
+            raise ValueError("Codon frequencies cannot be negative")
+        table[codon] = val
+    missing = [c for c in SENSE_CODONS if c not in table]
+    if missing:
+        raise ValueError(f"Custom codon table is missing {len(missing)} sense codons, e.g. {', '.join(missing[:5])}")
+    for aa in set(CODON_TO_AA.values()) - {"*"}:
+        if sum(v for c, v in table.items() if CODON_TO_AA[c] == aa) <= 0:
+            raise ValueError(f"No usable codon for amino acid {aa}")
+    return table
+
+
+def _usage(table: dict[str, float]) -> dict[str, list[tuple[str, float]]]:
+    by: dict[str, list[tuple[str, float]]] = {}
+    for c, f in table.items():
+        if CODON_TO_AA.get(c, "*") != "*":
+            by.setdefault(CODON_TO_AA[c], []).append((c, f))
+    for aa in by:
+        by[aa].sort(key=lambda x: -x[1])
+    return by
+
+
+def cai(cds: str, table: dict[str, float]) -> float | None:
+    """Codon Adaptation Index (Sharp & Li 1987) against the supplied table; Met/Trp and stops excluded."""
+    use = _usage(table)
+    w = {c: (f / use[aa][0][1]) if use[aa][0][1] > 0 else 0.0 for aa, lst in use.items() for c, f in lst}
+    logs = []
+    for i in range(0, len(cds) - 2, 3):
+        c = cds[i:i + 3]
+        aa = CODON_TO_AA.get(c)
+        if aa in (None, "*", "M", "W"):
+            continue
+        logs.append(math.log(max(w.get(c, 0.0), 1e-3)))
+    return round(math.exp(sum(logs) / len(logs)), 3) if logs else None
+
+
+def _site_patterns(enzymes: list[str]) -> dict[str, str]:
+    pats = {}
+    for name in enzymes:
+        if name not in ENZYMES:
+            raise ValueError("Unknown enzyme: " + str(name)[:20])
+        site = ENZYMES[name]
+        pats[name] = site
+        if revcomp(site) != site:
+            pats[name + "(rc)"] = revcomp(site)
+    return pats
+
+
+def _problems(seq: str, pats: dict[str, str], run_len: int) -> list[tuple[int, int, str]]:
+    out = []
+    for name, p in pats.items():
+        i = seq.find(p)
+        while i != -1:
+            out.append((i, i + len(p), name))
+            i = seq.find(p, i + 1)
+    if run_len:
+        for m in re.finditer(r"(A{%d,}|C{%d,}|G{%d,}|T{%d,})" % ((run_len,) * 4), seq):
+            out.append((m.start(), m.end(), "run"))
+    return sorted(out)
+
+
+def _penalty(seq: str, pats: dict[str, str], run_len: int) -> int:
+    """Sites cost 1000 each; a run of identical bases costs its length, so splitting a long run counts as progress."""
+    return sum(1000 if lab != "run" else (b - a) for a, b, lab in _problems(seq, pats, run_len))
+
+
+def optimize_codons(protein: str, strategy: str = "weighted", seed: int = 1, avoid: list[str] | None = None,
+                    custom_table: str = "", add_start: bool = True, stop: str = "TAA", run_len: int = 8) -> dict:
+    prot = clean_seq(protein, max_len=3000, min_len=5)
+    if strategy not in ("weighted", "most_frequent"):
+        raise ValueError("Strategy must be weighted or most_frequent")
+    if stop not in ("TAA", "TGA", "TAG", ""):
+        raise ValueError("Invalid stop codon")
+    if not isinstance(seed, int) or isinstance(seed, bool) or not 1 <= seed <= 2_147_483_647:
+        raise ValueError("Invalid seed")
+    avoid = list(avoid or [])
+    if len(avoid) > 15:
+        raise ValueError("Too many enzymes to avoid")
+    table = parse_codon_table(custom_table) if custom_table and custom_table.strip() else dict(ECOLI_FREQ)
+    host = "custom table" if custom_table and custom_table.strip() else "Escherichia coli"
+    if add_start and not prot.startswith("M"):
+        prot = "M" + prot
+    use = _usage(table)
+    rng = random.Random(seed)
+    codons = []
+    for aa in prot:
+        lst = use[aa]
+        if strategy == "most_frequent" or len(lst) == 1:
+            codons.append(lst[0][0])
+        else:
+            top = lst[0][1]
+            pool = [(c, f) for c, f in lst if f >= 0.2 * top and f > 0] or lst[:1]
+            codons.append(rng.choices([c for c, _ in pool], weights=[f for _, f in pool])[0])
+    pats = _site_patterns(avoid)
+
+    def full(cs):
+        return "".join(cs) + stop
+
+    skip: set = set()
+    seq = full(codons)
+    for _ in range(1500):
+        probs = _problems(seq, pats, run_len)
+        todo = [p for p in probs if p not in skip]
+        if not todo:
+            break
+        a, b, label = todo[0]
+        best = None
+        cur = _penalty(seq, pats, run_len)
+        for ci in range(a // 3, min(len(codons) - 1, (b - 1) // 3) + 1):
+            for alt, f in use[prot[ci]]:
+                if alt == codons[ci]:
+                    continue
+                trial = codons[:ci] + [alt] + codons[ci + 1:]
+                n = _penalty(full(trial), pats, run_len)
+                key = (n, -f)
+                if n < cur and (best is None or key < best[0]):
+                    best = (key, ci, alt)
+        if best:
+            codons[best[1]] = best[2]
+            seq = full(codons)
+        else:
+            skip.add((a, b, label))
+    cds = seq
+    body = cds[:-3] if stop else cds
+    if translate_dna(body) != prot:
+        raise RuntimeError("Internal error: back-translation does not reproduce the protein")
+    remaining = _problems(cds, pats, run_len)
+    gc = lambda x: 100.0 * sum(ch in "GC" for ch in x) / max(1, len(x))  # noqa: E731
+    wins = [gc(cds[i:i + 50]) for i in range(0, max(1, len(cds) - 49), 10)]
+    fmax = {aa: lst[0][1] for aa, lst in use.items()}
+    rare = sum(1 for c in codons if table[c] < 0.2 * fmax[CODON_TO_AA[c]] and CODON_TO_AA[c] not in "MW")
+    return {
+        "cds": cds, "protein_used": prot, "length_nt": len(cds), "host_table": host, "strategy": strategy, "seed": seed,
+        "gc_percent": round(gc(cds), 1), "gc_window50_min": round(min(wins), 1), "gc_window50_max": round(max(wins), 1),
+        "cai": cai(cds, table), "rare_codon_count": rare,
+        "avoided_enzymes": avoid, "unresolved": [{"start": a + 1, "end": b, "type": lab} for a, b, lab in remaining],
+        "translation_verified": True,
+        "method": ("Most frequent codon per amino acid." if strategy == "most_frequent" else
+                   "Frequency-weighted sampling among codons with at least 20% of the best codon's usage (fixed seed).")
+                  + " Restriction sites and runs of identical bases are repaired by synonymous swaps. CAI per Sharp & Li (1987).",
+        "limits": "Codon usage is one of many factors; mRNA structure, GC content, tRNA supply and the protein itself also "
+                  "decide expression and solubility. Validate by experiment.",
+    }
+
+
+def build_insert(cds: str, enzyme5: str, enzyme3: str, clamp5: str = "GCGCGC", clamp3: str = "GCGCGC",
+                 spacer5: str = "", spacer3: str = "") -> dict:
+    cds = (cds or "").upper().replace(" ", "")
+    if not DNA_RE.fullmatch(cds) or len(cds) % 3 or len(cds) > 9300:
+        raise ValueError("CDS must be A/C/G/T, a multiple of 3, up to 9300 nt")
+    if enzyme5 not in ENZYMES or enzyme3 not in ENZYMES:
+        raise ValueError("Choose 5' and 3' enzymes from the list")
+    if enzyme5 == enzyme3:
+        raise ValueError("Use two different enzymes for directional cloning")
+    clean = []
+    for name, val in (("5' clamp", clamp5), ("3' clamp", clamp3), ("5' spacer", spacer5), ("3' spacer", spacer3)):
+        val = (val or "").upper()
+        if len(val) > 12 or (val and not DNA_RE.fullmatch(val)):
+            raise ValueError(f"{name} must be up to 12 A/C/G/T bases")
+        clean.append(val)
+    c5, c3, sp5, sp3 = clean
+    s5, s3 = ENZYMES[enzyme5], ENZYMES[enzyme3]
+    inside = [n for n in (enzyme5, enzyme3) if ENZYMES[n] in cds or revcomp(ENZYMES[n]) in cds]
+    ndei = enzyme5 == "NdeI"
+    if ndei:
+        if not cds.startswith("ATG") or sp5:
+            raise ValueError("With NdeI the start ATG is part of the site: the CDS must begin with ATG and no 5' spacer is used")
+        # CATATG overlaps the CDS: only the 'CAT' is added; inside-check ignores the overlap by design.
+        inside = [n for n in inside if not (n == "NdeI" and cds.count("CATATG") == 0)]
+    if inside:
+        raise ValueError("Enzyme site found inside the gene: " + ", ".join(inside) + ". Re-run optimization avoiding it, or choose another enzyme.")
+    five = c5 + ("CAT" if ndei else s5 + sp5)
+    insert = five + cds + sp3 + s3 + c3
+    feats = [{"name": "5' clamp", "start": 1, "end": len(c5)}] if c5 else []
+    pos = len(c5)
+    feats.append({"name": enzyme5 + " site" + (" (ATG shared with CDS)" if ndei else ""), "start": pos + 1, "end": pos + len(s5) if not ndei else pos + 6})
+    cds_start = len(five) + 1 if not ndei else len(c5) + 4
+    feats.append({"name": "CDS", "start": cds_start, "end": cds_start + len(cds) - 1})
+    pos = len(five) + len(cds)
+    if sp3:
+        feats.append({"name": "3' spacer", "start": pos + 1, "end": pos + len(sp3)})
+    feats.append({"name": enzyme3 + " site", "start": pos + len(sp3) + 1, "end": pos + len(sp3) + len(s3)})
+    if c3:
+        feats.append({"name": "3' clamp", "start": len(insert) - len(c3) + 1, "end": len(insert)})
+    expected = {enzyme5: 1, enzyme3: 1}
+    counts = {n: insert.count(ENZYMES[n]) for n in expected}
+    ok = all(counts[n] == expected[n] for n in expected)
+    return {
+        "insert": insert, "length_nt": len(insert), "features": feats, "site_counts": counts, "sites_ok": ok,
+        "warnings": ([] if ok else ["A site occurs a different number of times than expected in the final insert"]),
+        "frame_note": f"The CDS starts at nucleotide {cds_start} of the insert. The reading frame with the vector, any vector tag and the vector's own "
+                      "start/stop codons must be checked against the vector map before ordering.",
+        "limits": "In-silico design only. It does not model digestion efficiency, vector sequence, methylation sensitivity or expression.",
+    }
+
 # ------------------------------------------------------------------- routes
 def register_vaccine_routes(router, *, get_current_user):
     from fastapi import Depends, HTTPException, Query
@@ -616,6 +861,24 @@ def register_vaccine_routes(router, *, get_current_user):
         chains_a: list[str]
         chains_b: list[str]
         cutoff: float = 5.0
+
+    class CodonReq(BaseModel):
+        protein: str = Field(min_length=5, max_length=60000)
+        strategy: str = Field("weighted", max_length=20)
+        seed: int = 1
+        avoid_enzymes: list[str] = Field(default_factory=list)
+        custom_table: str = Field("", max_length=8000)
+        add_start: bool = True
+        stop: str = Field("TAA", max_length=3)
+
+    class CloneReq(BaseModel):
+        cds: str = Field(min_length=9, max_length=12000)
+        enzyme5: str = Field(max_length=12)
+        enzyme3: str = Field(max_length=12)
+        clamp5: str = Field("GCGCGC", max_length=12)
+        clamp3: str = Field("GCGCGC", max_length=12)
+        spacer5: str = Field("", max_length=12)
+        spacer3: str = Field("", max_length=12)
 
     async def guarded(fn, provider: str, op: str, *args):
         try:
@@ -665,3 +928,17 @@ def register_vaccine_routes(router, *, get_current_user):
         if len(req.chains_a) > 8 or len(req.chains_b) > 8:
             raise HTTPException(422, "At most 8 chain IDs per partner")
         return await guarded(interface_analysis, "local", "interface", req.pdb, req.chains_a, req.chains_b, req.cutoff)
+
+    @router.post("/vaccine/codon")
+    async def vaccine_codon(req: CodonReq, user=Depends(get_current_user)):
+        return await guarded(optimize_codons, "local", "codon", req.protein, req.strategy, req.seed,
+                             req.avoid_enzymes, req.custom_table, req.add_start, req.stop)
+
+    @router.post("/vaccine/clone")
+    async def vaccine_clone(req: CloneReq, user=Depends(get_current_user)):
+        return await guarded(build_insert, "local", "clone", req.cds, req.enzyme5, req.enzyme3,
+                             req.clamp5, req.clamp3, req.spacer5, req.spacer3)
+
+    @router.get("/vaccine/enzymes")
+    async def vaccine_enzymes(user=Depends(get_current_user)):
+        return {"enzymes": ENZYMES, "host_tables": ["Escherichia coli (built in)", "custom table (paste codon frequencies)"]}

@@ -433,7 +433,7 @@ function Gel({ sizes, t }: { sizes: number[]; t: Record<string, string> }) {
   const lanes = sizes.slice(0, 3);
   const W = 70 + lanes.length * 60;
   return (
-    <svg viewBox={`0 0 ${W} ${H + 24}`} className="w-full max-w-xs mx-auto" role="img" aria-label={t.gel}>
+    <svg viewBox={`0 0 ${W} ${H + 24}`} className="w-full max-w-xs mx-auto" role="img" aria-label={t.gel} direction="ltr">
       <rect x="0" y="0" width={W} height={H} rx="6" fill="#0f172a" />
       <text x="30" y={H + 14} fontSize="9" textAnchor="middle" fill="#64748b">{t.ladder}</text>
       {ladder.map((s) => (<g key={s}><rect x="12" y={y(s) - 1.5} width="36" height="3" fill="#cbd5e1" /><text x="52" y={y(s) + 3} fontSize="8" fill="#94a3b8">{s}</text></g>))}
@@ -1333,7 +1333,7 @@ function ExplorerTab(p: Ctx & { gene: GeneState | null; markers: any[]; focusAa:
         <section className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm" aria-label={t.mapTitle}>
           <h4 className="font-bold text-sm mb-1">{t.mapTitle} — {gene!.symbol} {gene!.accession}</h4>
           <p className="text-xs text-slate-500 mb-2">{t.mapHint}</p>
-          <svg viewBox="0 0 1000 110" className="w-full">
+          <svg viewBox="0 0 1000 110" className="w-full" direction="ltr">
             {gene!.annotation.exons.map((e: number[], i: number) => (<rect key={i} x={(e[0] / L) * 1000} y="40" width={Math.max(1, ((e[1] - e[0] + 1) / L) * 1000)} height="26" fill={i % 2 ? "#93c5fd" : "#3b82f6"}><title>{t.exon} {i + 1}: {e[0]}–{e[1]}</title></rect>))}
             {gene!.annotation.exons.slice(0, -1).map((e: number[], i: number) => {
               const x = (e[1] / L) * 1000;
@@ -1667,11 +1667,11 @@ const LANDING = {
   ...Object.fromEntries(Object.entries(EXTRA_LANDING).map(([code, dict]) => [code, { ...LANDING_CORE.en, ...dict }])),
 } as Record<Lang, any>;
 
-const SERVICES_EMAIL = (process.env.NEXT_PUBLIC_SERVICES_EMAIL || "mkoolivand14@gmail.com").trim();
-const SERVICES_EMAIL2 = "fatemengh79@gmail.com";
+// Official contact address. Assembled at runtime so it is not present as plain text in the server HTML
+// (reduces scraping by spam bots). Not overridable by env on purpose.
+const SERVICES_EMAIL = () => ["info", "bioaiflow.ir"].join("@");
 const SERVICES_TELEGRAM = (process.env.NEXT_PUBLIC_SERVICES_TELEGRAM || "https://t.me/moh3nko").trim();
-const servicesMailto = (subject: string) => (SERVICES_EMAIL ? `mailto:${SERVICES_EMAIL}?subject=${encodeURIComponent(subject)}` : "");
-const servicesMailto2 = (subject: string) => `mailto:${SERVICES_EMAIL2}?subject=${encodeURIComponent(subject)}`;
+const servicesMailto = (subject: string) => `mailto:${SERVICES_EMAIL()}?subject=${encodeURIComponent(subject)}`;
 
 function LangSelect({ lang, setLang, label }: { lang: Lang; setLang: (l: Lang) => void; label: string }) {
   return (
@@ -1719,6 +1719,21 @@ const PRODUCT_PATHS: Record<Lang, { headline: string; molecular: string; molecul
   zh: { headline: "分子生物学与药物研究，一个工作台。", molecular: "分子生物学工作台", molecularDesc: "引物设计、qPCR、CRISPR 与蛋白质探索。", pharma: "药物研究", pharmaDesc: "探索药物、分子靶点、作用机制、通路及临床研究。", openMolecular: "打开分子工具", openPharma: "进入药物研究", pharmaNote: "需要登录并获得研究访问权限。仅供研究使用。" },
 };
 
+function RevealEmail({ lang }: { lang: Lang }) {
+  const d = demoDict(lang);
+  const [shown, setShown] = useState(false);
+  const [copied, setCopied] = useState(false);
+  if (!shown) return <button type="button" onClick={() => setShown(true)} className="mt-3 text-sm text-slate-300 underline underline-offset-4 hover:text-white">{d.showEmail}</button>;
+  const addr = SERVICES_EMAIL();
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-300">
+      <span dir="ltr" className="select-all">{addr}</span>
+      <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(addr); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } }}
+        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/20 hover:bg-white/10">{copied ? d.copied : d.copy}</button>
+    </p>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Services demo + sample work (illustrative data)                     */
 /* ------------------------------------------------------------------ */
@@ -1735,6 +1750,7 @@ const DEMO_T = {
     s2: "Primer design", s2d: "Exon-junction pair with dimer and specificity check.",
     s3: "RNA-seq / GEO", s3d: "Differential expression volcano plot, then enrichment.",
     fwd: "Forward", rev: "Reverse", prod: "Product", up: "Up", down: "Down",
+    showEmail: "Show email address", copy: "Copy", copied: "Copied", allIllus: "All data in this section is illustrative.",
   },
   fa: {
     title: "پیش از سفارش، نتیجه کار را ببینید",
@@ -1748,8 +1764,18 @@ const DEMO_T = {
     s2: "طراحی پرایمر", s2d: "جفت پرایمر عبوردهنده از اتصال اگزون‌ها، با بررسی دایمر و اختصاصیت.",
     s3: "RNA-seq / GEO", s3d: "نمودار آتشفشانی بیان افتراقی و سپس آنالیز غنی‌سازی.",
     fwd: "رفت", rev: "برگشت", prod: "محصول", up: "افزایش", down: "کاهش",
+    showEmail: "نمایش نشانی ایمیل", copy: "کپی", copied: "کپی شد", allIllus: "همه داده‌های این بخش نمونه هستند.",
   },
-} as const;
+};
+
+const DEMO_EXTRA: Record<string, Partial<typeof DEMO_T.en>> = {
+  de: {"title": "Sehen Sie die Analyse, bevor Sie uns beauftragen", "lead": "Ziehen Sie den Schwellenwert im Amplifikationsplot. Ct-Werte und Fold Change werden live aktualisiert – genau das prüfen wir in Ihren Daten.", "demoTitle": "qPCR-Demo: ΔΔCt aus Amplifikationskurven", "illus": "Beispieldaten", "threshold": "Fluoreszenz-Schwellenwert", "cycle": "Zyklus", "fluo": "Fluoreszenz (norm.)", "ctTable": "Ct-Werte", "ctrl": "Kontrolle", "trt": "Behandelt", "target": "Zielgen", "ref": "Referenzgen", "ddct": "ΔΔCt", "fold": "Fold Change (2^−ΔΔCt)", "note": "Der Fold Change bleibt stabil, solange der Schwellenwert in der exponentiellen Phase liegt. Driftet er, braucht die Datenqualität eine Prüfung.", "samples": "Arbeitsbeispiele", "s1": "qPCR-Ergebnisse", "s1d": "Normalisierte Expression, Mittelwert ± SD (n = 3), Welch-t-Test.", "s2": "Primerdesign", "s2d": "Exon-Exon-Primerpaar mit Dimer- und Spezifitätsprüfung.", "s3": "RNA-seq / GEO", "s3d": "Volcano-Plot der differenziellen Expression, danach Anreicherungsanalyse.", "fwd": "Vorwärts", "rev": "Rückwärts", "prod": "Produkt", "up": "Hoch", "down": "Runter", "showEmail": "E-Mail-Adresse anzeigen", "copy": "Kopieren", "copied": "Kopiert", "allIllus": "Alle Daten in diesem Abschnitt sind Beispieldaten."},
+  fr: {"title": "Voyez l'analyse avant de nous confier votre projet", "lead": "Faites glisser le seuil sur une courbe d'amplification. Les valeurs de Ct et le fold change se mettent à jour en direct : c'est exactement ce que nous vérifions dans vos données.", "demoTitle": "Démo qPCR : ΔΔCt à partir de courbes d'amplification", "illus": "Données illustratives", "threshold": "Seuil de fluorescence", "cycle": "Cycle", "fluo": "Fluorescence (norm.)", "ctTable": "Valeurs de Ct", "ctrl": "Témoin", "trt": "Traité", "target": "Gène cible", "ref": "Gène de référence", "ddct": "ΔΔCt", "fold": "Fold change (2^−ΔΔCt)", "note": "Le fold change reste stable tant que le seuil se situe dans la phase exponentielle. S'il dérive, les données nécessitent un contrôle qualité.", "samples": "Exemples de travaux", "s1": "Résultats qPCR", "s1d": "Expression normalisée, moyenne ± ET (n = 3), test t de Welch.", "s2": "Conception d'amorces", "s2d": "Paire d'amorces à cheval sur une jonction exon-exon, avec contrôle des dimères et de la spécificité.", "s3": "RNA-seq / GEO", "s3d": "Volcano plot d'expression différentielle, puis enrichissement.", "fwd": "Sens", "rev": "Antisens", "prod": "Produit", "up": "Surexprimé", "down": "Sous-exprimé", "showEmail": "Afficher l'adresse e-mail", "copy": "Copier", "copied": "Copié", "allIllus": "Toutes les données de cette section sont illustratives."},
+  ru: {"title": "Посмотрите анализ до того, как заказать", "lead": "Перемещайте порог на графике амплификации. Значения Ct и кратность изменения обновляются сразу: именно это мы проверяем в ваших данных.", "demoTitle": "Демо qPCR: ΔΔCt по кривым амплификации", "illus": "Демонстрационные данные", "threshold": "Порог флуоресценции", "cycle": "Цикл", "fluo": "Флуоресценция (норм.)", "ctTable": "Значения Ct", "ctrl": "Контроль", "trt": "Обработка", "target": "Целевой ген", "ref": "Референсный ген", "ddct": "ΔΔCt", "fold": "Кратность изменения (2^−ΔΔCt)", "note": "Кратность изменения остаётся стабильной, пока порог лежит в экспоненциальной фазе. Если она «плавает», данные требуют контроля качества.", "samples": "Примеры работ", "s1": "Результаты qPCR", "s1d": "Нормированная экспрессия, среднее ± SD (n = 3), t-критерий Уэлча.", "s2": "Дизайн праймеров", "s2d": "Пара праймеров через стык экзонов с проверкой димеров и специфичности.", "s3": "RNA-seq / GEO", "s3d": "Вулкан-график дифференциальной экспрессии, затем анализ обогащения.", "fwd": "Прямой", "rev": "Обратный", "prod": "Продукт", "up": "Повышение", "down": "Понижение", "showEmail": "Показать адрес электронной почты", "copy": "Копировать", "copied": "Скопировано", "allIllus": "Все данные в этом разделе — демонстрационные."},
+  ar: {"title": "شاهد التحليل قبل أن تتعاقد معنا", "lead": "حرّك العتبة على منحنى التضخيم. تتحدّث قيم Ct ومعدل التغيّر مباشرةً، وهذا ما نفحصه في بياناتك.", "demoTitle": "عرض qPCR: حساب ΔΔCt من منحنيات التضخيم", "illus": "بيانات توضيحية", "threshold": "عتبة الفلورة", "cycle": "الدورة", "fluo": "الفلورة (معيَّرة)", "ctTable": "قيم Ct", "ctrl": "الشاهد", "trt": "المعالَج", "target": "الجين الهدف", "ref": "الجين المرجعي", "ddct": "ΔΔCt", "fold": "معدل التغيّر (2^−ΔΔCt)", "note": "يبقى معدل التغيّر ثابتًا ما دامت العتبة ضمن الطور الأسّي. وإن انحرف فالبيانات تحتاج إلى ضبط جودة.", "samples": "نماذج من أعمالنا", "s1": "نتائج qPCR", "s1d": "تعبير مُطبَّع، المتوسط ± الانحراف المعياري (n = 3)، اختبار Welch.", "s2": "تصميم البادئات", "s2d": "زوج بادئات يعبر وصلة الإكسونات، مع فحص الثنائيات والنوعية.", "s3": "RNA-seq / GEO", "s3d": "مخطط البركان للتعبير التفاضلي ثم تحليل الإثراء.", "fwd": "الأمامي", "rev": "العكسي", "prod": "الناتج", "up": "ارتفاع", "down": "انخفاض", "showEmail": "إظهار البريد الإلكتروني", "copy": "نسخ", "copied": "تم النسخ", "allIllus": "جميع البيانات في هذا القسم توضيحية."},
+  zh: {"title": "下单之前，先看看分析结果", "lead": "在扩增曲线上拖动阈值，Ct 值和倍数变化会实时更新——这正是我们在您的数据中检查的内容。", "demoTitle": "qPCR 演示：由扩增曲线计算 ΔΔCt", "illus": "示例数据", "threshold": "荧光阈值", "cycle": "循环数", "fluo": "荧光（归一化）", "ctTable": "Ct 值", "ctrl": "对照", "trt": "处理", "target": "目标基因", "ref": "参考基因", "ddct": "ΔΔCt", "fold": "倍数变化 (2^−ΔΔCt)", "note": "只要阈值位于指数期，倍数变化就保持稳定；若出现漂移，说明数据需要质控。", "samples": "案例展示", "s1": "qPCR 结果", "s1d": "归一化表达量，均值 ± SD（n = 3），Welch t 检验。", "s2": "引物设计", "s2d": "跨外显子—外显子连接的引物对，并检查二聚体与特异性。", "s3": "RNA-seq / GEO", "s3d": "差异表达火山图，随后进行富集分析。", "fwd": "正向", "rev": "反向", "prod": "产物", "up": "上调", "down": "下调", "showEmail": "显示邮箱地址", "copy": "复制", "copied": "已复制", "allIllus": "本节所有数据均为示例。"},
+};
+const demoDict = (lang: Lang) => ({ ...DEMO_T.en, ...(lang === "fa" ? DEMO_T.fa : DEMO_EXTRA[lang] || {}) }) as typeof DEMO_T.en;
 
 const SD_K = 1.4;
 const SD_CURVES = [
@@ -1774,8 +1800,7 @@ const SD_VOLCANO = (() => {
 })();
 
 function ServicesDemo({ lang }: { lang: Lang }) {
-  const d = DEMO_T[lang === "fa" ? "fa" : "en"];
-  const fa = lang === "fa";
+  const d = demoDict(lang);
   const [thr, setThr] = useState(0.2);
   const cts = useMemo(() => Object.fromEntries(SD_CURVES.map((c) => [c.id, sdCt(c.c0, thr)])) as Record<string, number>, [thr]);
   const ddct = cts.tt - cts.rt - (cts.tc - cts.rc);
@@ -1791,7 +1816,7 @@ function ServicesDemo({ lang }: { lang: Lang }) {
         <div className="mb-3 flex flex-wrap items-center gap-1.5"><h4 className="font-bold text-white">{d.demoTitle}</h4><span className={tag}>{d.illus}</span></div>
         <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
           <div className="min-w-0">
-            <svg viewBox={`0 0 ${SD_W} ${SD_H}`} role="img" aria-label={d.demoTitle} className="block h-auto w-full">
+            <svg viewBox={`0 0 ${SD_W} ${SD_H}`} role="img" aria-label={d.demoTitle} style={{ direction: "ltr" }} className="block h-auto w-full">
               {[0, 0.25, 0.5, 0.75, 1].map((v) => (
                 <g key={v}><line x1={SD_PL} x2={SD_W - SD_PR} y1={sdY(v)} y2={sdY(v)} stroke="rgba(255,255,255,.12)" />
                   <text x={SD_PL - 8} y={sdY(v) + 4} textAnchor="end" fontSize="11" className="fill-slate-400">{v}</text></g>
@@ -1835,7 +1860,7 @@ function ServicesDemo({ lang }: { lang: Lang }) {
       <h3 className="mb-3 mt-8 flex flex-wrap items-center gap-1.5 text-lg font-bold text-white">{d.samples}<span className={tag}>{d.illus}</span></h3>
       <div className="grid gap-4 md:grid-cols-3">
         <article className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
-          <svg viewBox="0 0 260 150" role="img" aria-label={d.s1} className="block h-auto w-full">
+          <svg viewBox="0 0 260 150" role="img" aria-label={d.s1} style={{ direction: "ltr" }} className="block h-auto w-full">
             <line x1="28" x2="250" y1="124" y2="124" stroke="rgba(255,255,255,.2)" />
             {[{ g: "IL6", tr: 4.2, e: 0.6 }, { g: "TNF", tr: 2.9, e: 0.4 }, { g: "IL10", tr: 0.45, e: 0.1 }].map((b, i) => {
               const x = 44 + i * 70, u = 20;
@@ -1863,7 +1888,7 @@ function ServicesDemo({ lang }: { lang: Lang }) {
         </article>
 
         <article className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
-          <svg viewBox="0 0 260 150" role="img" aria-label={d.s3} className="block h-auto w-full">
+          <svg viewBox="0 0 260 150" role="img" aria-label={d.s3} style={{ direction: "ltr" }} className="block h-auto w-full">
             <line x1="130" x2="130" y1="8" y2="128" stroke="rgba(255,255,255,.15)" />
             <line x1="14" x2="250" y1={128 - 1.3 * 18} y2={128 - 1.3 * 18} stroke="rgba(255,255,255,.15)" strokeDasharray="3 3" />
             <line x1="14" x2="250" y1="128" y2="128" stroke="rgba(255,255,255,.2)" />
@@ -1878,7 +1903,7 @@ function ServicesDemo({ lang }: { lang: Lang }) {
           <h4 className="mt-3 font-bold text-white">{d.s3}</h4><p className="mt-1 text-sm leading-relaxed text-slate-300">{d.s3d}</p>
         </article>
       </div>
-      <p className="sr-only">{fa ? "همه داده‌های این بخش نمونه هستند." : "All data in this section is illustrative."}</p>
+      <p className="sr-only">{d.allIllus}</p>
     </div>
   );
 }
@@ -1973,14 +1998,13 @@ function Landing({ t, lang, setLang, onEnter, onStart, token }: { t: Record<stri
             <p className="font-bold text-white">{h}</p><p className="mt-1 text-sm leading-relaxed text-slate-300">{p}</p></div>))}</div>
         <ServicesDemo lang={lang} />
         <div className="mt-6 flex flex-wrap items-center gap-4">
-          {SERVICES_EMAIL && <a href={servicesMailto(`Primer AI · ${L.svc_cta}`)}
-            className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{L.svc_cta}</a>}
+          <button type="button" onClick={() => { window.location.href = servicesMailto(`Primer AI · ${L.svc_cta}`); }}
+            className="rounded-2xl bg-[#5ef0a8] px-6 py-3.5 font-bold text-[#06231a] transition hover:bg-[#7bf5b9]">{L.svc_cta}</button>
           {SERVICES_TELEGRAM && <a href={SERVICES_TELEGRAM} target="_blank" rel="noopener noreferrer"
             className="rounded-2xl bg-white/10 px-6 py-3.5 font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/15">{L.svc_telegram}</a>}
           <p className="max-w-xl text-sm text-slate-400">{L.svc_note}</p>
         </div>
-        {SERVICES_EMAIL && <p className="mt-3 text-sm text-slate-400" dir="ltr">{SERVICES_EMAIL}</p>}
-        <p className="mt-1 text-sm text-slate-400" dir="ltr">{SERVICES_EMAIL2}</p>
+        <RevealEmail lang={lang} />
       </section>
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-sm md:p-8">
