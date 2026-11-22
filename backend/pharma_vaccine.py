@@ -326,6 +326,254 @@ def assemble_construct(adjuvant: str, ctl: list[str], htl: list[str], bcell: lis
             "note": "A conventional layout for illustration. Linkers and order should be justified in your methods."}
 
 
+
+# ------------------------------------------------- population coverage (local)
+_CLASS_I_LOCI = {"A", "B", "C", "E", "F", "G"}
+
+
+def _locus(allele: str) -> str:
+    name = allele.upper().replace("HLA-", "", 1)
+    return name.split("*", 1)[0] if "*" in name else name
+
+
+def coverage_from_frequencies(epitopes: list[dict], frequencies: dict[str, float]) -> dict:
+    """Projected population coverage from user-supplied allele frequencies.
+
+    Approach after Bui et al. 2006 (BMC Bioinformatics 7:153): per locus, p = summed frequency of the
+    alleles that restrict at least one selected epitope; the chance that at least one of the two
+    alleles of an individual responds is 1 - (1 - p)^2 (Hardy-Weinberg); loci are combined as
+    independent (linkage equilibrium). Verify against the IEDB tool before publishing.
+    """
+    if not epitopes or len(epitopes) > 60:
+        raise ValueError("Provide 1 to 60 epitopes with their restricting alleles")
+    if not frequencies or len(frequencies) > 600:
+        raise ValueError("Provide allele frequencies (at most 600 alleles)")
+    freq = {}
+    for allele, f in frequencies.items():
+        if not ALLELE_RE.fullmatch(str(allele)):
+            raise ValueError(f"Invalid allele name: {str(allele)[:30]}")
+        if isinstance(f, bool) or not isinstance(f, (int, float)) or not 0 <= f <= 1:
+            raise ValueError("Allele frequencies must be fractions between 0 and 1")
+        freq[str(allele).upper()] = float(f)
+    sums: dict[str, float] = {}
+    for loc in {_locus(a) for a in freq}:
+        total = sum(f for a, f in freq.items() if _locus(a) == loc)
+        sums[loc] = total
+    restricting: set[str] = set()
+    per_epitope = []
+    for e in epitopes:
+        als = [str(a).upper() for a in (e.get("alleles") or [])]
+        if not all(ALLELE_RE.fullmatch(a) for a in als):
+            raise ValueError("Invalid allele name in the epitope list")
+        restricting.update(als)
+        per_epitope.append({"peptide": str(e.get("peptide", ""))[:60], "n_alleles": len(als),
+                            "frequency_sum": round(sum(freq.get(a, 0.0) for a in als), 4)})
+    missing = sorted(a for a in restricting if a not in freq)
+    by_locus: dict[str, float] = {}
+    for loc in {_locus(a) for a in restricting}:
+        by_locus[loc] = min(1.0, sum(freq.get(a, 0.0) for a in restricting if _locus(a) == loc))
+
+    def combine(loci):
+        miss = 1.0
+        for loc in loci:
+            miss *= (1.0 - by_locus[loc]) ** 2
+        return 1.0 - miss
+
+    c1 = [l for l in by_locus if l in _CLASS_I_LOCI]
+    c2 = [l for l in by_locus if l not in _CLASS_I_LOCI]
+    warnings = []
+    for loc, tot in sums.items():
+        if tot > 1.02:
+            warnings.append(f"Frequencies for locus {loc} sum to {tot:.2f} (>1); check the input")
+    if missing:
+        warnings.append(f"{len(missing)} restricting allele(s) have no frequency and were counted as 0")
+    return {
+        "coverage_class_i": round(combine(c1), 4) if c1 else None,
+        "coverage_class_ii": round(combine(c2), 4) if c2 else None,
+        "coverage_combined": round(combine(list(by_locus)), 4) if by_locus else None,
+        "locus_fraction": {k: round(v, 4) for k, v in sorted(by_locus.items())},
+        "alleles_without_frequency": missing, "epitopes": per_epitope, "warnings": warnings,
+        "method": "1 - prod_loci (1 - p_locus)^2, Hardy-Weinberg per locus, loci independent (after Bui et al. 2006)",
+        "limits": "Depends entirely on the supplied frequencies, which must come from a cited population dataset "
+                  "(for example Allele Frequency Net). Coverage is a projection, not a measured protection rate.",
+    }
+
+
+# ------------------------------------------------------- structure analysis
+import math  # noqa: E402
+
+MAX_PDB_CHARS = 3_000_000
+
+
+def parse_pdb_atoms(text: str, max_atoms: int = 40000) -> list[tuple]:
+    """ATOM records only (first alternate location). Tuple: name,resn,chain,resi,icode,x,y,z,b,elem."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("PDB text is required")
+    if len(text) > MAX_PDB_CHARS:
+        raise ValueError("PDB text exceeds the size limit")
+    atoms = []
+    for ln in text.splitlines():
+        if not ln.startswith("ATOM"):
+            continue
+        try:
+            alt = ln[16:17]
+            if alt not in (" ", "A", ""):
+                continue
+            b = float(ln[60:66]) if len(ln) >= 66 and ln[60:66].strip() else 0.0
+            name = ln[12:16].strip()
+            elem = (ln[76:78].strip() if len(ln) >= 78 else "") or name[:1]
+            atoms.append((name, ln[17:20].strip(), ln[21:22].strip() or "_", int(ln[22:26]), ln[26:27].strip(),
+                          float(ln[30:38]), float(ln[38:46]), float(ln[46:54]), b, elem.upper()))
+        except ValueError:
+            continue
+        if len(atoms) > max_atoms:
+            raise ValueError(f"More than {max_atoms} atoms; the workspace limit was exceeded")
+    if not atoms:
+        raise ValueError("No ATOM records found")
+    return atoms
+
+
+def _sub(a, b):
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def _dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def dihedral(p0, p1, p2, p3) -> float:
+    b0, b1, b2 = _sub(p0, p1), _sub(p2, p1), _sub(p3, p2)
+    n = math.sqrt(_dot(b1, b1)) or 1.0
+    b1 = (b1[0] / n, b1[1] / n, b1[2] / n)
+    v = tuple(b0[i] - _dot(b0, b1) * b1[i] for i in range(3))
+    w = tuple(b2[i] - _dot(b2, b1) * b1[i] for i in range(3))
+    return math.degrees(math.atan2(_dot(_cross(b1, v), w), _dot(v, w)))
+
+
+def rama_class(phi: float, psi: float) -> str:
+    """Coarse region classes for non-Gly, non-Pro residues (approximate, not MolProbity contours)."""
+    beta = -180 <= phi <= -45 and (psi >= 90 or psi <= -165)
+    alpha = -160 <= phi <= -30 and -75 <= psi <= -5
+    if beta or alpha:
+        return "favored"
+    broad = (-180 <= phi <= -20 and -180 <= psi <= 180 and not (-20 > psi > -90 and phi > -45)) \
+        or (30 <= phi <= 100 and -20 <= psi <= 90)
+    return "allowed" if broad else "outlier"
+
+
+def structure_qc(pdb: str, bfactor_is_plddt: bool = False) -> dict:
+    atoms = parse_pdb_atoms(pdb, max_atoms=60000)
+    res: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for name, resn, ch, resi, ic, x, y, z, b, _el in atoms:
+        key = (ch, resi, ic)
+        if key not in res:
+            res[key] = {"resn": resn, "ch": ch, "resi": resi}
+            order.append(key)
+        if name in ("N", "CA", "C"):
+            res[key][name] = (x, y, z)
+            if name == "CA":
+                res[key]["b"] = b
+    if len(order) > 3000:
+        raise ValueError("More than 3000 residues; the workspace limit was exceeded")
+    out = {"n_residues": len(order), "chains": sorted({k[0] for k in order})}
+    cas = [res[k]["b"] for k in order if "b" in res[k]]
+    if bfactor_is_plddt and cas:
+        scale = 100.0 if max(cas) <= 1.5 else 1.0
+        pl = [round(v * scale, 1) for v in cas]
+        n = len(pl)
+        out["plddt"] = {"mean": round(sum(pl) / n, 1), "scale_note": "B-factor column read as pLDDT" + (" (0-1 scaled to 0-100)" if scale == 100 else ""),
+                        "very_high_gt90": round(100 * sum(v > 90 for v in pl) / n, 1),
+                        "confident_70_90": round(100 * sum(70 < v <= 90 for v in pl) / n, 1),
+                        "low_50_70": round(100 * sum(50 < v <= 70 for v in pl) / n, 1),
+                        "very_low_le50": round(100 * sum(v <= 50 for v in pl) / n, 1), "per_residue": pl[:3000],
+                        "scale_factor": scale}
+    counts = {"favored": 0, "allowed": 0, "outlier": 0}
+    outliers = []
+    for i, key in enumerate(order):
+        r = res[key]
+        if r["resn"] in ("GLY", "PRO") or not all(a in r for a in ("N", "CA", "C")):
+            continue
+        if i == 0 or i == len(order) - 1:
+            continue
+        prev, nxt = res[order[i - 1]], res[order[i + 1]]
+        if "C" not in prev or "N" not in nxt or prev["ch"] != r["ch"] or nxt["ch"] != r["ch"]:
+            continue
+        if math.dist(prev["C"], r["N"]) > 2.0 or math.dist(r["C"], nxt["N"]) > 2.0:
+            continue
+        phi = dihedral(prev["C"], r["N"], r["CA"], r["C"])
+        psi = dihedral(r["N"], r["CA"], r["C"], nxt["N"])
+        c = rama_class(phi, psi)
+        counts[c] += 1
+        if c == "outlier" and len(outliers) < 25:
+            outliers.append({"residue": f'{r["ch"]}:{r["resn"]}{r["resi"]}', "phi": round(phi, 1), "psi": round(psi, 1)})
+    n = sum(counts.values())
+    out["ramachandran"] = {
+        "evaluated": n, **({"favored_pct": round(100 * counts["favored"] / n, 1), "allowed_pct": round(100 * counts["allowed"] / n, 1),
+                            "outlier_pct": round(100 * counts["outlier"] / n, 1)} if n else {}),
+        "outliers": outliers, "excluded": "Gly, Pro, termini and chain breaks",
+        "note": "Approximate region-based estimate. Use MolProbity or PROCHECK for formal validation.",
+    }
+    out["limits"] = "pLDDT is the model's own confidence, not experimental accuracy. Predicted multi-epitope constructs are often partly disordered."
+    return out
+
+
+def interface_analysis(pdb: str, chains_a: list[str], chains_b: list[str], cutoff: float = 5.0) -> dict:
+    """Geometry-only contacts between two chain groups of a docked complex."""
+    a_set = {c.strip() for c in chains_a if c.strip()}
+    b_set = {c.strip() for c in chains_b if c.strip()}
+    if not a_set or not b_set or a_set & b_set:
+        raise ValueError("Give one or more chain IDs for each partner, with no chain in both")
+    if not 3.5 <= cutoff <= 8.0:
+        raise ValueError("Contact cutoff must be between 3.5 and 8 angstrom")
+    atoms = [a for a in parse_pdb_atoms(pdb) if a[9] != "H"]
+    found = sorted({a[2] for a in atoms})
+    miss = sorted((a_set | b_set) - set(found))
+    if miss:
+        raise ValueError("Chain(s) not found in the file: " + ", ".join(miss) + ". Chains present: " + ", ".join(found))
+    A = [a for a in atoms if a[2] in a_set]
+    B = [a for a in atoms if a[2] in b_set]
+    cell = cutoff
+    grid: dict[tuple, list] = {}
+    for at in B:
+        grid.setdefault((int(at[5] // cell), int(at[6] // cell), int(at[7] // cell)), []).append(at)
+    rl = lambda a: f"{a[2]}:{a[1]}{a[3]}{a[4]}"  # noqa: E731
+    pairs, ra, rb, polar, salt = set(), set(), set(), {}, {}
+    acid = {("ASP", "OD1"), ("ASP", "OD2"), ("GLU", "OE1"), ("GLU", "OE2")}
+    base = {("LYS", "NZ"), ("ARG", "NH1"), ("ARG", "NH2"), ("ARG", "NE")}
+    for a in A:
+        cx, cy, cz = int(a[5] // cell), int(a[6] // cell), int(a[7] // cell)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    for b in grid.get((cx + dx, cy + dy, cz + dz), ()):
+                        d = math.dist(a[5:8], b[5:8])
+                        if d > cutoff:
+                            continue
+                        pairs.add((rl(a), rl(b)))
+                        ra.add(rl(a)), rb.add(rl(b))
+                        if a[9] in ("N", "O") and b[9] in ("N", "O") and d <= 3.5:
+                            k = (rl(a), a[0], rl(b), b[0])
+                            polar[k] = min(d, polar.get(k, 9))
+                        if d <= 4.0 and (((a[1], a[0]) in acid and (b[1], b[0]) in base) or ((a[1], a[0]) in base and (b[1], b[0]) in acid)):
+                            salt[(rl(a), rl(b))] = min(d, salt.get((rl(a), rl(b)), 9))
+    srt = lambda s: sorted(s, key=lambda x: (x.split(":")[0], int("".join(ch for ch in x.split(":")[1] if ch.isdigit()) or 0)))  # noqa: E731
+    return {
+        "chains_present": found, "cutoff_angstrom": cutoff,
+        "residue_pairs_in_contact": len(pairs), "interface_residues_a": srt(ra), "interface_residues_b": srt(rb),
+        "n_interface_a": len(ra), "n_interface_b": len(rb),
+        "polar_contacts": [{"a": k[0] + " " + k[1], "b": k[2] + " " + k[3], "distance": round(v, 2)} for k, v in sorted(polar.items(), key=lambda kv: kv[1])[:60]],
+        "n_polar_contacts": len(polar),
+        "salt_bridge_candidates": [{"a": k[0], "b": k[1], "distance": round(v, 2)} for k, v in sorted(salt.items(), key=lambda kv: kv[1])[:40]],
+        "method": f"Heavy-atom distance cutoff {cutoff} A between the two chain groups; N/O pairs within 3.5 A listed as polar-contact candidates; "
+                  "acidic/basic side-chain atoms within 4.0 A listed as salt-bridge candidates.",
+        "limits": "Geometry only: no binding energy, no hydrogen-bond angles, no solvent accessibility. Do not compare docking scores across different servers.",
+    }
+
 # ------------------------------------------------------------------- routes
 def register_vaccine_routes(router, *, get_current_user):
     from fastapi import Depends, HTTPException, Query
@@ -354,6 +602,20 @@ def register_vaccine_routes(router, *, get_current_user):
         htl: list[str] = Field(default_factory=list)
         bcell: list[str] = Field(default_factory=list)
         his_tag: bool = True
+
+    class CoverageReq(BaseModel):
+        epitopes: list[dict]
+        frequencies: dict[str, float]
+
+    class PdbReq(BaseModel):
+        pdb: str = Field(min_length=50, max_length=3_000_000)
+        bfactor_is_plddt: bool = False
+
+    class InterfaceReq(BaseModel):
+        pdb: str = Field(min_length=50, max_length=3_000_000)
+        chains_a: list[str]
+        chains_b: list[str]
+        cutoff: float = 5.0
 
     async def guarded(fn, provider: str, op: str, *args):
         try:
@@ -389,3 +651,17 @@ def register_vaccine_routes(router, *, get_current_user):
     async def vaccine_assemble(req: AssembleReq, user=Depends(get_current_user)):
         return await guarded(assemble_construct, "local", "assemble", req.adjuvant, req.ctl, req.htl,
                              req.bcell, req.his_tag, req.adjuvant_label)
+
+    @router.post("/vaccine/coverage")
+    async def vaccine_coverage(req: CoverageReq, user=Depends(get_current_user)):
+        return await guarded(coverage_from_frequencies, "local", "coverage", req.epitopes, req.frequencies)
+
+    @router.post("/vaccine/structure-qc")
+    async def vaccine_structure_qc(req: PdbReq, user=Depends(get_current_user)):
+        return await guarded(structure_qc, "local", "structure_qc", req.pdb, req.bfactor_is_plddt)
+
+    @router.post("/vaccine/interface")
+    async def vaccine_interface(req: InterfaceReq, user=Depends(get_current_user)):
+        if len(req.chains_a) > 8 or len(req.chains_b) > 8:
+            raise HTTPException(422, "At most 8 chain IDs per partner")
+        return await guarded(interface_analysis, "local", "interface", req.pdb, req.chains_a, req.chains_b, req.cutoff)

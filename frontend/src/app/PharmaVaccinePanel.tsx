@@ -1,7 +1,8 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useMemo, useState } from "react";
+import Script from "next/script";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = { call: (path: string, init?: RequestInit) => Promise<any>; lang?: string };
 type Kind = "ctl" | "htl" | "bc";
@@ -37,6 +38,20 @@ const T = {
     s5: "Population coverage needs allele-frequency data per population. It is not enabled until it can be computed from a verified source.",
     s8: "Use the experimental 3D structure viewer above for PDB entries. Automated structure prediction and validation (pLDDT, Ramachandran) for constructs is the next module.",
     s9: "The docking panel above runs AutoDock Vina for small molecules. Vaccine-to-receptor (for example TLR) docking is protein-protein docking: use a dedicated server such as HADDOCK or ClusPro, then analyze the result here in a later module.",
+    covTitle: "Selected epitopes and their restricting alleles", covNeed: "Run step 4 and add CTL/HTL epitopes to the selection first.",
+    covIedb: "Input for the IEDB Population Coverage tool (epitope, tab, alleles)", covOpen: "Open IEDB Population Coverage",
+    covLocal: "Local projection from your own allele frequencies",
+    covFreqHelp: "One allele per line: allele, frequency as a fraction (0 to 1), e.g. HLA-A*02:01, 0.25. Use a cited dataset such as Allele Frequency Net, and write alleles exactly as in the epitope table.",
+    covRun: "Compute coverage", covC1: "Class I", covC2: "Class II", covAll: "Combined", covMissing: "Alleles without a frequency", popName: "Population (for the report)",
+    pred: "Predict structure with ESMFold", consent: "I agree to send this sequence to the ESM Metagenomic Atlas (external service).",
+    tooLong: "ESMFold in this workspace accepts 20 to 400 residues. Predict with an external tool (for example AlphaFold Server or ColabFold) and load the PDB below.",
+    pdbLoad: "Load a PDB file or paste PDB text", isPlddt: "B-factor column holds pLDDT (AlphaFold / ESMFold)", runQc: "Analyze structure", dlPdb: "Download PDB",
+    qcTitle: "Model quality", mean: "Mean pLDDT", rama: "Ramachandran (approximate)", fav: "Favored", allow: "Allowed", outl: "Outliers", outList: "Outlier residues", needCons: "Build a construct in step 6 first.",
+    dockInfo: "Vaccine-to-receptor docking is protein-protein docking. Run it on a dedicated server, then load the docked complex here to analyze the interface.",
+    recs: "Receptor entries often used (verify each one in the 3D viewer above)", servers: "Docking servers (check the links)",
+    srvNote: "Read each server's terms and data policy before uploading unpublished constructs.",
+    cplx: "Docked complex (PDB)", chA: "Vaccine chain(s)", chB: "Receptor chain(s)", cut: "Contact cutoff (Å)", runIf: "Analyze interface",
+    ifTitle: "Interface summary", pairs: "Residue pairs in contact", ifA: "Interface residues (vaccine)", ifB: "Interface residues (receptor)", polar: "Polar-contact candidates", salt: "Salt-bridge candidates",
     err: "Request failed", disclaimer: "Research and teaching use only. Not for clinical, dosing or safety decisions.",
     learn: [
       ["Why epitope-based vaccines", "Instead of a whole pathogen or protein, the vaccine presents short regions (epitopes) that immune cells recognize. This can focus the response and avoid unwanted regions, but each epitope must still be shown to be immunogenic."],
@@ -67,6 +82,20 @@ const T = {
     s5: "پوشش جمعیتی به داده فراوانی آلل در هر جمعیت نیاز دارد. تا وقتی از منبع تأییدشده قابل محاسبه نشود فعال نمی‌شود.",
     s8: "برای ورودی‌های PDB از نمایشگر ساختار تجربی بالا استفاده کنید. پیش‌بینی و اعتبارسنجی خودکار ساختار سازه (pLDDT، Ramachandran) ماژول بعدی است.",
     s9: "پنل داکینگ بالا AutoDock Vina را برای مولکول‌های کوچک اجرا می‌کند. داکینگ واکسن به گیرنده (مثلاً TLR) از نوع پروتئین-پروتئین است: از سرور اختصاصی مثل HADDOCK یا ClusPro استفاده کنید و تحلیل نتیجه را در ماژول بعدی اینجا انجام دهید.",
+    covTitle: "اپی‌توپ‌های انتخاب‌شده و آلل‌های مربوط", covNeed: "ابتدا مرحله ۴ را اجرا و اپی‌توپ‌های CTL/HTL را به انتخاب اضافه کنید.",
+    covIedb: "ورودی ابزار IEDB Population Coverage (اپی‌توپ، تب، آلل‌ها)", covOpen: "باز کردن IEDB Population Coverage",
+    covLocal: "برآورد محلی از فراوانی آلل‌هایی که خودتان می‌دهید",
+    covFreqHelp: "در هر خط یک آلل: آلل، فراوانی به‌صورت کسر (۰ تا ۱)، مثل HLA-A*02:01, 0.25. از مجموعه‌داده ارجاع‌پذیر مثل Allele Frequency Net استفاده کنید و نام آلل‌ها را دقیقاً مثل جدول اپی‌توپ بنویسید.",
+    covRun: "محاسبه پوشش", covC1: "کلاس I", covC2: "کلاس II", covAll: "ترکیبی", covMissing: "آلل‌های بدون فراوانی", popName: "جمعیت (برای گزارش)",
+    pred: "پیش‌بینی ساختار با ESMFold", consent: "موافقم این توالی به ESM Metagenomic Atlas (سرویس بیرونی) ارسال شود.",
+    tooLong: "ESMFold در این میز کار ۲۰ تا ۴۰۰ اسیدآمینه می‌پذیرد. با ابزار بیرونی (مثل AlphaFold Server یا ColabFold) پیش‌بینی کنید و PDB را پایین بارگذاری کنید.",
+    pdbLoad: "فایل PDB را بارگذاری یا متن آن را بچسبانید", isPlddt: "ستون B-factor همان pLDDT است (AlphaFold / ESMFold)", runQc: "تحلیل ساختار", dlPdb: "دانلود PDB",
+    qcTitle: "کیفیت مدل", mean: "میانگین pLDDT", rama: "راماچاندران (تقریبی)", fav: "مطلوب", allow: "مجاز", outl: "خارج از ناحیه", outList: "باقیمانده‌های خارج از ناحیه", needCons: "ابتدا در مرحله ۶ سازه را بسازید.",
+    dockInfo: "داکینگ واکسن به گیرنده از نوع پروتئین-پروتئین است. آن را روی سرور اختصاصی اجرا کنید، سپس مجموعهٔ داک‌شده را اینجا بارگذاری کنید تا سطح تماس تحلیل شود.",
+    recs: "ورودی‌های گیرنده که زیاد استفاده می‌شوند (هرکدام را در نمایشگر سه‌بعدی بالا راستی‌آزمایی کنید)", servers: "سرورهای داکینگ (لینک‌ها را بررسی کنید)",
+    srvNote: "پیش از بارگذاری سازه‌های منتشرنشده، شرایط و سیاست داده هر سرور را بخوانید.",
+    cplx: "مجموعه داک‌شده (PDB)", chA: "زنجیره(های) واکسن", chB: "زنجیره(های) گیرنده", cut: "آستانه تماس (Å)", runIf: "تحلیل سطح تماس",
+    ifTitle: "خلاصه سطح تماس", pairs: "جفت باقیمانده‌های در تماس", ifA: "باقیمانده‌های سطح تماس (واکسن)", ifB: "باقیمانده‌های سطح تماس (گیرنده)", polar: "کاندیدای تماس قطبی", salt: "کاندیدای پل نمکی",
     err: "درخواست ناموفق بود", disclaimer: "فقط برای پژوهش و آموزش؛ نه برای تصمیم بالینی، دوز یا ایمنی.",
     learn: [
       ["چرا واکسن مبتنی بر اپی‌توپ", "به‌جای کل پاتوژن یا پروتئین، نواحی کوتاهی (اپی‌توپ) عرضه می‌شود که سلول‌های ایمنی می‌شناسند. این کار پاسخ را متمرکز می‌کند و از نواحی نامطلوب پرهیز می‌دهد، ولی ایمنی‌زایی هر اپی‌توپ باید جداگانه نشان داده شود."],
@@ -90,6 +119,46 @@ const EXT = [
   ["solub", "https://protein-sol.manchester.ac.uk/", "Protein-Sol"],
 ] as const;
 const KIND_COLOR: Record<string, string> = { adjuvant: "text-amber-300", CTL: "text-emerald-300", HTL: "text-sky-300", "B-cell": "text-fuchsia-300", linker: "text-slate-400", tag: "text-slate-200" };
+
+const plddtColor = (v: number) => (v > 90 ? "#0053d6" : v > 70 ? "#65cbf3" : v > 50 ? "#ffdb13" : "#ff7d45");
+
+function Mol({ pdb, scale }: { pdb: string; scale: number | null }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  const [fail, setFail] = useState(false);
+  useEffect(() => { if ((window as any).$3Dmol) setReady(true); }, []);
+  useEffect(() => {
+    const lib = (window as any).$3Dmol;
+    if (!ready || !pdb || !box.current || !lib) return;
+    let v: any;
+    try {
+      box.current.innerHTML = "";
+      v = lib.createViewer(box.current, { backgroundColor: "#101c30" });
+      v.addModel(pdb, "pdb");
+      v.setStyle({}, { cartoon: scale ? { colorfunc: (a: any) => plddtColor(a.b * scale) } : { color: "spectrum" } });
+      v.zoomTo(); v.render();
+    } catch { setFail(true); }
+    return () => { try { v?.clear(); } catch { /* ignore */ } };
+  }, [pdb, ready, scale]);
+  return <div className="space-y-1">
+    <Script src="https://3dmol.org/build/3Dmol-min.js" strategy="afterInteractive" onReady={() => setReady(true)} />
+    <div ref={box} className="relative h-[340px] w-full overflow-hidden rounded-xl border border-slate-600 bg-[#101c30]" />
+    {fail && <p role="alert" className="text-sm text-amber-200">3D viewer unavailable in this browser.</p>}
+    {scale && <p className="text-xs text-slate-300" dir="ltr">pLDDT: <span style={{ color: "#0053d6" }}>&gt;90</span> · <span style={{ color: "#65cbf3" }}>70–90</span> · <span style={{ color: "#ffdb13" }}>50–70</span> · <span style={{ color: "#ff7d45" }}>≤50</span></p>}
+  </div>;
+}
+
+const RECEPTORS = [["TLR4 / MD-2", "3FXI"], ["TLR2 / TLR1", "2Z7X"], ["TLR3", "2A0Z"]];
+const SERVERS = [["HDOCK", "http://hdock.phys.hust.edu.cn/"], ["ClusPro", "https://cluspro.org/"], ["HADDOCK", "https://wenmr.science.uu.nl/haddock2.4/"]];
+const parseFreq = (txt: string) => {
+  const o: Record<string, number> = {};
+  for (const ln of txt.split(/\r?\n/)) {
+    const m = ln.trim().match(/^(\S+?)[\s,;]+([0-9]*\.?[0-9]+(?:e-?\d+)?)$/i);
+    if (m) o[m[1]] = parseFloat(m[2]);
+  }
+  return o;
+};
+const pct = (x: number | null | undefined) => (x == null ? "—" : `${(x * 100).toFixed(1)}%`);
 
 export default function PharmaVaccinePanel({ call, lang }: Props) {
   const fa = lang === "fa";
@@ -116,6 +185,18 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
   const [cons, setCons] = useState<any>(null);
   const [ext, setExt] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
+  const [freqText, setFreqText] = useState("");
+  const [popName, setPopName] = useState("");
+  const [cov, setCov] = useState<any>(null);
+  const [consent, setConsent] = useState(false);
+  const [pdb, setPdb] = useState("");
+  const [isPl, setIsPl] = useState(true);
+  const [qc, setQc] = useState<any>(null);
+  const [cplx, setCplx] = useState("");
+  const [chA, setChA] = useState("A");
+  const [chB, setChB] = useState("B");
+  const [cut, setCut] = useState(5);
+  const [iface, setIface] = useState<any>(null);
 
   const fullSeq = protein?.sequence || rawSeq.replace(/^>.*$/gm, "").replace(/[\s\d*-]/g, "").toUpperCase();
   const seqLen = fullSeq.length;
@@ -153,6 +234,34 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
   const assemble = () => void post("asm", "/pharma/vaccine/assemble",
     { adjuvant: adj, adjuvant_label: adjLabel, ctl: sel.ctl, htl: sel.htl, bcell: sel.bc, his_tag: his }, setCons);
 
+  const covRows = useMemo(() => {
+    const rows: any[] = [];
+    for (const [k, c] of [["ctl", "I"], ["htl", "II"]] as const)
+      for (const p of sel[k]) { const hit = tRes[c]?.peptides?.find((x: any) => x.peptide === p); if (hit) rows.push({ peptide: p, mhc_class: c, alleles: hit.alleles }); }
+    return rows;
+  }, [sel, tRes]);
+  const iedbText = covRows.map((r) => `${r.peptide}\t${r.alleles.join(",")}`).join("\n");
+  const runCov = () => void post("cov", "/pharma/vaccine/coverage", { epitopes: covRows, frequencies: parseFreq(freqText) }, setCov);
+  const runQc = (text = pdb, pl = isPl) => post("qc", "/pharma/vaccine/structure-qc", { pdb: text, bfactor_is_plddt: pl }, setQc);
+  const predict = async () => {
+    setBusy("pred"); setErr(""); setQc(null);
+    try {
+      const r = await call("/predict-structure", { method: "POST", body: JSON.stringify({ sequence: cons.sequence, consent_external: true }) });
+      setPdb(r.pdb_data); setIsPl(true); await runQc(r.pdb_data, true);
+    } catch (e: any) { setErr(`${t.err}: ${String(e?.message || e)}`); }
+    finally { setBusy(""); }
+  };
+  const readFile = (f: File | undefined, set: (x: string) => void) => {
+    if (!f) return;
+    if (f.size > 3_000_000) { setErr(`${t.err}: file > 3 MB`); return; }
+    void f.text().then(set);
+  };
+  const runIf = () => void post("if", "/pharma/vaccine/interface", { pdb: cplx, chains_a: chA.split(/[\s,]+/).filter(Boolean), chains_b: chB.split(/[\s,]+/).filter(Boolean), cutoff: cut }, setIface);
+  const saveTxt = (name: string, text: string) => {
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
+  };
+
   const report = useMemo(() => {
     const L: string[] = [`# Vaccine design report (Primer AI)`, "", `Generated: ${new Date().toISOString()}`, `> ${T.en.disclaimer} All predictions are hypotheses.`, ""];
     if (fullSeq) {
@@ -171,11 +280,19 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
         "### Computed properties", `- MW ${p.molecular_weight_kda} kDa; pI ${p.theoretical_pi}; instability index ${p.instability_index} (${p.instability_class}); aliphatic index ${p.aliphatic_index}; GRAVY ${p.gravy}`,
         `- Method: ${p.methods}`, `- Limits: ${p.limits}`, "");
     }
+    if (cov) L.push("## Population coverage (local projection)", `- Population: ${popName || "not named"}`, `- Class I ${pct(cov.coverage_class_i)}; Class II ${pct(cov.coverage_class_ii)}; combined ${pct(cov.coverage_combined)}`,
+      `- Method: ${cov.method}`, `- Limits: ${cov.limits}`, ...(cov.alleles_without_frequency.length ? [`- Alleles without frequency: ${cov.alleles_without_frequency.join(", ")}`] : []), "");
+    if (qc) L.push("## Structure model quality",
+      ...(qc.plddt ? [`- Mean pLDDT ${qc.plddt.mean} (>90: ${qc.plddt.very_high_gt90}%, 70-90: ${qc.plddt.confident_70_90}%, 50-70: ${qc.plddt.low_50_70}%, <=50: ${qc.plddt.very_low_le50}%)`] : []),
+      `- Ramachandran (approximate): favored ${qc.ramachandran.favored_pct ?? "n/a"}%, allowed ${qc.ramachandran.allowed_pct ?? "n/a"}%, outliers ${qc.ramachandran.outlier_pct ?? "n/a"}% of ${qc.ramachandran.evaluated} residues`,
+      `- ${qc.limits}`, "");
+    if (iface) L.push("## Docked-complex interface (geometry only)", `- Residue pairs in contact: ${iface.residue_pairs_in_contact}; interface residues ${iface.n_interface_a} (vaccine) / ${iface.n_interface_b} (receptor)`,
+      `- Polar-contact candidates: ${iface.n_polar_contacts}; salt-bridge candidates: ${iface.salt_bridge_candidates.length}`, `- Method: ${iface.method}`, `- Limits: ${iface.limits}`, "");
     const e = Object.entries(ext).filter(([, v]) => v.trim());
     if (e.length) L.push("## Results entered by the user (not computed by Primer AI)", ...e.map(([k, v]) => `- ${k}: ${v}`), "");
-    L.push("## Limitations", "- Binding and epitope predictions are not proof of immunogenicity.", "- Antigenicity, allergenicity, toxicity, population coverage and docking were not computed by this tool.", "- Experimental validation is required.");
+    L.push("## Limitations", "- Binding and epitope predictions are not proof of immunogenicity.", "- Antigenicity, allergenicity, toxicity and docking scores were not computed by this tool; population coverage and interface values are projections or geometry only.", "- Experimental validation is required.");
     return L.join("\n");
-  }, [fullSeq, protein, from, hi, work, bRes, tRes, cons, ext]);
+  }, [fullSeq, protein, from, hi, work, bRes, tRes, cons, ext, cov, popName, qc, iface]);
 
   const download = () => {
     const url = URL.createObjectURL(new Blob([report], { type: "text/markdown;charset=utf-8" }));
@@ -194,7 +311,6 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
         <td className="px-3 py-2"><div className="flex gap-1.5">{kinds.map((k) => <button key={k} type="button" className={btnG} onClick={() => addSel(k, r.peptide)}>{t.add} {t[k]}</button>)}</div></td></tr>)}</tbody></table></div>;
 
   const needSeq = !work || work.length < 9;
-  const Placeholder = ({ text }: { text: string }) => <div className="rounded-xl border border-dashed border-slate-500 bg-[#0c182a] p-4 text-sm text-slate-300"><span className="me-2 rounded-full border border-slate-500 px-2 py-0.5 text-xs">{t.planned}</span>{text}</div>;
 
   return <section id="pharma-vaccine" aria-labelledby="pharma-vaccine-title" className="space-y-4 rounded-2xl border border-slate-600 bg-[#111c34] p-4 text-slate-100">
     <div>
@@ -263,7 +379,36 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
       </>}
     </div>)}
 
-    {step === 4 && <Placeholder text={t.s5} />}
+    {step === 4 && <div className="space-y-4">
+      {covRows.length === 0 ? <p className="text-sm text-slate-300">{t.covNeed}</p> : <>
+        <div className={card}>
+          <h4 className="font-bold text-emerald-200">{t.covTitle}</h4>
+          <div className="mt-2 overflow-x-auto"><table className="w-full text-start text-xs" dir="ltr"><tbody>{covRows.map((r) => <tr key={r.peptide} className="border-t border-slate-700">
+            <td className="py-1.5 pe-3 font-mono">{r.peptide}</td><td className="pe-3">MHC-{r.mhc_class}</td><td className="text-slate-300">{r.alleles.join(", ")}</td></tr>)}</tbody></table></div>
+          <label htmlFor="vx-iedb" className="mt-3 block text-sm">{t.covIedb}</label>
+          <textarea id="vx-iedb" readOnly rows={Math.min(8, covRows.length + 1)} dir="ltr" className={`${field} font-mono text-xs`} value={iedbText} />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className={btnG} onClick={() => void copy(iedbText)}>{copied ? t.copied : t.copy}</button>
+            <a href="https://tools.iedb.org/population/" target="_blank" rel="noreferrer" className={`${btnP} inline-block`}>{t.covOpen} ↗</a>
+          </div>
+        </div>
+        <div className={card}>
+          <h4 className="font-bold text-emerald-200">{t.covLocal}</h4>
+          <p className="mt-1 text-xs text-slate-300">{t.covFreqHelp}</p>
+          <label htmlFor="vx-pop" className="mt-2 block text-sm">{t.popName}</label>
+          <input id="vx-pop" className={`${field} mt-1`} value={popName} onChange={(e) => setPopName(e.target.value)} />
+          <textarea aria-label={t.covLocal} rows={6} dir="ltr" className={`${field} mt-2 font-mono text-xs`} value={freqText} onChange={(e) => setFreqText(e.target.value)} placeholder={"HLA-A*02:01, 0.25\nHLA-B*07:02, 0.12"} />
+          <button type="button" className={`${btnP} mt-2`} disabled={!!busy || !freqText.trim()} onClick={runCov}>{busy === "cov" ? t.running : t.covRun}</button>
+          {cov && <div className="mt-3 space-y-2 text-sm">
+            <div className="grid gap-2 sm:grid-cols-3">{([[t.covC1, cov.coverage_class_i], [t.covC2, cov.coverage_class_ii], [t.covAll, cov.coverage_combined]] as any[]).map(([k, v]) =>
+              <div key={k} className="rounded-lg border border-slate-600 bg-[#0c182a] p-3"><p className="text-xl font-bold tabular-nums text-emerald-300" dir="ltr">{pct(v)}</p><p className="text-xs text-slate-300">{k}</p></div>)}</div>
+            {cov.alleles_without_frequency.length > 0 && <p className="text-amber-200">{t.covMissing}: <span dir="ltr">{cov.alleles_without_frequency.join(", ")}</span></p>}
+            {cov.warnings.map((w: string) => <p key={w} className="text-amber-200">{w}</p>)}
+            <p className="text-xs text-slate-300">{cov.method}. {cov.limits}</p>
+          </div>}
+        </div>
+      </>}
+    </div>}
 
     {step === 5 && <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-3">{(["ctl", "htl", "bc"] as Kind[]).map((k) => <div key={k} className={card}>
@@ -300,8 +445,69 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
           <input id={`vx-${k}`} className={`${field} mt-1`} value={ext[k] || ""} onChange={(e) => setExt((o) => ({ ...o, [k]: e.target.value }))} /></div>)}</div></div>
     </div>)}
 
-    {step === 7 && <Placeholder text={t.s8} />}
-    {step === 8 && <Placeholder text={t.s9} />}
+    {step === 7 && <div className="space-y-3">
+      {cons ? (cons.length <= 400 ? <div className={`${card} space-y-2`}>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />{t.consent}</label>
+        <button type="button" className={btnP} disabled={!consent || !!busy} onClick={() => void predict()}>{busy === "pred" ? t.running : `${t.pred} (${cons.length} aa)`}</button>
+      </div> : <p className="text-sm text-amber-200">{t.tooLong} ({cons.length} aa)</p>) : <p className="text-sm text-slate-300">{t.needCons}</p>}
+      <div className={`${card} space-y-2`}>
+        <label htmlFor="vx-pdbf" className="block text-sm">{t.pdbLoad}</label>
+        <input id="vx-pdbf" type="file" accept=".pdb,.ent,.txt" className="block text-sm" onChange={(e) => { readFile(e.target.files?.[0], (x) => { setPdb(x); setQc(null); }); }} />
+        <textarea aria-label={t.pdbLoad} rows={4} dir="ltr" className={`${field} font-mono text-xs`} value={pdb} onChange={(e) => { setPdb(e.target.value); setQc(null); }} />
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isPl} onChange={(e) => setIsPl(e.target.checked)} />{t.isPlddt}</label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={btnP} disabled={!!busy || pdb.length < 50} onClick={() => void runQc()}>{busy === "qc" ? t.running : t.runQc}</button>
+          {pdb && <button type="button" className={btnG} onClick={() => saveTxt("construct.pdb", pdb)}>{t.dlPdb}</button>}
+        </div>
+      </div>
+      {pdb && qc && <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(240px,1fr)]">
+        <Mol pdb={pdb} scale={qc.plddt ? qc.plddt.scale_factor : null} />
+        <div className={`${card} space-y-2 text-sm`}>
+          <h4 className="font-bold text-emerald-200">{t.qcTitle}</h4>
+          {qc.plddt && <>
+            <p>{t.mean}: <b dir="ltr">{qc.plddt.mean}</b></p>
+            <p className="text-xs text-slate-300" dir="ltr">&gt;90: {qc.plddt.very_high_gt90}% · 70–90: {qc.plddt.confident_70_90}% · 50–70: {qc.plddt.low_50_70}% · ≤50: {qc.plddt.very_low_le50}%</p>
+            <svg viewBox="0 0 300 60" className="h-14 w-full" role="img" aria-label="pLDDT per residue" dir="ltr">
+              <polyline fill="none" stroke="#5ef0a8" strokeWidth="1.5" points={qc.plddt.per_residue.map((v: number, i: number) => `${(i / Math.max(1, qc.plddt.per_residue.length - 1)) * 300},${58 - (v / 100) * 56}`).join(" ")} /></svg>
+          </>}
+          <p className="font-semibold">{t.rama}</p>
+          {qc.ramachandran.evaluated > 0
+            ? <p dir="ltr">{t.fav} {qc.ramachandran.favored_pct}% · {t.allow} {qc.ramachandran.allowed_pct}% · {t.outl} {qc.ramachandran.outlier_pct}% <span className="text-slate-300">(n={qc.ramachandran.evaluated})</span></p>
+            : <p className="text-slate-300">—</p>}
+          {qc.ramachandran.outliers.length > 0 && <p className="text-xs text-slate-300" dir="ltr">{t.outList}: {qc.ramachandran.outliers.slice(0, 12).map((o: any) => `${o.residue} (${o.phi}, ${o.psi})`).join(" · ")}</p>}
+          <p className="text-xs text-slate-300">{qc.ramachandran.note} {qc.limits}</p>
+        </div>
+      </div>}
+    </div>}
+    {step === 8 && <div className="space-y-3">
+      <p className="text-sm text-slate-200">{t.dockInfo}</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className={card}><h4 className="text-sm font-bold text-emerald-200">{t.recs}</h4>
+          <ul className="mt-1 space-y-1 text-sm" dir="ltr">{RECEPTORS.map(([n, id]) => <li key={id}>{n}: <a className="text-emerald-200 underline" target="_blank" rel="noreferrer" href={`https://www.rcsb.org/structure/${id}`}>{id} ↗</a></li>)}</ul></div>
+        <div className={card}><h4 className="text-sm font-bold text-emerald-200">{t.servers}</h4>
+          <ul className="mt-1 space-y-1 text-sm" dir="ltr">{SERVERS.map(([n, u]) => <li key={n}><a className="text-emerald-200 underline" target="_blank" rel="noreferrer" href={u}>{n} ↗</a></li>)}</ul>
+          <p className="mt-2 text-xs text-slate-300">{t.srvNote}</p></div>
+      </div>
+      <div className={`${card} space-y-2`}>
+        <label htmlFor="vx-cplx" className="block text-sm">{t.cplx}</label>
+        <input id="vx-cplx" type="file" accept=".pdb,.ent,.txt" className="block text-sm" onChange={(e) => { readFile(e.target.files?.[0], (x) => { setCplx(x); setIface(null); }); }} />
+        <textarea aria-label={t.cplx} rows={4} dir="ltr" className={`${field} font-mono text-xs`} value={cplx} onChange={(e) => { setCplx(e.target.value); setIface(null); }} />
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm">{t.chA}<input dir="ltr" className={`${field} mt-1 w-28`} value={chA} onChange={(e) => setChA(e.target.value)} /></label>
+          <label className="text-sm">{t.chB}<input dir="ltr" className={`${field} mt-1 w-28`} value={chB} onChange={(e) => setChB(e.target.value)} /></label>
+          <label className="text-sm">{t.cut}<input type="number" step="0.5" min="3.5" max="8" dir="ltr" className={`${field} mt-1 w-24`} value={cut} onChange={(e) => setCut(parseFloat(e.target.value) || 5)} /></label>
+          <button type="button" className={btnP} disabled={!!busy || cplx.length < 50} onClick={runIf}>{busy === "if" ? t.running : t.runIf}</button>
+        </div>
+      </div>
+      {iface && <div className={`${card} space-y-2 text-sm`}>
+        <h4 className="font-bold text-emerald-200">{t.ifTitle}</h4>
+        <p dir="ltr">{t.pairs}: <b>{iface.residue_pairs_in_contact}</b> · {iface.n_interface_a} / {iface.n_interface_b} · {t.polar}: <b>{iface.n_polar_contacts}</b> · {t.salt}: <b>{iface.salt_bridge_candidates.length}</b></p>
+        <p className="text-xs text-slate-300" dir="ltr">{t.ifA}: {iface.interface_residues_a.slice(0, 60).join(" ")}</p>
+        <p className="text-xs text-slate-300" dir="ltr">{t.ifB}: {iface.interface_residues_b.slice(0, 60).join(" ")}</p>
+        {iface.salt_bridge_candidates.length > 0 && <p className="text-xs text-slate-300" dir="ltr">{t.salt}: {iface.salt_bridge_candidates.slice(0, 12).map((x: any) => `${x.a}–${x.b} (${x.distance} Å)`).join(" · ")}</p>}
+        <p className="text-xs text-slate-300">{iface.method} {iface.limits}</p>
+      </div>}
+    </div>}
     {step === 9 && <div className="space-y-2">
       <p className="text-sm text-slate-300">{t.reportHint}</p>
       <button type="button" className={btnP} onClick={download}>{t.report}</button>
