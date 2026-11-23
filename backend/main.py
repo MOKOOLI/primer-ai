@@ -54,6 +54,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from pharma_module import create_pharma_router
+from bio_tools import create_bio_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("primerai")
@@ -414,6 +415,10 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_optional)):
         return await _user_from_token(token)
     except HTTPException:
         return None
+
+
+# Bioinformatics toolbox (public, rate-limited; research use only)
+app.include_router(create_bio_router(limiter, get_optional_user))
 
 
 # =====================================================================

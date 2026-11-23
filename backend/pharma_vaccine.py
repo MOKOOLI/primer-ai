@@ -12,8 +12,7 @@ What is computed here, and what is not:
 Predictions are hypotheses that need experimental validation. Nothing here is a
 clinical, dosing or safety recommendation.
 """
-from __future__ import annotations
-
+from typing import Optional
 import logging
 import os
 import re
@@ -297,7 +296,7 @@ def assemble_construct(adjuvant: str, ctl: list[str], htl: list[str], bcell: lis
         raise ValueError("Add at least one epitope")
     parts: list[tuple[str, str, str]] = []  # (kind, label, sequence)
 
-    def add_block(kind: str, items: list[str], inner: str, lead: str | None):
+    def add_block(kind: str, items: list[str], inner: str, lead: Optional[str]):
         if not items:
             return
         if parts and lead:
@@ -646,7 +645,7 @@ def _usage(table: dict[str, float]) -> dict[str, list[tuple[str, float]]]:
     return by
 
 
-def cai(cds: str, table: dict[str, float]) -> float | None:
+def cai(cds: str, table: dict[str, float]) -> Optional[float]:
     """Codon Adaptation Index (Sharp & Li 1987) against the supplied table; Met/Trp and stops excluded."""
     use = _usage(table)
     w = {c: (f / use[aa][0][1]) if use[aa][0][1] > 0 else 0.0 for aa, lst in use.items() for c, f in lst}
@@ -690,7 +689,7 @@ def _penalty(seq: str, pats: dict[str, str], run_len: int) -> int:
     return sum(1000 if lab != "run" else (b - a) for a, b, lab in _problems(seq, pats, run_len))
 
 
-def optimize_codons(protein: str, strategy: str = "weighted", seed: int = 1, avoid: list[str] | None = None,
+def optimize_codons(protein: str, strategy: str = "weighted", seed: int = 1, avoid: Optional[list[str]] = None,
                     custom_table: str = "", add_start: bool = True, stop: str = "TAA", run_len: int = 8) -> dict:
     prot = clean_seq(protein, max_len=3000, min_len=5)
     if strategy not in ("weighted", "most_frequent"):
