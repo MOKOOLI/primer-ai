@@ -819,12 +819,17 @@ def build_insert(cds: str, enzyme5: str, enzyme3: str, clamp5: str = "GCGCGC", c
     }
 
 # ------------------------------------------------------------------- routes
-def register_vaccine_routes(router, *, get_current_user):
+def register_vaccine_routes(router, *, get_current_user, egress=None):
     from fastapi import Depends, HTTPException, Query
     from pydantic import BaseModel, Field
     from starlette.concurrency import run_in_threadpool
 
     from pharma_observability import upstream_event
+
+    async def current_user(user=Depends(get_current_user)):
+        if egress is not None:
+            egress.CURRENT_USER.set(user)  # lets the egress ledger and private mode see who is calling
+        return user
 
     class SeqReq(BaseModel):
         sequence: str = Field(min_length=5, max_length=60000)
@@ -881,6 +886,8 @@ def register_vaccine_routes(router, *, get_current_user):
 
     async def guarded(fn, provider: str, op: str, *args):
         try:
+            if egress is not None and provider != "local":
+                return await egress.run_external(fn, provider, op, args)
             return await run_in_threadpool(fn, *args)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
@@ -893,51 +900,51 @@ def register_vaccine_routes(router, *, get_current_user):
             raise HTTPException(502, str(exc)) from exc
 
     @router.get("/vaccine/protein")
-    async def vaccine_protein(accession: str = Query(..., min_length=6, max_length=10), user=Depends(get_current_user)):
+    async def vaccine_protein(accession: str = Query(..., min_length=6, max_length=10), user=Depends(current_user)):
         return await guarded(load_uniprot, "UniProt", "vaccine_protein", accession)
 
     @router.post("/vaccine/bcell")
-    async def vaccine_bcell(req: BcellReq, user=Depends(get_current_user)):
+    async def vaccine_bcell(req: BcellReq, user=Depends(current_user)):
         return await guarded(predict_bcell, "IEDB", "bcell", req.sequence, req.method)
 
     @router.post("/vaccine/tcell")
-    async def vaccine_tcell(req: TcellReq, user=Depends(get_current_user)):
+    async def vaccine_tcell(req: TcellReq, user=Depends(current_user)):
         return await guarded(predict_tcell, "IEDB", "tcell", req.mhc_class, req.sequence, req.alleles,
                              req.lengths, req.method, req.percentile_cutoff)
 
     @router.post("/vaccine/profile")
-    async def vaccine_profile(req: SeqReq, user=Depends(get_current_user)):
+    async def vaccine_profile(req: SeqReq, user=Depends(current_user)):
         return await guarded(physchem_profile, "local", "profile", req.sequence)
 
     @router.post("/vaccine/assemble")
-    async def vaccine_assemble(req: AssembleReq, user=Depends(get_current_user)):
+    async def vaccine_assemble(req: AssembleReq, user=Depends(current_user)):
         return await guarded(assemble_construct, "local", "assemble", req.adjuvant, req.ctl, req.htl,
                              req.bcell, req.his_tag, req.adjuvant_label)
 
     @router.post("/vaccine/coverage")
-    async def vaccine_coverage(req: CoverageReq, user=Depends(get_current_user)):
+    async def vaccine_coverage(req: CoverageReq, user=Depends(current_user)):
         return await guarded(coverage_from_frequencies, "local", "coverage", req.epitopes, req.frequencies)
 
     @router.post("/vaccine/structure-qc")
-    async def vaccine_structure_qc(req: PdbReq, user=Depends(get_current_user)):
+    async def vaccine_structure_qc(req: PdbReq, user=Depends(current_user)):
         return await guarded(structure_qc, "local", "structure_qc", req.pdb, req.bfactor_is_plddt)
 
     @router.post("/vaccine/interface")
-    async def vaccine_interface(req: InterfaceReq, user=Depends(get_current_user)):
+    async def vaccine_interface(req: InterfaceReq, user=Depends(current_user)):
         if len(req.chains_a) > 8 or len(req.chains_b) > 8:
             raise HTTPException(422, "At most 8 chain IDs per partner")
         return await guarded(interface_analysis, "local", "interface", req.pdb, req.chains_a, req.chains_b, req.cutoff)
 
     @router.post("/vaccine/codon")
-    async def vaccine_codon(req: CodonReq, user=Depends(get_current_user)):
+    async def vaccine_codon(req: CodonReq, user=Depends(current_user)):
         return await guarded(optimize_codons, "local", "codon", req.protein, req.strategy, req.seed,
                              req.avoid_enzymes, req.custom_table, req.add_start, req.stop)
 
     @router.post("/vaccine/clone")
-    async def vaccine_clone(req: CloneReq, user=Depends(get_current_user)):
+    async def vaccine_clone(req: CloneReq, user=Depends(current_user)):
         return await guarded(build_insert, "local", "clone", req.cds, req.enzyme5, req.enzyme3,
                              req.clamp5, req.clamp3, req.spacer5, req.spacer3)
 
     @router.get("/vaccine/enzymes")
-    async def vaccine_enzymes(user=Depends(get_current_user)):
+    async def vaccine_enzymes(user=Depends(current_user)):
         return {"enzymes": ENZYMES, "host_tables": ["Escherichia coli (built in)", "custom table (paste codon frequencies)"]}

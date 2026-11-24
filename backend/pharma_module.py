@@ -84,7 +84,13 @@ from pharma_access import build_access_layer
 from pharma_runtime import build_runtime
 from pharma_routes_org import register_org_routes
 from pharma_routes_research import register_research_routes
-from pharma_vaccine import register_vaccine_routes
+try:  # optional modules: never block the core Pharma API
+    from pharma_vaccine import register_vaccine_routes
+    from pharma_workspace import register_workspace_routes
+    from egress import build_egress
+except Exception:  # pragma: no cover
+    logging.getLogger("primerai.pharma").exception("Optional vaccine/workspace modules could not be imported")
+    register_vaccine_routes = register_workspace_routes = build_egress = None
 
 from pharma_structures import load_experimental_structure
 from pharma_evidence import load_chembl_activities, load_clinical_study
@@ -94,7 +100,7 @@ from pharma_docking import (docking_status, run_docking, DockingDisabled, Dockin
 
 log = logging.getLogger("primerai.pharma")
 
-def create_pharma_router(database, metadata, engine, users_table, get_current_user):
+def create_pharma_router(database, metadata, engine, users_table, get_current_user, egress=None):
     tables = define_pharma_tables(metadata)
     organizations = tables["organizations"]
     members = tables["members"]
@@ -133,7 +139,17 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         load_drug=load_drug,
     )
 
-    register_vaccine_routes(router, get_current_user=get_current_user)
+    if egress is None and build_egress is not None:
+        try:
+            egress = build_egress(database, metadata, engine)
+        except Exception:  # pragma: no cover
+            log.exception("Egress ledger could not be initialised")
+
+    if register_vaccine_routes is not None:
+        try:
+            register_vaccine_routes(router, get_current_user=get_current_user, egress=egress)
+        except Exception:  # pragma: no cover
+            log.exception("Vaccine routes could not be registered; continuing without them")
 
     register_org_routes(
         router,
@@ -147,6 +163,15 @@ def create_pharma_router(database, metadata, engine, users_table, get_current_us
         require=require,
         load_drug=load_drug,
     )
+
+    if register_workspace_routes is not None and egress is not None:
+        try:
+            register_workspace_routes(
+                router, database=database, metadata=metadata, engine=engine, get_current_user=get_current_user,
+                require=require, WRITERS=WRITERS, MANAGERS=MANAGERS, egress=egress,
+            )
+        except Exception:  # pragma: no cover
+            log.exception("Workspace routes could not be registered; continuing without them")
 
     root.include_router(router)
     return root

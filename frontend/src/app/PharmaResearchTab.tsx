@@ -11,6 +11,7 @@ const PharmaDashboard = dynamic(() => import("./PharmaDashboard"), { ssr: false 
 const PharmaStructureViewer = dynamic(() => import("./PharmaStructureViewer"), { ssr: false });
 const PharmaDockingPanel = dynamic(() => import("./PharmaDockingPanel"), { ssr: false });
 const PharmaVaccinePanel = dynamic(() => import("./PharmaVaccinePanel"), { ssr: false });
+const PharmaWorkspacePanel = dynamic(() => import("./PharmaWorkspacePanel"), { ssr: false });
 const DrugResearchPanel = dynamic(() => import("./DrugResearchPanel"), { ssr: false });
 const PharmaCompoundProfile = dynamic(() => import("./PharmaCompoundProfile"), { ssr: false });
 const PharmaEvidencePanel = dynamic(() => import("./PharmaEvidencePanel"), { ssr: false });
@@ -305,6 +306,7 @@ function PharmaWorkspace({ call, notify, lang = "en", onDesignGene, onOpenQpcr }
       <PharmaStructureViewer call={call} lang={lang} suggestedPdb={suggestedPdb} />
       <PharmaDockingPanel call={call} lang={lang} />
       <PharmaVaccinePanel call={call} lang={lang} />
+      <PharmaWorkspacePanel call={call} lang={lang} orgId={orgId} />
 
       <section id="pharma-catalog" className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
         <div>

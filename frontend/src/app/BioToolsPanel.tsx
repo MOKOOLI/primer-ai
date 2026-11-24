@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState } from "react";
+import { addToQueue } from "./dossierBridge";
 
 type Props = { call: (path: string, init?: RequestInit) => Promise<any>; lang?: string };
 
@@ -19,7 +20,7 @@ export default function BioToolsPanel({ call, lang }: Props) {
   const fa = lang === "fa";
   const L = (en: string, f: string) => (fa ? f : en);
   const TABS = [L("Sequence", "توالی"), L("Alignment & conservation", "هم‌ترازی و حفاظت‌شدگی"), L("Enrichment & network", "غنی‌سازی و شبکه"), L("GEO datasets", "داده‌های GEO"),
-    L("qPCR development", "توسعهٔ qPCR"), L("Variants & primers", "واریانت و پرایمر")];
+    L("qPCR development", "توسعهٔ qPCR"), L("Variants & primers", "واریانت و پرایمر"), L("Plate planner", "طراح پلیت")];
   const [tab, setTab] = useState(0);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -33,7 +34,13 @@ export default function BioToolsPanel({ call, lang }: Props) {
   };
   const copy = async (k: string, s: string) => { try { await navigator.clipboard.writeText(s); setCopied(k); setTimeout(() => setCopied(""), 1400); } catch { /* ignore */ } };
   const CopyBtn = ({ k, s }: { k: string; s: string }) => <button type="button" className={ghost} onClick={() => void copy(k, s)}>{copied === k ? L("Copied", "کپی شد") : L("Copy", "کپی")}</button>;
-  const Src = ({ r }: { r: any }) => <p className={note}>{r.provider ? `${r.provider} · ` : ""}{r.retrieved_at ? `${L("retrieved", "دریافت")} ${String(r.retrieved_at).slice(0, 19)} · ` : ""}{r.limits || r.method}</p>;
+  const Src = ({ r, kind }: { r: any; kind?: string }) => <div className="space-y-1">
+    <p className={note}>{r.provider ? `${r.provider} · ` : ""}{r.retrieved_at ? `${L("retrieved", "دریافت")} ${String(r.retrieved_at).slice(0, 19)} · ` : ""}{r.limits || r.method}</p>
+    {kind && <button type="button" className="text-xs font-semibold text-emerald-700 underline" onClick={() => {
+      const res = addToQueue({ kind, title: TABS[tab], data: r });
+      setCopied(res.ok ? `q-${kind}` : ""); if (!res.ok) setErr(L("Could not queue this result (too large or queue full).", "افزودن این نتیجه ممکن نشد (حجم زیاد یا صف پر)."));
+    }}>{copied === `q-${kind}` ? L("Queued ✓ (open Pharma → Workspace to file it)", "در صف قرار گرفت ✓ (بخش دارویی ← فضای کار)") : L("Add to dossier queue", "افزودن به صف پرونده")}</button>}
+  </div>;
   const Table = ({ head, rows }: { head: string[]; rows: any[][] }) => <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full text-start text-xs" dir="ltr">
     <thead className="bg-slate-50 text-slate-600"><tr>{head.map((h) => <th key={h} className="px-3 py-2 text-start">{h}</th>)}</tr></thead>
     <tbody>{rows.map((r, i) => <tr key={i} className="border-t border-slate-100">{r.map((c, j) => <td key={j} className="px-3 py-1.5 align-top">{c}</td>)}</tr>)}</tbody></table></div>;
@@ -51,6 +58,10 @@ export default function BioToolsPanel({ call, lang }: Props) {
   /* ---- 6. variants ---- */
   const [hgvs, setHgvs] = useState(""); const [vep, setVep] = useState<any>(null); const [snpTxt, setSnpTxt] = useState(""); const [snp, setSnp] = useState<any>(null);
 
+  /* ---- 7. plate planner ---- */
+  const [plSamples, setPlSamples] = useState(""); const [plGenes, setPlGenes] = useState(""); const [plRep, setPlRep] = useState(3); const [plFmt, setPlFmt] = useState(384);
+  const [plNtc, setPlNtc] = useState(true); const [plStd, setPlStd] = useState(0); const [plFill, setPlFill] = useState("row"); const [plate, setPlate] = useState<any>(null);
+  const lines = (t: string) => t.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
   const geneList = genes.split(/[\s,;]+/).filter(Boolean);
   const runCurve = () => {
     const pts = curveTxt.split(/\r?\n/).map((l) => nums(l)).filter((n) => n.length >= 2).map((n) => ({ quantity: n[0], ct: n.length > 2 ? n.slice(1) : n[1] }));
@@ -123,13 +134,13 @@ export default function BioToolsPanel({ call, lang }: Props) {
         <p className="font-semibold">{L("Conserved windows (no gaps, identical in all sequences)", "پنجره‌های حفاظت‌شده (بدون گپ، یکسان در همهٔ توالی‌ها)")}</p>
         {aln.conserved_windows.length ? <Table head={["Aln start–end", "Length", "Peptide"]} rows={aln.conserved_windows.slice(0, 12).map((w: any) => [`${w.alignment_start}–${w.alignment_end}`, w.length, <span key={w.peptide} className="font-mono">{w.peptide}</span>])} /> : <p className={note}>—</p>}
         {aln.alignment && <details><summary className="cursor-pointer text-xs">{L("Show alignment", "نمایش هم‌ترازی")}</summary><pre dir="ltr" className="mt-2 max-h-60 overflow-auto rounded bg-slate-50 p-2 text-[11px]">{aln.names.map((n: string, i: number) => `${n.padEnd(14).slice(0, 14)} ${aln.alignment[i]}`).join("\n")}</pre></details>}
-        <Src r={aln} />
+        <Src r={aln} kind="alignment" />
       </div>}
       <div className={`${card} space-y-3`}>
         <label htmlFor="bt-eps" className="text-sm font-semibold">{L("Epitope conservancy: one epitope per line (uses the sequences above, up to 200)", "حفاظت‌شدگی اپی‌توپ: هر خط یک اپی‌توپ (از توالی‌های بالا، تا ۲۰۰ توالی)")}</label>
         <textarea id="bt-eps" dir="ltr" rows={3} className={mono} value={eps} onChange={(e) => setEps(e.target.value)} placeholder="MKTAYIAKQR" />
         <button type="button" className={btn} disabled={!!busy || !eps.trim() || fasta.length < 10} onClick={() => void post("cons", "/bio/conservancy", { epitopes: eps.split(/\s+/).filter(Boolean), sequences: fasta, mode }, setCons)}>{busy === "cons" ? L("Running…", "در حال اجرا…") : L("Check conservancy", "بررسی حفاظت‌شدگی")}</button>
-        {cons && <><Table head={["Epitope", "Sequences", "Exact", "≤1 mismatch"]} rows={cons.results.map((r: any) => [<span key={r.epitope} className="font-mono">{r.epitope}</span>, r.n_sequences, `${r.exact_count} (${r.exact_percent}%)`, `${r.within_1_mismatch_count} (${r.within_1_mismatch_percent}%)`])} /><Src r={cons} /></>}
+        {cons && <><Table head={["Epitope", "Sequences", "Exact", "≤1 mismatch"]} rows={cons.results.map((r: any) => [<span key={r.epitope} className="font-mono">{r.epitope}</span>, r.n_sequences, `${r.exact_count} (${r.exact_percent}%)`, `${r.within_1_mismatch_count} (${r.within_1_mismatch_percent}%)`])} /><Src r={cons} kind="conservancy" /></>}
       </div>
     </div>}
 
@@ -145,11 +156,11 @@ export default function BioToolsPanel({ call, lang }: Props) {
         </div>
       </div>
       {enr && <div className={`${card} space-y-2 text-sm`}><p className="font-semibold">{enr.n_terms} {L("enriched terms", "اصطلاح غنی‌شده")}</p>
-        {enr.terms.length ? <Table head={["Source", "Term", "p-value", "Hits / term size"]} rows={enr.terms.slice(0, 25).map((t: any) => [t.source, `${t.name} (${t.term_id})`, Number(t.p_value).toExponential(2), `${t.intersection_size} / ${t.term_size}`])} /> : <p className={note}>—</p>}<Src r={enr} /></div>}
+        {enr.terms.length ? <Table head={["Source", "Term", "p-value", "Hits / term size"]} rows={enr.terms.slice(0, 25).map((t: any) => [t.source, `${t.name} (${t.term_id})`, Number(t.p_value).toExponential(2), `${t.intersection_size} / ${t.term_size}`])} /> : <p className={note}>—</p>}<Src r={enr} kind="enrichment" /></div>}
       {net && <div className={`${card} space-y-2 text-sm`}><p dir="ltr"><b>{net.n_nodes}</b> nodes · <b>{net.n_edges}</b> edges · <a className="text-emerald-700 underline" href={net.string_url} target="_blank" rel="noreferrer">STRING ↗</a></p>
         {net.hubs.length > 0 && <p dir="ltr" className="text-xs">{L("Hubs", "گره‌های مرکزی")}: {net.hubs.map((h: any) => `${h.gene} (${h.degree})`).join(", ")}</p>}
         {net.isolated_queries.length > 0 && <p dir="ltr" className="text-xs text-slate-500">{L("No interactions above the cutoff", "بدون برهم‌کنش بالاتر از آستانه")}: {net.isolated_queries.join(", ")}</p>}
-        {net.edges.length > 0 && <Table head={["A", "B", "Score"]} rows={net.edges.slice(0, 25).map((e: any) => [e.a, e.b, e.score])} />}<Src r={net} /></div>}
+        {net.edges.length > 0 && <Table head={["A", "B", "Score"]} rows={net.edges.slice(0, 25).map((e: any) => [e.a, e.b, e.score])} />}<Src r={net} kind="string" /></div>}
     </div>}
 
     {tab === 3 && <div className="space-y-3">
@@ -159,7 +170,7 @@ export default function BioToolsPanel({ call, lang }: Props) {
       </form>
       {geo && <div className={`${card} space-y-2 text-sm`}><p>{geo.total} {L("series found; showing", "سری یافت شد؛ نمایش")} {geo.items.length}</p>
         {geo.items.map((g: any) => <div key={g.accession} className="rounded-lg border border-slate-200 p-3"><a href={g.url} target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 underline" dir="ltr">{g.accession} ↗</a>
-          <span className="ms-2 text-xs text-slate-500">{g.organism} · {g.type} · n={g.n_samples} · {g.date}</span><p className="mt-1 font-medium">{g.title}</p><p className="text-xs text-slate-600">{g.summary}</p></div>)}<Src r={geo} /></div>}
+          <span className="ms-2 text-xs text-slate-500">{g.organism} · {g.type} · n={g.n_samples} · {g.date}</span><p className="mt-1 font-medium">{g.title}</p><p className="text-xs text-slate-600">{g.summary}</p></div>)}<Src r={geo} kind="geo" /></div>}
     </div>}
 
     {tab === 4 && <div className="space-y-3">
@@ -169,14 +180,14 @@ export default function BioToolsPanel({ call, lang }: Props) {
         <button type="button" className={btn} disabled={!!busy || curveTxt.trim().length < 5} onClick={runCurve}>{busy === "curve" ? L("Running…", "در حال اجرا…") : L("Fit curve", "برازش منحنی")}</button>
         {curve && <div className="space-y-2 text-sm"><div className="grid gap-2 sm:grid-cols-4" dir="ltr">{[["Efficiency", `${curve.efficiency_percent}%`], ["Slope", curve.slope], ["R²", curve.r_squared], ["Intercept", curve.intercept]].map(([k, v]) =>
           <div key={String(k)} className="rounded-lg border border-slate-200 p-3"><p className="text-lg font-bold text-emerald-700">{String(v)}</p><p className="text-xs text-slate-500">{k}</p></div>)}</div>
-          {curve.flags.map((f: string) => <p key={f} className="text-amber-700">⚠ {f}</p>)}<Table head={["Quantity", "Mean Ct", "SD", "n"]} rows={curve.points.map((p: any) => [p.quantity, p.mean_ct, p.sd_ct ?? "—", p.n])} /><Src r={curve} /></div>}
+          {curve.flags.map((f: string) => <p key={f} className="text-amber-700">⚠ {f}</p>)}<Table head={["Quantity", "Mean Ct", "SD", "n"]} rows={curve.points.map((p: any) => [p.quantity, p.mean_ct, p.sd_ct ?? "—", p.n])} /><Src r={curve} kind="standard_curve" /></div>}
       </div>
       <div className={`${card} space-y-3`}>
         <label htmlFor="bt-gn" className="text-sm font-semibold">{L("Reference-gene stability (geNorm): first line = gene names, then one line of Ct values per sample", "پایداری ژن مرجع (geNorm): خط اول نام ژن‌ها، سپس هر خط Ct یک نمونه")}</label>
         <textarea id="bt-gn" dir="ltr" rows={6} className={mono} value={gnTxt} onChange={(e) => setGnTxt(e.target.value)} placeholder={"GAPDH ACTB B2M HPRT1\n18.1 19.0 20.2 24.1\n18.4 19.2 20.1 24.5"} />
         <button type="button" className={btn} disabled={!!busy || gnTxt.trim().length < 10} onClick={runGn}>{busy === "gn" ? L("Running…", "در حال اجرا…") : L("Rank genes", "رتبه‌بندی ژن‌ها")}</button>
         {gn && <div className="space-y-2 text-sm"><p dir="ltr"><b>{L("Most → least stable", "پایدارترین → ناپایدارترین")}:</b> {gn.ranking_most_to_least_stable.map((r: any) => r.gene).join(" > ")}</p>
-          <Table head={["Comparison", "V", "< 0.15"]} rows={gn.pairwise_variation.map((p: any) => [p.comparison, p.value, p.below_0_15 ? "✓" : "—"])} /><Src r={gn} /></div>}
+          <Table head={["Comparison", "V", "< 0.15"]} rows={gn.pairwise_variation.map((p: any) => [p.comparison, p.value, p.below_0_15 ? "✓" : "—"])} /><Src r={gn} kind="genorm" /></div>}
       </div>
     </div>}
 
@@ -187,15 +198,48 @@ export default function BioToolsPanel({ call, lang }: Props) {
         <button type="submit" className={btn} disabled={!!busy || hgvs.trim().length < 5}>{busy === "vep" ? L("Annotating…", "در حال حاشیه‌نویسی…") : L("Annotate", "حاشیه‌نویسی")}</button>
         {vep && <div className="space-y-2 text-sm" dir="ltr"><p><b>{vep.location}</b> · {vep.alleles} · {vep.assembly} · <b>{vep.most_severe_consequence}</b></p>
           <Table head={["Gene", "Transcript", "Consequence", "Impact", "Protein change"]} rows={vep.transcripts.map((t: any) => [t.gene, `${t.transcript}${t.canonical ? " ★" : ""}`, (t.consequences || []).join(", "), t.impact, t.hgvsp || t.amino_acids || "—"])} />
-          {vep.known_variants.length > 0 && <p className="text-xs">Known: {vep.known_variants.map((k: any) => `${k.id}${k.clinical_significance ? ` (${[].concat(k.clinical_significance).join(", ")})` : ""}`).join("; ")}</p>}<Src r={vep} /></div>}
+          {vep.known_variants.length > 0 && <p className="text-xs">Known: {vep.known_variants.map((k: any) => `${k.id}${k.clinical_significance ? ` (${[].concat(k.clinical_significance).join(", ")})` : ""}`).join("; ")}</p>}<Src r={vep} kind="variant" /></div>}
       </form>
       <div className={`${card} space-y-3`}>
         <label htmlFor="bt-snp" className="text-sm font-semibold">{L("Primer SNP check: one primer per line: name, chromosome, start, end, strand (GRCh38 coordinates from your primer mapping)", "بررسی SNP پرایمر: هر خط یک پرایمر: نام، کروموزوم، شروع، پایان، رشته (مختصات GRCh38 از نگاشت پرایمر)")}</label>
         <textarea id="bt-snp" dir="ltr" rows={3} className={mono} value={snpTxt} onChange={(e) => setSnpTxt(e.target.value)} placeholder={"F1, 17, 7674200, 7674219, +\nR1, 17, 7674350, 7674369, -"} />
         <button type="button" className={btn} disabled={!!busy || snpTxt.trim().length < 10} onClick={runSnp}>{busy === "snp" ? L("Checking…", "در حال بررسی…") : L("Check variants under primers", "بررسی واریانت زیر پرایمرها")}</button>
         {snp && <div className="space-y-2 text-sm" dir="ltr">{snp.primers.map((p: any) => <div key={p.name + p.region}><p><b>{p.name || p.region}</b> {p.region} · {p.n_variants} variant(s)</p>
-          {p.variants.length > 0 && <Table head={["ID", "Position", "Alleles", "Distance from 3′ end", "Risk"]} rows={p.variants.map((v: any) => [v.id, v.start, (v.alleles || []).join("/"), v.distance_from_3prime_end, v.risk])} />}</div>)}<Src r={snp} /></div>}
+          {p.variants.length > 0 && <Table head={["ID", "Position", "Alleles", "Distance from 3′ end", "Risk"]} rows={p.variants.map((v: any) => [v.id, v.start, (v.alleles || []).join("/"), v.distance_from_3prime_end, v.risk])} />}</div>)}<Src r={snp} kind="primer_snp" /></div>}
       </div>
+    </div>}
+
+    {tab === 6 && <div className="space-y-3">
+      <div className={`${card} space-y-3`}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm font-semibold">{L("Samples (one per line)", "نمونه‌ها (هر خط یکی)")}<textarea dir="ltr" rows={6} className={`${mono} mt-1`} value={plSamples} onChange={(e) => setPlSamples(e.target.value)} placeholder={"Control_1\nControl_2\nTreated_1"} /></label>
+          <label className="text-sm font-semibold">{L("Genes / assays (one per line)", "ژن‌ها / سنجش‌ها (هر خط یکی)")}<textarea dir="ltr" rows={6} className={`${mono} mt-1`} value={plGenes} onChange={(e) => setPlGenes(e.target.value)} placeholder={"GAPDH\nIL6\nTNF"} /></label>
+        </div>
+        <div className="flex flex-wrap items-end gap-3 text-sm">
+          <label>{L("Replicates", "تکرار")}<select className={`${inp} mt-1`} value={plRep} onChange={(e) => setPlRep(parseInt(e.target.value, 10))}>{[1, 2, 3, 4].map((n) => <option key={n}>{n}</option>)}</select></label>
+          <label>{L("Plate", "پلیت")}<select className={`${inp} mt-1`} value={plFmt} onChange={(e) => setPlFmt(parseInt(e.target.value, 10))}><option value={96}>96</option><option value={384}>384</option></select></label>
+          <label>{L("Fill", "پر کردن")}<select className={`${inp} mt-1`} value={plFill} onChange={(e) => setPlFill(e.target.value)}><option value="row">{L("by row", "ردیفی")}</option><option value="column">{L("by column", "ستونی")}</option></select></label>
+          <label>{L("Standard points per gene", "نقاط استاندارد برای هر ژن")}<input type="number" min={0} max={8} dir="ltr" className={`${inp} mt-1 w-24`} value={plStd} onChange={(e) => setPlStd(parseInt(e.target.value || "0", 10))} /></label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={plNtc} onChange={(e) => setPlNtc(e.target.checked)} />{L("No-template control", "کنترل بدون الگو (NTC)")}</label>
+          <button type="button" className={btn} disabled={!!busy || !lines(plSamples).length || !lines(plGenes).length} onClick={() => void post("plate", "/bio/plate", { samples: lines(plSamples), genes: lines(plGenes), replicates: plRep, format: plFmt, ntc: plNtc, standards: plStd, fill: plFill }, setPlate)}>{busy === "plate" ? L("Planning…", "در حال برنامه‌ریزی…") : L("Plan plate", "طراحی پلیت")}</button>
+        </div>
+      </div>
+      {plate && <div className={`${card} space-y-3 text-sm`}>
+        <p dir="ltr"><b>{plate.n_plates}</b> {L("plate(s)", "پلیت")} · {plate.format}-well</p>
+        {plate.plates.map((p: any) => {
+          const palette = ["#bfdbfe", "#bbf7d0", "#fde68a", "#fbcfe8", "#ddd6fe", "#fecaca", "#a5f3fc", "#fed7aa"];
+          const color = (g: string) => palette[p.genes.indexOf(g) % palette.length];
+          const map: Record<string, any> = {}; p.wells.forEach((w: any) => { map[`${w.row}${w.col}`] = w; });
+          const letters = "ABCDEFGHIJKLMNOP".slice(0, plate.rows).split("");
+          return <div key={p.plate} className="space-y-1"><p className="font-semibold" dir="ltr">Plate {p.plate} · {p.wells_used} wells · {p.genes.join(", ")}</p>
+            <div className="overflow-x-auto"><table className="border-collapse text-[10px]" dir="ltr"><thead><tr><th />{Array.from({ length: plate.cols }, (_, i) => <th key={i} className="px-0.5 font-normal text-slate-500">{i + 1}</th>)}</tr></thead>
+              <tbody>{letters.map((r) => <tr key={r}><th className="pe-1 font-normal text-slate-500">{r}</th>{Array.from({ length: plate.cols }, (_, i) => { const w = map[`${r}${i + 1}`];
+                return <td key={i} title={w ? `${w.gene} · ${w.sample} · rep ${w.replicate}` : ""} className="h-5 w-5 border border-slate-200 text-center" style={{ background: w ? (w.type === "NTC" ? "#e5e7eb" : color(w.gene)) : "#fff" }}>{w ? (w.type === "NTC" ? "N" : w.type === "standard" ? "S" : "") : ""}</td>; })}</tr>)}</tbody></table></div></div>;
+        })}
+        <div className="flex flex-wrap gap-2"><CopyBtn k="plate-csv" s={plate.csv} />
+          <button type="button" className={ghost} onClick={() => { const url = URL.createObjectURL(new Blob([plate.csv], { type: "text/csv" })); const a = document.createElement("a"); a.href = url; a.download = "plate-layout.csv"; a.click(); URL.revokeObjectURL(url); }}>{L("Download CSV", "دانلود CSV")}</button></div>
+        <ul className={`${note} list-disc ps-5`}>{plate.notes.map((n: string) => <li key={n}>{n}</li>)}</ul>
+      </div>}
     </div>}
   </section>;
 }

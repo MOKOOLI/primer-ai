@@ -3,6 +3,7 @@
 
 import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { addToQueue } from "./dossierBridge";
 
 type Props = { call: (path: string, init?: RequestInit) => Promise<any>; lang?: string };
 type Kind = "ctl" | "htl" | "bc";
@@ -57,6 +58,7 @@ const BASE = {
     customHelp: "One codon and its frequency per line (all 61 sense codons, DNA or RNA letters). Leave empty to use Escherichia coli.",
     optRun: "Optimize codons", optRes: "Optimized coding sequence", caiL: "CAI", gcL: "GC content", gcWinL: "GC, 50-nt windows (min–max)", rareL: "Rare codons", unresL: "Unresolved sites or runs", hostL: "Host table",
     clTitle: "In-silico cloning design", enz5: "5′ enzyme", enz3: "3′ enzyme", clampL: "Clamp 5′ / 3′", buildIns: "Build insert", insL: "Insert (5′ to 3′)", ftrL: "Features", dlFasta: "Download FASTA",
+    toQueue: "Add everything to the dossier queue", queuedN: "queued",
     err: "Request failed", disclaimer: "Research and teaching use only. Not for clinical, dosing or safety decisions.",
     learn: [
       ["Why epitope-based vaccines", "Instead of a whole pathogen or protein, the vaccine presents short regions (epitopes) that immune cells recognize. This can focus the response and avoid unwanted regions, but each epitope must still be shown to be immunogenic."],
@@ -106,6 +108,7 @@ const BASE = {
     customHelp: "در هر خط یک کدون و فراوانی‌اش (هر ۶۱ کدون معنادار، با حروف DNA یا RNA). برای استفاده از Escherichia coli خالی بگذارید.",
     optRun: "بهینه‌سازی کدون", optRes: "توالی کدکننده بهینه‌شده", caiL: "CAI", gcL: "محتوای GC", gcWinL: "GC در پنجره‌های ۵۰ نوکلئوتیدی (کمینه–بیشینه)", rareL: "کدون‌های نادر", unresL: "جایگاه یا تکرار حل‌نشده", hostL: "جدول میزبان",
     clTitle: "طراحی کلونینگ درون‌رایانه‌ای", enz5: "آنزیم ′5", enz3: "آنزیم ′3", clampL: "Clamp ′5 / ′3", buildIns: "ساخت قطعهٔ درج", insL: "قطعهٔ درج (′5 تا ′3)", ftrL: "ویژگی‌ها", dlFasta: "دانلود FASTA",
+    toQueue: "افزودن همه به صف پرونده", queuedN: "در صف",
     err: "درخواست ناموفق بود", disclaimer: "فقط برای پژوهش و آموزش؛ نه برای تصمیم بالینی، دوز یا ایمنی.",
     learn: [
       ["چرا واکسن مبتنی بر اپی‌توپ", "به‌جای کل پاتوژن یا پروتئین، نواحی کوتاهی (اپی‌توپ) عرضه می‌شود که سلول‌های ایمنی می‌شناسند. این کار پاسخ را متمرکز می‌کند و از نواحی نامطلوب پرهیز می‌دهد، ولی ایمنی‌زایی هر اپی‌توپ باید جداگانه نشان داده شود."],
@@ -205,6 +208,7 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
   const [cons, setCons] = useState<any>(null);
   const [ext, setExt] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
+  const [queuedMsg, setQueuedMsg] = useState("");
   const [freqText, setFreqText] = useState("");
   const [popName, setPopName] = useState("");
   const [cov, setCov] = useState<any>(null);
@@ -292,6 +296,21 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
   const runCodon = () => void post("cod", "/pharma/vaccine/codon",
     { protein: cons.sequence, strategy: strat, seed, avoid_enzymes: avoid, custom_table: customTbl, add_start: addM, stop: stopC }, (r) => { setCodon(r); setIns(null); });
   const runIns = () => void post("ins", "/pharma/vaccine/clone", { cds: codon.cds, enzyme5: e5, enzyme3: e3, clamp5: cl5, clamp3: cl3, spacer5: "", spacer3: "" }, setIns);
+  const queueAll = () => {
+    const items: any[] = [];
+    if (protein) items.push({ kind: "uniprot", title: "Target protein", data: { ...protein, sequence: undefined } });
+    if (bRes) items.push({ kind: "bcell", title: "B-cell epitopes", data: bRes });
+    for (const c of ["I", "II"]) if (tRes[c]) items.push({ kind: "tcell", title: `T-cell MHC-${c}`, data: tRes[c] });
+    if (cov) items.push({ kind: "coverage", title: "Population coverage", data: { ...cov, population: popName } });
+    if (cons) items.push({ kind: "construct", title: "Multi-epitope construct", data: cons });
+    if (qc) items.push({ kind: "structure_qc", title: "Structure model quality", data: qc });
+    if (iface) items.push({ kind: "interface", title: "Docked-complex interface", data: iface });
+    if (codon) items.push({ kind: "codon", title: "Codon optimization", data: codon });
+    if (ins) items.push({ kind: "clone", title: "In-silico cloning design", data: ins });
+    items.push({ kind: "vaccine_report", title: "Vaccine design report (Markdown)", text: report });
+    const ok = items.filter((it) => addToQueue(it).ok).length;
+    setQueuedMsg(`${ok}/${items.length} ${t.queuedN}`);
+  };
   const saveTxt = (name: string, text: string) => {
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
     const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
@@ -599,7 +618,8 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
     </div>)}
     {step === 10 && <div className="space-y-2">
       <p className="text-sm text-slate-300">{t.reportHint}</p>
-      <button type="button" className={btnP} onClick={download}>{t.report}</button>
+      <div className="flex flex-wrap items-center gap-2"><button type="button" className={btnP} onClick={download}>{t.report}</button>
+        <button type="button" className={btnG} onClick={queueAll}>{t.toQueue}</button>{queuedMsg && <span className="text-xs text-emerald-300" role="status">{queuedMsg}</span>}</div>
       <pre className="max-h-72 overflow-auto rounded-lg border border-slate-600 bg-[#0c182a] p-3 text-xs text-slate-200" dir="ltr">{report}</pre>
     </div>}
 

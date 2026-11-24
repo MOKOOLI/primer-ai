@@ -54,7 +54,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from pharma_module import create_pharma_router
-from bio_tools import create_bio_router
+try:  # optional modules: a failure here must never take the existing API down
+    from bio_tools import create_bio_router
+    from egress import build_egress
+except Exception:  # pragma: no cover
+    logging.getLogger("primerai").exception("Optional bioinformatics modules could not be imported")
+    create_bio_router = None
+    build_egress = None
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("primerai")
@@ -403,8 +409,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     return await _user_from_token(token)
 
 
+try:
+    egress = build_egress(database, metadata, engine) if build_egress else None
+except Exception:  # pragma: no cover
+    log.exception("Egress ledger could not be initialised; continuing without it")
+    egress = None
+
 app.include_router(
-    create_pharma_router(database, metadata, engine, users_table, get_current_user)
+    create_pharma_router(database, metadata, engine, users_table, get_current_user, egress=egress)
 )
 
 
@@ -418,7 +430,11 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_optional)):
 
 
 # Bioinformatics toolbox (public, rate-limited; research use only)
-app.include_router(create_bio_router(limiter, get_optional_user))
+try:
+    if create_bio_router:
+        app.include_router(create_bio_router(limiter, get_optional_user, egress=egress))
+except Exception:  # pragma: no cover
+    log.exception("Bioinformatics router could not be registered; continuing without it")
 
 
 # =====================================================================

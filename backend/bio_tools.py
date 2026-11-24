@@ -537,13 +537,77 @@ def primer_snp_check(primers: list[dict]) -> dict:
                       "Coordinates must come from your primer-to-genome mapping (for example Primer-BLAST)."}
 
 
+# ---------------------------------------------------------- 8. qPCR plate planner
+def plate_layout(samples: list, genes: list, replicates: int = 3, fmt: int = 384, ntc: bool = True, standards: int = 0, fill: str = "row") -> dict:
+    """Assign wells so that each gene's replicate groups stay together on one plate and replicates share a row (or column)."""
+    if fmt not in (96, 384) or fill not in ("row", "column") or not 1 <= replicates <= 4 or not 0 <= standards <= 8:
+        raise ValueError("Check plate format, fill direction, replicates (1-4) and standards (0-8)")
+    samples, genes = _unique(samples, 192, "samples"), _unique(genes, 60, "genes")
+    rows, cols = (8, 12) if fmt == 96 else (16, 24)
+    letters = "ABCDEFGHIJKLMNOP"
+    order = [(r, c) for r in range(rows) for c in range(cols)] if fill == "row" else [(r, c) for c in range(cols) for r in range(rows)]
+    run_len = cols if fill == "row" else rows
+    groups = [("sample", s) for s in samples] + [("standard", f"STD{i + 1}") for i in range(standards)] + ([("NTC", "NTC")] if ntc else [])
+
+    def place_gene(gene: str, start: int):
+        """Return (wells, next_pointer) or None if the gene does not fit after `start`."""
+        wells, ptr = [], start
+        for kind, name in groups:
+            pos = ptr % run_len
+            if pos + replicates > run_len:  # keep the replicates of one group on the same row/column
+                ptr += run_len - pos
+            if ptr + replicates > len(order):
+                return None
+            for rep in range(1, replicates + 1):
+                r, c = order[ptr]
+                wells.append({"well": f"{letters[r]}{c + 1}", "row": letters[r], "col": c + 1, "type": kind, "gene": gene, "sample": name, "replicate": rep})
+                ptr += 1
+        return wells, ptr
+
+    plates, cur, ptr = [], [], 0
+    for gene in genes:
+        res = place_gene(gene, ptr)
+        if res is None and cur:  # start a new plate; genes are never split across plates
+            plates.append(cur)
+            cur, ptr = [], 0
+            res = place_gene(gene, 0)
+        if res is None:
+            raise ValueError(f"Gene {gene} needs more wells than one {fmt}-well plate holds; use fewer samples or the 384-well format")
+        cur.extend(res[0])
+        ptr = res[1]
+    if cur:
+        plates.append(cur)
+    out = [{"plate": i + 1, "format": fmt, "wells": w, "genes": sorted({x["gene"] for x in w}), "wells_used": len(w)} for i, w in enumerate(plates)]
+    csv = "plate,well,type,gene,sample,replicate\n" + "\n".join(f'{p["plate"]},{w["well"]},{w["type"]},{w["gene"]},{w["sample"]},{w["replicate"]}' for p in out for w in p["wells"])
+    return {"plates": out, "n_plates": len(out), "csv": csv, "format": fmt, "rows": rows, "cols": cols,
+            "notes": ["Every gene is kept on a single plate with all its samples, so comparisons between samples are not confounded by plate-to-plate variation.",
+                      "Include an inter-run calibrator if one experiment spans several plates.",
+                      "Layout assists planning only; adapt it to your instrument and reaction-volume rules."]}
+
+
+def _unique(xs, cap: int, what: str) -> list:
+    out = []
+    for x in xs:
+        x = str(x).strip()[:40]
+        if x and x not in out:
+            out.append(x)
+    if not 1 <= len(out) <= cap:
+        raise ValueError(f"Provide 1 to {cap} unique {what}")
+    return out
+
+
 # ------------------------------------------------------------------- routes
-def create_bio_router(limiter, get_optional_user):
+def create_bio_router(limiter, get_optional_user, egress=None):
     from fastapi import APIRouter, Depends, HTTPException, Request
     from pydantic import BaseModel, Field
     from starlette.concurrency import run_in_threadpool
 
     router = APIRouter(prefix="/bio", tags=["Bioinformatics tools"])
+
+    async def current_user(user=Depends(get_optional_user)):
+        if egress is not None:
+            egress.CURRENT_USER.set(user)
+        return user
 
     class SeqReq(BaseModel):
         sequence: str = Field(min_length=10, max_length=400_000)
@@ -582,8 +646,19 @@ def create_bio_router(limiter, get_optional_user):
     class SnpReq(BaseModel):
         primers: list[dict]
 
+    class PlateReq(BaseModel):
+        samples: list[str]
+        genes: list[str]
+        replicates: int = 3
+        format: int = 384
+        ntc: bool = True
+        standards: int = 0
+        fill: str = Field("row", max_length=8)
+
     async def guarded(fn, provider: str, *args):
         try:
+            if egress is not None and provider != "local":
+                return await egress.run_external(fn, provider, fn.__name__, args)
             return await run_in_threadpool(fn, *args)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
@@ -595,52 +670,82 @@ def create_bio_router(limiter, get_optional_user):
 
     @router.post("/sequence")
     @limiter.limit("30/minute")
-    async def r_sequence(request: Request, req: SeqReq, user=Depends(get_optional_user)):
+    async def r_sequence(request: Request, req: SeqReq, user=Depends(current_user)):
         return await guarded(analyze_sequence, "local", req.sequence, req.min_orf_aa, req.digest)
 
     @router.post("/align")
     @limiter.limit("6/minute")
-    async def r_align(request: Request, req: AlignReq, user=Depends(get_optional_user)):
+    async def r_align(request: Request, req: AlignReq, user=Depends(current_user)):
         return await guarded(align_and_conserve, "local", req.sequences, req.mode)
 
     @router.post("/conservancy")
     @limiter.limit("12/minute")
-    async def r_cons(request: Request, req: ConsReq, user=Depends(get_optional_user)):
+    async def r_cons(request: Request, req: ConsReq, user=Depends(current_user)):
         return await guarded(epitope_conservancy, "local", req.epitopes, req.sequences, req.mode)
 
     @router.post("/enrichment")
     @limiter.limit("10/minute")
-    async def r_enrich(request: Request, req: GenesReq, user=Depends(get_optional_user)):
+    async def r_enrich(request: Request, req: GenesReq, user=Depends(current_user)):
         return await guarded(gprofiler_enrich, "g:Profiler", req.genes, req.organism, req.sources or None, req.threshold)
 
     @router.post("/string")
     @limiter.limit("10/minute")
-    async def r_string(request: Request, req: GenesReq, user=Depends(get_optional_user)):
+    async def r_string(request: Request, req: GenesReq, user=Depends(current_user)):
         return await guarded(string_network, "STRING", req.genes, req.organism, req.min_score)
 
     @router.post("/geo")
     @limiter.limit("12/minute")
-    async def r_geo(request: Request, req: GeoReq, user=Depends(get_optional_user)):
+    async def r_geo(request: Request, req: GeoReq, user=Depends(current_user)):
         return await guarded(geo_search, "NCBI", req.term, req.retmax)
 
     @router.post("/qpcr/standard-curve")
     @limiter.limit("30/minute")
-    async def r_curve(request: Request, req: CurveReq, user=Depends(get_optional_user)):
+    async def r_curve(request: Request, req: CurveReq, user=Depends(current_user)):
         return await guarded(standard_curve, "local", req.points)
 
     @router.post("/qpcr/genorm")
     @limiter.limit("30/minute")
-    async def r_genorm(request: Request, req: GenormReq, user=Depends(get_optional_user)):
+    async def r_genorm(request: Request, req: GenormReq, user=Depends(current_user)):
         return await guarded(genorm, "local", req.genes)
 
     @router.post("/variant")
     @limiter.limit("12/minute")
-    async def r_variant(request: Request, req: VepReq, user=Depends(get_optional_user)):
+    async def r_variant(request: Request, req: VepReq, user=Depends(current_user)):
         return await guarded(vep_annotate, "Ensembl", req.hgvs)
 
     @router.post("/primer-snp")
     @limiter.limit("6/minute")
-    async def r_snp(request: Request, req: SnpReq, user=Depends(get_optional_user)):
+    async def r_snp(request: Request, req: SnpReq, user=Depends(current_user)):
         return await guarded(primer_snp_check, "Ensembl", req.primers)
+
+    @router.post("/plate")
+    @limiter.limit("30/minute")
+    async def r_plate(request: Request, req: PlateReq, user=Depends(current_user)):
+        return await guarded(plate_layout, "local", req.samples, req.genes, req.replicates, req.format, req.ntc, req.standards, req.fill)
+
+    class PrivacyReq(BaseModel):
+        private_mode: bool
+
+    def need_user(user):
+        if user is None or egress is None:
+            raise HTTPException(401, "Sign in to use this feature")
+        return int(user["id"] if not hasattr(user, "id") else user.id)
+
+    @router.get("/privacy")
+    async def r_privacy(user=Depends(current_user)):
+        uid = need_user(user)
+        return {"private_mode": await egress.is_private(uid)}
+
+    @router.post("/privacy")
+    async def r_privacy_set(req: PrivacyReq, user=Depends(current_user)):
+        uid = need_user(user)
+        await egress.set_private(uid, req.private_mode)
+        return {"private_mode": req.private_mode}
+
+    @router.get("/egress-log")
+    async def r_egress(limit: int = 100, user=Depends(current_user)):
+        uid = need_user(user)
+        return {"items": await egress.entries(uid, limit),
+                "note": "Only provider, operation, a SHA-256 of the payload and its size are recorded; the data itself is not stored. Anonymous use and the ESMFold route are not logged here."}
 
     return router
