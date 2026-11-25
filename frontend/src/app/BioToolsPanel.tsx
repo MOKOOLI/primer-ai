@@ -32,6 +32,7 @@ export default function BioToolsPanel({ call, lang }: Props) {
     catch (e: any) { setErr(`${L("Request failed", "درخواست ناموفق بود")}: ${String(e?.message || e)}`); }
     finally { setBusy(""); }
   };
+  const saveText = (name: string, text: string, type = "text/plain") => { const url = URL.createObjectURL(new Blob([text], { type })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); };
   const copy = async (k: string, s: string) => { try { await navigator.clipboard.writeText(s); setCopied(k); setTimeout(() => setCopied(""), 1400); } catch { /* ignore */ } };
   const CopyBtn = ({ k, s }: { k: string; s: string }) => <button type="button" className={ghost} onClick={() => void copy(k, s)}>{copied === k ? L("Copied", "کپی شد") : L("Copy", "کپی")}</button>;
   const Src = ({ r, kind }: { r: any; kind?: string }) => <div className="space-y-1">
@@ -46,6 +47,7 @@ export default function BioToolsPanel({ call, lang }: Props) {
     <tbody>{rows.map((r, i) => <tr key={i} className="border-t border-slate-100">{r.map((c, j) => <td key={j} className="px-3 py-1.5 align-top">{c}</td>)}</tr>)}</tbody></table></div>;
 
   /* ---- 1. sequence ---- */
+  const [impFeats, setImpFeats] = useState<any[]>([]); const [impMsg, setImpMsg] = useState("");
   const [dna, setDna] = useState(""); const [minOrf, setMinOrf] = useState(50); const [dig, setDig] = useState<string[]>([]); const [seqRes, setSeqRes] = useState<any>(null);
   /* ---- 2. alignment ---- */
   const [fasta, setFasta] = useState(""); const [mode, setMode] = useState("protein"); const [aln, setAln] = useState<any>(null); const [eps, setEps] = useState(""); const [cons, setCons] = useState<any>(null);
@@ -93,7 +95,20 @@ export default function BioToolsPanel({ call, lang }: Props) {
     {tab === 0 && <div className="space-y-3">
       <div className={`${card} space-y-3`}>
         <label htmlFor="bt-dna" className="text-sm font-semibold">{L("DNA sequence (raw or FASTA, up to 200 kb)", "توالی DNA (خام یا FASTA، تا ۲۰۰ کیلوباز)")}</label>
-        <textarea id="bt-dna" dir="ltr" rows={5} className={mono} value={dna} onChange={(e) => setDna(e.target.value)} placeholder=">my_gene&#10;ATGGCT…" />
+        <textarea id="bt-dna" dir="ltr" rows={5} className={mono} value={dna} onChange={(e) => { setDna(e.target.value); setImpFeats([]); setImpMsg(""); }} placeholder=">my_gene&#10;ATGGCT…" />
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <label className="font-semibold">{L("Import FASTA or GenBank file", "ورود فایل FASTA یا GenBank")}
+            <input type="file" accept=".fa,.fasta,.fna,.gb,.gbk,.gbff,.txt" className="ms-2 text-xs" onChange={(e) => {
+              const f = e.target.files?.[0]; if (!f) return;
+              if (f.size > 2_000_000) { setErr(L("File is larger than 2 MB.", "حجم فایل بیش از ۲ مگابایت است.")); return; }
+              void f.text().then((txt: string) => post("imp", "/bio/parse", { text: txt }, (r: any) => {
+                const rec = r.records[0]; setDna(rec.sequence); setImpFeats(rec.features || []);
+                setImpMsg(`${r.format} · ${rec.name} · ${rec.length} nt · ${(rec.features || []).length} ${L("features", "ویژگی")}${r.records.length > 1 ? ` · ${L("first of", "اولین از")} ${r.records.length}` : ""}${rec.warnings?.length ? ` · ⚠ ${rec.warnings[0]}` : ""}`);
+              }));
+            }} /></label>
+          {impMsg && <span className={note} role="status">{impMsg}</span>}
+        </div>
+        <p className={note}>{L("Parsed in your account's backend only; nothing is sent to external services. SnapGene .dna files are not supported: export GenBank from SnapGene.", "فقط در بک‌اند خودتان پردازش می‌شود و چیزی به سرویس بیرونی نمی‌رود. فایل .dna اسنپ‌ژن پشتیبانی نمی‌شود؛ از SnapGene خروجی GenBank بگیرید.")}</p>
         <div className="flex flex-wrap items-end gap-3">
           <label className="text-sm">{L("Minimum ORF (aa)", "حداقل طول ORF (aa)")}<input type="number" min={10} max={2000} dir="ltr" className={`${inp} mt-1 w-28`} value={minOrf} onChange={(e) => setMinOrf(parseInt(e.target.value || "50", 10))} /></label>
           <fieldset className="min-w-0 flex-1"><legend className="text-sm">{L("Digest with (optional, up to 6)", "هضم با (اختیاری، تا ۶ آنزیم)")}</legend>
@@ -105,6 +120,13 @@ export default function BioToolsPanel({ call, lang }: Props) {
       {seqRes && <div className={`${card} space-y-3 text-sm`}>
         <p dir="ltr"><b>{seqRes.length} nt</b> · GC {seqRes.gc_percent}% · Tm≈{seqRes.basic_tm_c} °C · A{seqRes.composition.A} C{seqRes.composition.C} G{seqRes.composition.G} T{seqRes.composition.T}</p>
         <p className={note}>{seqRes.tm_note}</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={ghost} disabled={!!busy} onClick={() => {
+            const clean = dna.replace(/^>.*$/gm, "").replace(/[\s\d]/g, "").toUpperCase(); const nm = (dna.match(/^>(\S+)/m)?.[1]) || "sequence";
+            void post("gb", "/bio/genbank", { name: nm, sequence: clean, features: impFeats, auto: true, min_orf_aa: minOrf, definition: "Exported from Primer AI with predicted ORFs and unique restriction sites" }, (r: any) => saveText(r.filename, r.text));
+          }}>{busy === "gb" ? L("Preparing…", "در حال آماده‌سازی…") : L("Download GenBank (ORFs + unique cutters)", "دانلود GenBank (ORFها + برش‌دهنده‌های یکتا)")}</button>
+          <button type="button" className={ghost} onClick={() => { const clean = dna.replace(/^>.*$/gm, "").replace(/[\s\d]/g, "").toUpperCase(); saveText("sequence.fasta", `>sequence\n${clean.replace(/(.{70})/g, "$1\n")}\n`); }}>{L("Download FASTA", "دانلود FASTA")}</button>
+        </div>
         {seqRes.reverse_complement && <div><p className="font-semibold">{L("Reverse complement", "معکوس مکمل")}</p><textarea readOnly rows={2} dir="ltr" className={mono} value={seqRes.reverse_complement} /><CopyBtn k="rc" s={seqRes.reverse_complement} /></div>}
         <div><p className="mb-1 font-semibold">ORFs ({seqRes.orfs.length})</p>
           {seqRes.orfs.length ? <Table head={["Strand", "Frame", "Start–End", "aa", "Protein"]} rows={seqRes.orfs.slice(0, 15).map((o: any) => [o.strand, o.frame, `${o.start}–${o.end}`, o.length_aa, <span key={o.start} className="font-mono">{o.protein.slice(0, 40)}{o.protein.length > 40 ? "…" : ""}</span>])} /> : <p className={note}>—</p>}

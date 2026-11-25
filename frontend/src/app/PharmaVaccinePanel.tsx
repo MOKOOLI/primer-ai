@@ -58,7 +58,7 @@ const BASE = {
     customHelp: "One codon and its frequency per line (all 61 sense codons, DNA or RNA letters). Leave empty to use Escherichia coli.",
     optRun: "Optimize codons", optRes: "Optimized coding sequence", caiL: "CAI", gcL: "GC content", gcWinL: "GC, 50-nt windows (min–max)", rareL: "Rare codons", unresL: "Unresolved sites or runs", hostL: "Host table",
     clTitle: "In-silico cloning design", enz5: "5′ enzyme", enz3: "3′ enzyme", clampL: "Clamp 5′ / 3′", buildIns: "Build insert", insL: "Insert (5′ to 3′)", ftrL: "Features", dlFasta: "Download FASTA",
-    toQueue: "Add everything to the dossier queue", queuedN: "queued",
+    toQueue: "Add everything to the dossier queue", queuedN: "queued", dlGb: "Download GenBank",
     err: "Request failed", disclaimer: "Research and teaching use only. Not for clinical, dosing or safety decisions.",
     learn: [
       ["Why epitope-based vaccines", "Instead of a whole pathogen or protein, the vaccine presents short regions (epitopes) that immune cells recognize. This can focus the response and avoid unwanted regions, but each epitope must still be shown to be immunogenic."],
@@ -108,7 +108,7 @@ const BASE = {
     customHelp: "در هر خط یک کدون و فراوانی‌اش (هر ۶۱ کدون معنادار، با حروف DNA یا RNA). برای استفاده از Escherichia coli خالی بگذارید.",
     optRun: "بهینه‌سازی کدون", optRes: "توالی کدکننده بهینه‌شده", caiL: "CAI", gcL: "محتوای GC", gcWinL: "GC در پنجره‌های ۵۰ نوکلئوتیدی (کمینه–بیشینه)", rareL: "کدون‌های نادر", unresL: "جایگاه یا تکرار حل‌نشده", hostL: "جدول میزبان",
     clTitle: "طراحی کلونینگ درون‌رایانه‌ای", enz5: "آنزیم ′5", enz3: "آنزیم ′3", clampL: "Clamp ′5 / ′3", buildIns: "ساخت قطعهٔ درج", insL: "قطعهٔ درج (′5 تا ′3)", ftrL: "ویژگی‌ها", dlFasta: "دانلود FASTA",
-    toQueue: "افزودن همه به صف پرونده", queuedN: "در صف",
+    toQueue: "افزودن همه به صف پرونده", queuedN: "در صف", dlGb: "دانلود GenBank",
     err: "درخواست ناموفق بود", disclaimer: "فقط برای پژوهش و آموزش؛ نه برای تصمیم بالینی، دوز یا ایمنی.",
     learn: [
       ["چرا واکسن مبتنی بر اپی‌توپ", "به‌جای کل پاتوژن یا پروتئین، نواحی کوتاهی (اپی‌توپ) عرضه می‌شود که سلول‌های ایمنی می‌شناسند. این کار پاسخ را متمرکز می‌کند و از نواحی نامطلوب پرهیز می‌دهد، ولی ایمنی‌زایی هر اپی‌توپ باید جداگانه نشان داده شود."],
@@ -311,6 +311,12 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
     const ok = items.filter((it) => addToQueue(it).ok).length;
     setQueuedMsg(`${ok}/${items.length} ${t.queuedN}`);
   };
+  const dlGenbank = () => post("gb", "/bio/genbank", {
+    name: `vaccine_${e5}_${e3}`, sequence: ins.insert, definition: "Primer AI in-silico vaccine insert (design only; verify reading frame against your vector)",
+    features: ins.features.map((f: any) => (f.name === "CDS"
+      ? { type: "CDS", start: f.start, end: f.end, strand: 1, qualifiers: { label: "optimized CDS", codon_start: 1, translation: codon?.protein_used || "", note: "Primer AI optimized coding sequence" } }
+      : { type: "misc_feature", start: f.start, end: f.end, strand: 1, qualifiers: { label: String(f.name).replace(/ \(.*\)/, ""), note: f.name } })),
+  }, (r: any) => saveTxt(r.filename, r.text));
   const saveTxt = (name: string, text: string) => {
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
     const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
@@ -611,6 +617,7 @@ export default function PharmaVaccinePanel({ call, lang }: Props) {
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btnG} onClick={() => void copy(ins.insert)}>{copied ? t.copied : t.copy}</button>
             <button type="button" className={btnG} onClick={() => saveTxt("vaccine-insert.fasta", `>optimized_cds\n${wrap(codon.cds)}\n>insert_${e5}_${e3}\n${wrap(ins.insert)}\n`)}>{t.dlFasta}</button>
+            <button type="button" className={btnG} disabled={!!busy} onClick={dlGenbank}>{t.dlGb}</button>
           </div>
           <p className="text-xs text-slate-300">{ins.frame_note} {ins.limits}</p>
         </div>}

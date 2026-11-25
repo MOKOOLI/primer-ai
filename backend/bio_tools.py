@@ -596,6 +596,186 @@ def _unique(xs, cap: int, what: str) -> list:
     return out
 
 
+# ------------------------------------------------- 9. GenBank / FASTA import and export
+FEATURE_TYPES = {"CDS", "gene", "misc_feature", "primer_bind", "promoter", "terminator", "rep_origin", "regulatory", "protein_bind", "sig_peptide", "misc_binding"}
+QUAL_KEYS = {"label", "note", "gene", "product", "translation", "codon_start", "standard_name"}
+MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+IUPAC = set("ACGTRYKMSWBDHVN")
+_IND = " " * 21
+
+
+def _safe_name(name: str) -> str:
+    return (re.sub(r"[^A-Za-z0-9_.\-]", "_", str(name or "sequence"))[:16]) or "sequence"
+
+
+def _qual_lines(key: str, value) -> list:
+    value = str(value).replace('"', "'").replace("\n", " ").replace("\r", " ").strip()
+    if key == "codon_start":
+        return [f"{_IND}/{key}={value}"]
+    text, width = f'/{key}="{value}"', 58
+    if key == "translation" or " " not in value:
+        return [_IND + text[i:i + width] for i in range(0, len(text), width)]
+    out, line = [], ""
+    for word in text.split(" "):
+        if line and len(line) + 1 + len(word) > width:
+            out.append(_IND + line)
+            line = word
+        else:
+            line = f"{line} {word}".strip()
+    out.append(_IND + line)
+    return out
+
+
+def _location(start: int, end: int, strand: int) -> str:
+    base = f"{start}..{end}" if end != start else f"{start}"
+    return f"complement({base})" if strand == -1 else base
+
+
+def clean_features(features: list, n: int) -> list:
+    out = []
+    for f in (features or [])[:500]:
+        if not isinstance(f, dict):
+            raise ValueError("Each feature must be an object")
+        typ = f.get("type", "misc_feature")
+        try:
+            start, end, strand = int(f.get("start")), int(f.get("end")), int(f.get("strand", 1))
+        except (TypeError, ValueError):
+            raise ValueError("Feature start, end and strand must be integers")
+        if typ not in FEATURE_TYPES or strand not in (1, -1) or not 1 <= start <= end <= n:
+            raise ValueError("Invalid feature type, strand or coordinates")
+        q = {k: v for k, v in (f.get("qualifiers") or {}).items() if k in QUAL_KEYS and v not in (None, "")}
+        out.append({"type": typ, "start": start, "end": end, "strand": strand, "qualifiers": q})
+    return sorted(out, key=lambda f: (f["start"], f["end"]))
+
+
+def genbank_text(name: str, sequence: str, features: list, definition: str = "", topology: str = "linear") -> str:
+    seq = re.sub(r"\s", "", sequence or "").upper()
+    if not re.fullmatch(r"[ACGT]+", seq) or len(seq) > MAX_DNA:
+        raise ValueError("GenBank export needs an A/C/G/T sequence of at most 200 kb")
+    if topology not in ("linear", "circular"):
+        raise ValueError("Topology must be linear or circular")
+    feats = clean_features(features, len(seq))
+    d = datetime.now(timezone.utc)
+    lines = [f"LOCUS       {_safe_name(name):<16}{len(seq):>11} bp    DNA     {topology:<8} SYN {d.day:02d}-{MONTHS[d.month - 1]}-{d.year}",
+             f"DEFINITION  {(definition or 'Sequence exported from Primer AI').strip()[:200]}.", "ACCESSION   .", "VERSION     .", "KEYWORDS    .",
+             "SOURCE      synthetic DNA construct", "  ORGANISM  synthetic DNA construct", "            other sequences; artificial sequences.",
+             "FEATURES             Location/Qualifiers", f"     {'source':<16}1..{len(seq)}", f'{_IND}/organism="synthetic DNA construct"', f'{_IND}/mol_type="other DNA"']
+    for f in feats:
+        lines.append(f"     {f['type']:<16}{_location(f['start'], f['end'], f['strand'])}")
+        for k, v in f["qualifiers"].items():
+            lines.extend(_qual_lines(k, v))
+    lines.append("ORIGIN")
+    low = seq.lower()
+    for i in range(0, len(low), 60):
+        chunk = low[i:i + 60]
+        lines.append(f"{i + 1:>9} " + " ".join(chunk[j:j + 10] for j in range(0, len(chunk), 10)))
+    lines.append("//")
+    return "\n".join(lines) + "\n"
+
+
+_LOC_NUM = re.compile(r"\d+")
+
+
+def _parse_location(loc: str):
+    nums = [int(x) for x in _LOC_NUM.findall(loc)]
+    if not nums:
+        return None
+    return min(nums), max(nums), -1 if loc.startswith("complement") else 1, loc.startswith("join") or "join(" in loc
+
+
+def parse_genbank(text: str) -> list:
+    records = []
+    for block in re.split(r"^//\s*$", text, flags=re.M):
+        if "LOCUS" not in block:
+            continue
+        head = re.search(r"^LOCUS\s+(\S+)\s+(\d+)\s*bp(.*)$", block, re.M)
+        name = head.group(1) if head else "sequence"
+        topology = "circular" if head and "circular" in head.group(3) else "linear"
+        feats, cur, warnings = [], None, []
+        in_feat = False
+        seq_part = ""
+        in_origin = False
+        for ln in block.splitlines():
+            if ln.startswith("FEATURES"):
+                in_feat, in_origin = True, False
+                continue
+            if ln.startswith("ORIGIN"):
+                in_feat, in_origin = False, True
+                continue
+            if in_origin:
+                seq_part += re.sub(r"[^A-Za-z]", "", ln)
+            elif in_feat:
+                if re.match(r"^ {5}\S", ln):
+                    if cur:
+                        feats.append(cur)
+                    typ, loc = ln[5:21].strip(), ln[21:].strip()
+                    cur = {"type": typ, "loc": loc, "qualifiers": {}, "_key": None}
+                elif cur is not None and ln.startswith(" " * 21):
+                    body = ln[21:].rstrip()
+                    if body.startswith("/"):
+                        k, _, v = body[1:].partition("=")
+                        cur["qualifiers"][k] = v.strip('"')
+                        cur["_key"] = k
+                    elif cur["_key"]:
+                        k = cur["_key"]
+                        cur["qualifiers"][k] += ("" if k == "translation" else " ") + body.strip('"')
+                    else:
+                        cur["loc"] += body.strip()
+        if cur:
+            feats.append(cur)
+        seq = seq_part.upper().replace("U", "T")
+        bad = sum(1 for ch in seq if ch not in "ACGT")
+        if bad:
+            warnings.append(f"{bad} ambiguous or unsupported bases (kept as written; replace them before analysis)")
+        out_f = []
+        for f in feats:
+            if f["type"] == "source":
+                continue
+            p = _parse_location(f["loc"])
+            if not p:
+                continue
+            start, end, strand, joined = p
+            q = {k: v for k, v in f["qualifiers"].items() if k in QUAL_KEYS}
+            if joined:
+                warnings.append(f"{f['type']} {f['loc'][:40]} is a joined feature; shown as its outer span")
+            out_f.append({"type": f["type"] if f["type"] in FEATURE_TYPES else "misc_feature", "original_type": f["type"], "start": start, "end": end, "strand": strand, "qualifiers": q})
+        records.append({"name": name, "topology": topology, "length": len(seq), "sequence": seq[:MAX_DNA], "features": out_f[:500], "warnings": warnings[:10]})
+    return records
+
+
+def parse_sequence_file(text: str) -> dict:
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("The file is empty")
+    if re.match(r"^\s*LOCUS\b", text):
+        recs = parse_genbank(text)
+        fmt = "GenBank"
+    else:
+        raw = parse_fasta(text, alphabet=IUPAC, max_seqs=10, max_len=MAX_DNA, min_len=1)
+        recs = [{"name": n, "topology": "linear", "length": len(s), "sequence": s, "features": [],
+                 "warnings": ([f"{sum(c not in 'ACGT' for c in s)} ambiguous bases"] if set(s) - set("ACGT") else [])} for n, s in raw]
+        fmt = "FASTA"
+    if not recs or not recs[0]["sequence"]:
+        raise ValueError("No sequence found. Supported formats: FASTA and GenBank (SnapGene .dna files are not supported; export GenBank from SnapGene first).")
+    return {"format": fmt, "records": recs[:10], "note": "Parsed locally; nothing was sent to external services."}
+
+
+def export_genbank(name: str, sequence: str, features: list, definition: str = "", topology: str = "linear", auto: bool = False, min_orf_aa: int = 50) -> dict:
+    seq = re.sub(r"\s", "", sequence or "").upper()
+    feats = list(features or [])
+    if auto:
+        if not re.fullmatch(r"[ACGT]+", seq):
+            raise ValueError("Auto-annotation needs an A/C/G/T sequence")
+        for i, o in enumerate(find_orfs(seq, min_orf_aa)[:20], 1):
+            feats.append({"type": "CDS", "start": o["start"], "end": o["end"], "strand": 1 if o["strand"] == "+" else -1,
+                          "qualifiers": {"label": f"ORF{i}", "note": "predicted ORF (ATG to stop)", "codon_start": 1, "translation": o["protein"]}})
+        for name_e, (site, off) in RESTRICTION.items():
+            pos = [m.start() + 1 for m in re.finditer(f"(?={site})", seq)]
+            if len(pos) == 1:
+                feats.append({"type": "misc_feature", "start": pos[0], "end": pos[0] + len(site) - 1, "strand": 1, "qualifiers": {"label": name_e, "note": f"{name_e} site (unique cutter)"}})
+    text = genbank_text(name, seq, feats, definition, topology)
+    return {"text": text, "filename": f"{_safe_name(name)}.gb", "n_features": len(clean_features(feats, len(seq)))}
+
+
 # ------------------------------------------------------------------- routes
 def create_bio_router(limiter, get_optional_user, egress=None):
     from fastapi import APIRouter, Depends, HTTPException, Request
@@ -654,6 +834,18 @@ def create_bio_router(limiter, get_optional_user, egress=None):
         ntc: bool = True
         standards: int = 0
         fill: str = Field("row", max_length=8)
+
+    class GbReq(BaseModel):
+        name: str = Field("sequence", max_length=60)
+        sequence: str = Field(min_length=10, max_length=400_000)
+        definition: str = Field("", max_length=300)
+        topology: str = Field("linear", max_length=8)
+        features: list[dict] = Field(default_factory=list)
+        auto: bool = False
+        min_orf_aa: int = 50
+
+    class ParseReq(BaseModel):
+        text: str = Field(min_length=10, max_length=2_500_000)
 
     async def guarded(fn, provider: str, *args):
         try:
@@ -722,6 +914,16 @@ def create_bio_router(limiter, get_optional_user, egress=None):
     @limiter.limit("30/minute")
     async def r_plate(request: Request, req: PlateReq, user=Depends(current_user)):
         return await guarded(plate_layout, "local", req.samples, req.genes, req.replicates, req.format, req.ntc, req.standards, req.fill)
+
+    @router.post("/genbank")
+    @limiter.limit("30/minute")
+    async def r_genbank(request: Request, req: GbReq, user=Depends(current_user)):
+        return await guarded(export_genbank, "local", req.name, req.sequence, req.features, req.definition, req.topology, req.auto, req.min_orf_aa)
+
+    @router.post("/parse")
+    @limiter.limit("30/minute")
+    async def r_parse(request: Request, req: ParseReq, user=Depends(current_user)):
+        return await guarded(parse_sequence_file, "local", req.text)
 
     class PrivacyReq(BaseModel):
         private_mode: bool
