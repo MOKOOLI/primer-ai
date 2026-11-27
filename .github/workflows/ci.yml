@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Only what the unit tests import. The tests need no database, no network and no FastAPI.
+      - run: pip install requests biopython
+      - name: Unit tests
+        working-directory: backend
+        run: python -m unittest test_bio_tools test_vaccine_logic test_workspace_tools -v
+      - name: Byte-compile every backend module (catches syntax errors in files the tests do not import)
+        working-directory: backend
+        run: python -m compileall -q .
+
+  frontend-build:
+    name: Frontend type-check and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci || npm install
+      # `next build` runs the TypeScript check, the same step that failed on Vercel for the svg `dir` attribute.
+      # If the build needs public environment variables, add them here under `env:`.
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
